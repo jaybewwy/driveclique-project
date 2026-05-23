@@ -12,8 +12,8 @@ const RSVPSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Going', 'Not Going', 'Maybe'], // RSVP status options, might replace with boolean if only interested in going/not going
-        default: 'Going'
+        enum: ['going', 'maybe', 'not-going'],
+        default: 'going'
     }
 }, { timestamps: true });
 

@@ -6,8 +6,9 @@ const {
     createDrive, 
     getClubDrives, 
     rsvpToDrive,
-    getDriveAttendees, // New function to get drive attendees and stats
-    cancelDrive
+    getDriveAttendees,
+    cancelDrive,
+    getLeaderDashboard
 } = require('../controllers/driveController');
 
 const { protect } = require('../middleware/authentication');

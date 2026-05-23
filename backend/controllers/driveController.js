@@ -277,5 +277,6 @@ module.exports = {
     getClubDrives,
     rsvpToDrive,
     cancelDrive,
-    getDriveAttendees // New function to get drive attendees and stats
+    getDriveAttendees,
+    getLeaderDashboard
 };

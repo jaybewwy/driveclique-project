@@ -18,12 +18,12 @@ app.get('/', (req, res) => {
 });
 
 // ====================== ROUTES ======================
-app.use('/api/auth', require('./routes/auth'));
+app.use('/api/auth', require('./routes/authentication'));
 app.use('/api/clubs', require('./routes/clubs'));
 app.use('/api/drives', require('./routes/drives'));     // ← Added
 
 // 404 Handler
-app.use('*', (req, res) => {
+app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });
 });
 
