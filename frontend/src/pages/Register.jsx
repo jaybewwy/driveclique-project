@@ -35,14 +35,7 @@ const Register = () => {
               className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 focus:outline-none focus:border-red-600"
               required 
             />
-            <input 
-              type="email" 
-              placeholder="Email address" 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 focus:outline-none focus:border-red-600"
-              required 
-            />
+
             <input 
               type="password" 
               placeholder="Password" 
@@ -51,6 +44,16 @@ const Register = () => {
               className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 focus:outline-none focus:border-red-600"
               required 
             />
+
+            <input 
+              type="email" 
+              placeholder="Email address" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 focus:outline-none focus:border-red-600"
+              required 
+            />
+           
 
             <button 
               type="submit" 
