@@ -105,5 +105,6 @@ const rsvpToDrive = async (req, res) => {
 module.exports = {
     createDrive,
     getClubDrives,
-    rsvpToDrive
+    rsvpToDrive,
+    cancelDrive, // New function for cancelling a drive. 
 };
