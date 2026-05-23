@@ -33,6 +33,21 @@ const DriveSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'User', 
     required: true 
+  },
+  // Cancellation field
+  isCancelled: { 
+    type: Boolean, 
+    default: false 
+  },
+  cancellationReason: {
+      type: String
+  },
+  cancelledAt: {
+      type: Date
+  },
+  cancelledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
   }
 }, { timestamps: true });
 
