@@ -1,20 +1,33 @@
 const express = require('express');
 const router = express.Router();
+
+// Import controller functions
 const { 
     createClub, 
     searchClubs, 
     joinClubByInviteCode, 
+    kickMember,
+    unbanMember,
+    leaveClub,
     deleteClub 
-} = require('../controllers/clubController');
+} = require('../controllers/controller');
 
-const { protect } = require('../middleware/auth');   // Protect authenticated routes
+// Import authentication middleware
+const { protect } = require('../middleware/authentication');
 
-// Public route
-router.get('/search', searchClubs);
+// ====================== PUBLIC ROUTES ======================
+router.get('/search', searchClubs);                    // Search clubs by name (No login required)
 
-// Protected routes (require login)
-router.post('/', protect, createClub);                    // Create club
-router.post('/join', protect, joinClubByInviteCode);      // Join using invite code
-router.delete('/:clubId', protect, deleteClub);           // Delete club (Leader only)
+// ====================== PROTECTED ROUTES ======================
+router.post('/', protect, createClub);                 // Create a new club
+router.post('/join', protect, joinClubByInviteCode);   // Join club using invite code
+
+// Member Actions
+router.post('/:clubId/leave', protect, leaveClub);     // Member leaves the club
+
+// Leader Only Actions
+router.delete('/:clubId/members/:memberId', protect, kickMember);   // Kick / Ban member
+router.post('/:clubId/unban/:memberId', protect, unbanMember);      // Unban member
+router.delete('/:clubId', protect, deleteClub);                     // Delete entire club
 
 module.exports = router;

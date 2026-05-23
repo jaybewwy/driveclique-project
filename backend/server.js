@@ -4,8 +4,6 @@ const dotenv = require('dotenv');
 const connectDB = require('./db');
 
 dotenv.config();
-
-// Connect to MongoDB
 connectDB();
 
 const app = express();
@@ -19,14 +17,13 @@ app.get('/', (req, res) => {
   res.send('DriveClique Backend is running successfully!');
 });
 
-// === ROUTES ===
+// ====================== ROUTES ======================
 app.use('/api/clubs', require('./routes/clubs'));
-// app.use('/api/auth', require('./routes/authentication'));  // Commented out - auth controller not implemented yet
-// app.use('/api/drives', require('./routes/drives'));  // Uncomment when ready
-
+// app.use('/api/auth', require('./routes/authentication'));  // Uncomment when auth is ready
+// app.use('/api/drives', require('./routes/drives'));        // Uncomment when drives are ready
 
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`✅ Server is running on http://localhost:${PORT}`);
+  console.log(`Server is running on http://localhost:${PORT}`);
 });
