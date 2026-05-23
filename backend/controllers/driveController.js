@@ -61,7 +61,7 @@ const getClubDrives = async (req, res) => {
     }
 };
 
-// RSVP to a Drive/Event
+// RSVP to a Drive / Change RSVP Status
 const rsvpToDrive = async (req, res) => {
     try {
         const { driveId } = req.params;
@@ -77,25 +77,75 @@ const rsvpToDrive = async (req, res) => {
             return res.status(404).json({ success: false, message: "Drive not found" });
         }
 
-        // Check if RSVP already exists
+        // Check if user already has an RSVP
         let rsvp = await RSVP.findOne({ drive: driveId, user: userId });
 
         if (rsvp) {
+            // Update existing RSVP
             rsvp.status = status;
             await rsvp.save();
+            return res.json({
+                success: true,
+                message: `RSVP updated to ${status}`,
+                rsvp
+            });
         } else {
+            // Create new RSVP
             rsvp = new RSVP({
                 drive: driveId,
                 user: userId,
                 status
             });
             await rsvp.save();
+            return res.json({
+                success: true,
+                message: `You are now marked as ${status}`,
+                rsvp
+            });
         }
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+};
+
+// Cancel a Drive - Only Club Leader
+const cancelDrive = async (req, res) => {
+    try {
+        const { driveId } = req.params;
+        const { cancellationReason } = req.body;
+        const leaderId = req.user.id;
+
+        if (!cancellationReason || cancellationReason.trim() === '') {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Cancellation reason is required" 
+            });
+        }
+
+        const drive = await Drive.findById(driveId).populate('club');
+        if (!drive) {
+            return res.status(404).json({ success: false, message: "Drive not found" });
+        }
+
+        // Verify user is the club leader
+        if (drive.club.leader.toString() !== leaderId) {
+            return res.status(403).json({ 
+                success: false, 
+                message: "Only the club leader can cancel this drive" 
+            });
+        }
+
+        drive.isCancelled = true;
+        drive.cancellationReason = cancellationReason.trim();
+        drive.cancelledAt = new Date();
+        drive.cancelledBy = leaderId;
+
+        await drive.save();
 
         res.json({
             success: true,
-            message: `You are now marked as ${status}`,
-            rsvp
+            message: "Drive has been cancelled successfully",
+            drive
         });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
@@ -106,5 +156,5 @@ module.exports = {
     createDrive,
     getClubDrives,
     rsvpToDrive,
-    cancelDrive, // New function for cancelling a drive. 
+    cancelDrive
 };
