@@ -152,9 +152,63 @@ const cancelDrive = async (req, res) => {
     }
 };
 
+// Tracking attendance and no-shows (Will only be seen by the club leader after the drive has occurred)
+const getDriveAttendees = async (req, res) => {
+    try {
+        const { driveId } = req.params;
+        const userId = req.user.id;
+
+        const drive = await Drive.findById(driveId).populate('club');
+        if (!drive) {
+            return res.status(404).json({ success: false, message: "Drive not found" });
+        }
+
+        // Verify if the user is the club leader
+
+        if (drive.club.leader.toString() !== userId) {
+            return res.status(403).json({ 
+                success: false, 
+                message: "Only the club leader can view the attendees of this drive"
+            });
+        }
+
+        const rsvps = await RSVP.find({ drive: driveId })
+            .populate('user', 'username email')
+            .sort({ createdAt: -1 });
+
+        const attendees = {
+            going: rsvps.filter(r => r.status === 'going').length,
+            maybe: rsvps.filter(r => r.status === 'maybe').length,
+            notGoing: rsvps.filter(r => r.status === 'not-going').length
+        };
+
+        res.json({
+            success: true,
+            drive: {
+                id: drive._id,
+                name: drive.name,
+                date: drive.date,
+                location: drive.location,
+            },
+            totalRSVPs: rsvps.length,
+            stats: {
+                going: attendees.going,
+                maybe: attendees.maybe,
+                notGoing: attendees.notGoing,
+                totalSpots: drive.maxAttendees,
+                spotsLeft: Math.max(0, drive.maxAttendees - attendees.going)
+            },
+            rsvps
+        });
+    } catch (error) { 
+        res.status(400).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     createDrive,
     getClubDrives,
     rsvpToDrive,
-    cancelDrive
+    cancelDrive,
+    getDriveAttendees // New function to get drive attendees and stats
 };

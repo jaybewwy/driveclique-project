@@ -5,7 +5,9 @@ const router = express.Router();
 const { 
     createDrive, 
     getClubDrives, 
-    rsvpToDrive 
+    rsvpToDrive,
+    getDriveAttendees, // New function to get drive attendees and stats
+    cancelDrive
 } = require('../controllers/driveController');
 
 const { protect } = require('../middleware/authentication');
