@@ -205,6 +205,73 @@ const getDriveAttendees = async (req, res) => {
     }
 };
 
+// Dashboard for club leaders to view all their drives and other stats (This can be expanded in the future to include more detailed analytics)
+
+// Dashboard Summary for Club Leaders
+const getLeaderDashboard = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // Find all clubs where user is the leader
+        const clubs = await Club.find({ leader: userId })
+            .select('name description inviteCode members bannedMembers createdAt');
+
+        const dashboard = [];
+
+        for (const club of clubs) {
+            // Get all drives for this club
+            const drives = await Drive.find({ club: club._id })
+                .sort({ date: 1 });
+
+            const driveSummaries = [];
+
+            for (const drive of drives) {
+                // Get RSVP stats
+                const rsvps = await RSVP.find({ drive: drive._id });
+                
+                const going = rsvps.filter(r => r.status === 'going').length;
+                const maybe = rsvps.filter(r => r.status === 'maybe').length;
+                const notGoing = rsvps.filter(r => r.status === 'not-going').length;
+
+                driveSummaries.push({
+                    _id: drive._id,
+                    name: drive.name,
+                    date: drive.date,
+                    time: drive.time,
+                    location: drive.location,
+                    isCancelled: drive.isCancelled || false,
+                    rsvpStats: {
+                        going,
+                        maybe,
+                        notGoing,
+                        totalRSVPs: rsvps.length,
+                        spotsLeft: drive.maxAttendees - going
+                    }
+                });
+            }
+
+            dashboard.push({
+                club: {
+                    _id: club._id,
+                    name: club.name,
+                    inviteCode: club.inviteCode,
+                    memberCount: club.members.length
+                },
+                drives: driveSummaries,
+                totalDrives: driveSummaries.length
+            });
+        }
+
+        res.json({
+            success: true,
+            totalClubs: dashboard.length,
+            dashboard
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     createDrive,
     getClubDrives,
