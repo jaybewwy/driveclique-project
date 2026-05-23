@@ -23,6 +23,9 @@ router.get('/club/:clubId', getClubDrives);
 // RSVP to a Drive/Event
 router.post('/:driveId/rsvp', protect, rsvpToDrive);
 
-router.delete('/:driveId/cancel', protect, cancelDrive); // New route for cancelling a drive.
+// New route for cancelling a drive.
+router.delete('/:driveId/cancel', protect, cancelDrive); 
 
+// Leader Dashboard Summary
+router.get('/leader/dashboard', protect, getLeaderDashboard);
 module.exports = router;
