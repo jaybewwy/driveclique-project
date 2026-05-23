@@ -1,5 +1,6 @@
 const Drive = require('../models/Drive');
 const Club = require('../models/carclub');
+const RSVP = require('../models/RSVP');
 
 // Create a new Drive/Event - Only Club Leaders
 const createDrive = async (req, res) => {
@@ -13,13 +14,11 @@ const createDrive = async (req, res) => {
             });
         }
 
-        // Verify the club exists and user is the leader
         const club = await Club.findById(clubId);
         if (!club) {
             return res.status(404).json({ success: false, message: "Club not found" });
         }
 
-        // Enforce: Only the club leader can create drives
         if (club.leader.toString() !== req.user.id) {
             return res.status(403).json({ 
                 success: false, 
@@ -62,7 +61,49 @@ const getClubDrives = async (req, res) => {
     }
 };
 
+// RSVP to a Drive/Event
+const rsvpToDrive = async (req, res) => {
+    try {
+        const { driveId } = req.params;
+        const { status } = req.body;   // 'going', 'maybe', 'not-going'
+        const userId = req.user.id;
+
+        if (!['going', 'maybe', 'not-going'].includes(status)) {
+            return res.status(400).json({ success: false, message: "Invalid RSVP status" });
+        }
+
+        const drive = await Drive.findById(driveId);
+        if (!drive) {
+            return res.status(404).json({ success: false, message: "Drive not found" });
+        }
+
+        // Check if RSVP already exists
+        let rsvp = await RSVP.findOne({ drive: driveId, user: userId });
+
+        if (rsvp) {
+            rsvp.status = status;
+            await rsvp.save();
+        } else {
+            rsvp = new RSVP({
+                drive: driveId,
+                user: userId,
+                status
+            });
+            await rsvp.save();
+        }
+
+        res.json({
+            success: true,
+            message: `You are now marked as ${status}`,
+            rsvp
+        });
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     createDrive,
-    getClubDrives
+    getClubDrives,
+    rsvpToDrive
 };
