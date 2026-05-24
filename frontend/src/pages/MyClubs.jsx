@@ -5,7 +5,7 @@ import { Search, Users, Plus, Crown, Copy, Lock, X, Check } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 
-const MyClubs = ({ onLogout }) => {
+const MyClubs = ({ user, onLogout }) => {
   const navigate = useNavigate();
   const [clubs, setClubs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -159,7 +159,7 @@ const MyClubs = ({ onLogout }) => {
       <NavBar onLogout={onLogout} />
 
       <div className="flex max-w-7xl mx-auto">
-        <Sidebar />
+        <Sidebar user={user} />
 
         <div className="flex-1 max-w-4xl min-h-screen p-8">
           <div className="flex justify-between items-center mb-8">
