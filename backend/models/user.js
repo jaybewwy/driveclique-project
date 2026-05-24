@@ -54,6 +54,10 @@ const UserSchema = new mongoose.Schema({
     type: String, 
     enum: ['user', 'leader'], 
     default: 'user' 
+  },
+  useDisplayName: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 

@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Car, Users, Calendar, Home, Search, Bell, Copy, Check, X, ArrowLeft } from "lucide-react";
+import { Car, Home, Search, Bell, Users, Copy, Check, X, ArrowLeft } from "lucide-react";
+import Sidebar from "../components/Sidebar";
 
 const ClubDetail = ({ onLogout }) => {
   const { clubId } = useParams();
@@ -136,22 +137,7 @@ const ClubDetail = ({ onLogout }) => {
       </nav>
 
       <div className="flex max-w-7xl mx-auto">
-        <div className="w-72 hidden lg:block border-r border-zinc-800 p-4 sticky top-16 h-screen overflow-y-auto">
-          <div className="space-y-2">
-            <div onClick={() => navigate("/dashboard")} className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 rounded-2xl cursor-pointer">
-              <Home className="w-6 h-6" />
-              <span className="font-medium">Home</span>
-            </div>
-            <div onClick={() => navigate("/my-clubs")} className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 rounded-2xl cursor-pointer">
-              <Users className="w-6 h-6" />
-              <span>My Clubs</span>
-            </div>
-            <div className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 rounded-2xl cursor-pointer bg-zinc-900">
-              <Calendar className="w-6 h-6 text-red-500" />
-              <span className="font-medium">{club.name}</span>
-            </div>
-          </div>
-        </div>
+        <Sidebar />
 
         <div className="flex-1 max-w-4xl min-h-screen p-8">
           <button
@@ -168,98 +154,6 @@ const ClubDetail = ({ onLogout }) => {
             {club.location && <p className="text-zinc-500 mt-1">{club.location}</p>}
           </div>
 
-          {isLeader && (
-            <div className="bg-zinc-900 rounded-3xl p-6 mb-8">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold">Club Settings</h2>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-zinc-400">
-                    {club.isPrivate ? "Private Club" : "Public Club"}
-                  </span>
-                  <button
-                    onClick={async () => {
-                      try {
-                        const token = localStorage.getItem("token");
-                        await axios.post(
-                          `http://localhost:5000/api/clubs/${club._id}/toggle-privacy`,
-                          { isPrivate: !club.isPrivate },
-                          { headers: { Authorization: `Bearer ${token}` } }
-                        );
-                        setClub({ ...club, isPrivate: !club.isPrivate });
-                      } catch (error) {
-                        console.error("Error toggling privacy:", error);
-                      }
-                    }}
-                    className={`relative w-12 h-6 rounded-full transition ${
-                      club.isPrivate ? "bg-red-600" : "bg-zinc-600"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-1 w-4 h-4 rounded-full bg-white transition ${
-                        club.isPrivate ? "left-7" : "left-1"
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
-
-              <h2 className="text-xl font-semibold mb-4">Invite Members</h2>
-              
-              <div className="flex items-center gap-4 mb-6">
-                <div className="flex-1 bg-black rounded-xl px-4 py-3 flex items-center justify-between">
-                  <span className="font-mono text-lg">{club.inviteCode}</span>
-                  <button
-                    onClick={copyInviteCode}
-                    className="text-red-500 hover:text-red-400 flex items-center gap-2"
-                  >
-                    {copied ? (
-                      <>
-                        <Check size={18} />
-                        <span>Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={18} />
-                        <span>Copy</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div className="border-t border-zinc-800 pt-6">
-                <h3 className="font-medium mb-4">Find Users to Invite</h3>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search by username..."
-                    className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600"
-                  />
-                  <Search className="absolute right-4 top-3.5 text-zinc-500 w-5 h-5" />
-                </div>
-
-                {searchResults.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    {searchResults.map((user) => (
-                      <div key={user._id} className="flex items-center justify-between bg-black rounded-xl px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-zinc-700 rounded-full"></div>
-                          <div>
-                            <p className="font-medium">{user.username}</p>
-                          </div>
-                        </div>
-                        <button className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-xl text-sm">
-                          Invite
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
           <div className="bg-zinc-900 rounded-3xl p-6">
             <div className="flex gap-4 mb-6">
@@ -361,6 +255,96 @@ const ClubDetail = ({ onLogout }) => {
               <p className="font-mono text-lg">{club.inviteCode}</p>
             </div>
           </div>
+
+          {isLeader && (
+            <>
+              <h3 className="font-semibold mb-4 mt-8">Club Settings</h3>
+              <div className="bg-zinc-900 rounded-2xl p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-zinc-400">
+                    {club.isPrivate ? "Private Club" : "Public Club"}
+                  </span>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const token = localStorage.getItem("token");
+                        await axios.post(
+                          `http://localhost:5000/api/clubs/${club._id}/toggle-privacy`,
+                          { isPrivate: !club.isPrivate },
+                          { headers: { Authorization: `Bearer ${token}` } }
+                        );
+                        setClub({ ...club, isPrivate: !club.isPrivate });
+                      } catch (error) {
+                        console.error("Error toggling privacy:", error);
+                      }
+                    }}
+                    className={`relative w-10 h-5 rounded-full transition ${
+                      club.isPrivate ? "bg-red-600" : "bg-zinc-600"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition ${
+                        club.isPrivate ? "left-5" : "left-0.5"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              <h3 className="font-semibold mb-4 mt-8">Invite Members</h3>
+              <div className="bg-zinc-900 rounded-2xl p-4 space-y-4">
+                <div className="bg-black rounded-xl px-4 py-3 flex items-center justify-between">
+                  <span className="font-mono text-sm">{club.inviteCode}</span>
+                  <button
+                    onClick={copyInviteCode}
+                    className="text-red-500 hover:text-red-400 flex items-center gap-1 text-sm"
+                  >
+                    {copied ? (
+                      <>
+                        <Check size={14} />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={14} />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="border-t border-zinc-800 pt-4">
+                  <h4 className="font-medium mb-3 text-sm">Find Users to Invite</h4>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search by username..."
+                      className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-600"
+                    />
+                    <Search className="absolute right-3 top-2.5 text-zinc-500 w-4 h-4" />
+                  </div>
+
+                  {searchResults.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {searchResults.map((user) => (
+                        <div key={user._id} className="flex items-center justify-between bg-black rounded-xl px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 bg-zinc-700 rounded-full"></div>
+                            <span className="text-sm">{user.username}</span>
+                          </div>
+                          <button className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded-lg text-xs">
+                            Invite
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

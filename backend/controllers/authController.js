@@ -22,7 +22,7 @@ const getProfile = async (req, res) => {
 // Update User Profile
 const updateProfile = async (req, res) => {
   try {
-    const { name, bio, avatar, car } = req.body;
+    const { name, bio, avatar, car, useDisplayName } = req.body;
     const user = await User.findById(req.user.id);
     
     if (!user) {
@@ -33,11 +33,13 @@ const updateProfile = async (req, res) => {
     if (name !== undefined) user.name = name;
     if (bio !== undefined) user.bio = bio;
     if (avatar !== undefined) user.avatar = avatar;
+    if (useDisplayName !== undefined) user.useDisplayName = useDisplayName;
     if (car !== undefined) {
       user.car = {
         year: car.year || '',
         make: car.make || '',
-        model: car.model || ''
+        model: car.model || '',
+        color: car.color || ''
       };
     }
 
@@ -54,7 +56,8 @@ const updateProfile = async (req, res) => {
         bio: user.bio,
         avatar: user.avatar,
         car: user.car,
-        role: user.role
+        role: user.role,
+        useDisplayName: user.useDisplayName
       }
     });
   } catch (error) {
@@ -117,7 +120,8 @@ const registerUser = async (req, res) => {
         username: user.username,
         email: user.email,
         name: user.name,
-        role: user.role
+        role: user.role,
+        useDisplayName: user.useDisplayName
       },
       token: generateToken(user._id)
     });
@@ -141,7 +145,8 @@ const loginUser = async (req, res) => {
           username: user.username,
           email: user.email,
           name: user.name,
-          role: user.role
+          role: user.role,
+          useDisplayName: user.useDisplayName
         },
         token: generateToken(user._id)
       });
