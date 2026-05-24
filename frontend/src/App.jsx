@@ -45,6 +45,11 @@ function App() {
     localStorage.removeItem('token');
   };
 
+  const updateUser = (updatedUserData) => {
+    setUser(updatedUserData);
+    localStorage.setItem('driveclique_user', JSON.stringify(updatedUserData));
+  };
+
   return (
     <Router>
       <Routes>
@@ -57,7 +62,7 @@ function App() {
         <Route path="/club/:clubId" element={isAuthenticated ? <ClubDetail user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/create-club" element={isAuthenticated ? <CreateClub user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/find-club" element={isAuthenticated ? <FindClub user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
-        <Route path="/profile" element={isAuthenticated ? <Profile user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
+        <Route path="/profile" element={isAuthenticated ? <Profile user={user} onLogout={logout} onUpdateUser={updateUser} /> : <Navigate to="/login" replace />} />
 
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/login" replace />} />

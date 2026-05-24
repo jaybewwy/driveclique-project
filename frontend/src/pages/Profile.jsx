@@ -5,7 +5,7 @@ import { Car, User, Camera, X, Save } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 
-const Profile = ({ onLogout }) => {
+const Profile = ({ onLogout, onUpdateUser }) => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -68,7 +68,12 @@ const Profile = ({ onLogout }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    // If changing the display name, automatically turn off the toggle
+    if (name === "name" && formData.useDisplayName) {
+      setFormData(prev => ({ ...prev, [name]: value, useDisplayName: false }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleAvatarUpload = (e) => {
@@ -122,9 +127,11 @@ const Profile = ({ onLogout }) => {
         }
 
         setMessage({ type: "success", text: "Profile updated successfully! Redirecting to dashboard..." });
-        // Update localStorage with new user data
+        // Update the global user state via the callback
         const updatedUser = response.data.user;
-        localStorage.setItem("driveclique_user", JSON.stringify(updatedUser));
+        if (onUpdateUser) {
+          onUpdateUser(updatedUser);
+        }
         setUser(updatedUser);
         // Redirect to dashboard after 3 seconds
         setTimeout(() => {

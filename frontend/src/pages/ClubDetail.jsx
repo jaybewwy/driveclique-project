@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Search, Copy, Check, X, ArrowLeft } from "lucide-react";
+import { Search, Copy, Check, X, ArrowLeft, Calendar, Clock, MapPin, Plus, Trash2 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 
-const ClubDetail = ({ onLogout }) => {
+const ClubDetail = ({ user, onLogout }) => {
   const { clubId } = useParams();
   const navigate = useNavigate();
   const [club, setClub] = useState(null);
@@ -14,12 +14,26 @@ const ClubDetail = ({ onLogout }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [activeTab, setActiveTab] = useState("members");
+  const [drives, setDrives] = useState([]);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleForm, setScheduleForm] = useState({
+    name: "",
+    date: "",
+    time: "",
+    location: "",
+    description: ""
+  });
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduleError, setScheduleError] = useState("");
 
+  // Fetch club details and drives
   useEffect(() => {
-    const fetchClubDetails = async () => {
+    const fetchData = async () => {
       try {
         const token = localStorage.getItem("token");
-        const response = await axios.get(
+        
+        // Fetch club details
+        const clubResponse = await axios.get(
           `http://localhost:5000/api/clubs/${clubId}`,
           {
             headers: {
@@ -27,22 +41,102 @@ const ClubDetail = ({ onLogout }) => {
             },
           }
         );
-        if (response.data.success) {
-          setClub(response.data.club);
+        if (clubResponse.data.success) {
+          setClub(clubResponse.data.club);
+        }
+
+        // Fetch drives for this club
+        const drivesResponse = await axios.get(
+          `http://localhost:5000/api/drives/club/${clubId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (drivesResponse.data.success) {
+          setDrives(drivesResponse.data.drives || []);
         }
       } catch (error) {
-        console.error("Error fetching club:", error);
+        console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
     };
-    fetchClubDetails();
+    fetchData();
   }, [clubId]);
 
   const copyInviteCode = () => {
     navigator.clipboard.writeText(club.inviteCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleScheduleInputChange = (e) => {
+    const { name, value } = e.target;
+    setScheduleForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleScheduleDrive = async (e) => {
+    e.preventDefault();
+    setScheduleLoading(true);
+    setScheduleError("");
+
+    if (!scheduleForm.name || !scheduleForm.date || !scheduleForm.time || !scheduleForm.location) {
+      setScheduleError("Please fill in all required fields");
+      setScheduleLoading(false);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.post(
+        "http://localhost:5000/api/drives",
+        {
+          clubId: clubId,
+          name: scheduleForm.name,
+          date: scheduleForm.date,
+          time: scheduleForm.time,
+          location: scheduleForm.location,
+          description: scheduleForm.description || ""
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        // Add the new drive to the list
+        setDrives(prev => [...prev, response.data.drive]);
+        // Close modal and reset form
+        setShowScheduleModal(false);
+        setScheduleForm({
+          name: "",
+          date: "",
+          time: "",
+          location: "",
+          description: ""
+        });
+      }
+    } catch (error) {
+      setScheduleError(error.response?.data?.message || "Failed to schedule drive");
+    } finally {
+      setScheduleLoading(false);
+    }
+  };
+
+  const closeScheduleModal = () => {
+    setShowScheduleModal(false);
+    setScheduleForm({
+      name: "",
+      date: "",
+      time: "",
+      location: "",
+      description: ""
+    });
+    setScheduleError("");
   };
 
   const searchUsers = useCallback(async () => {
@@ -103,7 +197,7 @@ const ClubDetail = ({ onLogout }) => {
       <NavBar onLogout={onLogout} />
 
       <div className="flex max-w-7xl mx-auto">
-        <Sidebar />
+        <Sidebar user={user} />
 
         <div className="flex-1 max-w-4xl min-h-screen p-8">
           <button
