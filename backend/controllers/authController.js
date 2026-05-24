@@ -6,7 +6,7 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
-// Register New User
+// Register User
 const registerUser = async (req, res) => {
   try {
     const { username, email, password, name } = req.body;
@@ -14,11 +14,10 @@ const registerUser = async (req, res) => {
     if (!username || !email || !password) {
       return res.status(400).json({ 
         success: false, 
-        message: "Username, email, and password are required" 
+        message: "Username, email and password are required" 
       });
     }
 
-    // Check if user already exists
     const userExists = await User.findOne({ $or: [{ email }, { username }] });
     if (userExists) {
       return res.status(400).json({ 
@@ -27,7 +26,6 @@ const registerUser = async (req, res) => {
       });
     }
 
-    // Create new user
     const user = await User.create({
       username,
       email,
@@ -52,10 +50,11 @@ const registerUser = async (req, res) => {
   }
 };
 
-// Login User (existing)
+// Login User
 const loginUser = async (req, res) => {
   try {
     const { username, password } = req.body;
+
     const user = await User.findOne({ username });
 
     if (user && (await bcrypt.compare(password, user.password))) {

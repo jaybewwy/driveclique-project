@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Car } from 'lucide-react';
+import { Car, CheckCircle, ArrowLeft } from 'lucide-react';
 import axios from 'axios';
 
 const Register = () => {
@@ -9,7 +9,18 @@ const Register = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const navigate = useNavigate();
+
+  // Auto-redirect to login after successful registration
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        navigate('/login');
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [success, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,11 +36,16 @@ const Register = () => {
       });
 
       if (response.data.success) {
-        alert("Account created successfully! Please sign in.");
-        navigate('/login');
+        setSuccess("Account created successfully! Redirecting to sign in...");
+        setError('');
+        // Clear form
+        setUsername('');
+        setEmail('');
+        setPassword('');
       }
     } catch (err) {
       setError(err.response?.data?.message || "Registration failed");
+      setSuccess('');
     } finally {
       setLoading(false);
     }
@@ -47,7 +63,18 @@ const Register = () => {
         <div className="bg-zinc-900 rounded-3xl p-10">
           <h2 className="text-3xl font-bold mb-8 text-center">Create Account</h2>
 
-          {error && <p className="text-red-500 text-center mb-4">{error}</p>}
+          {success && (
+            <div className="bg-green-900/30 border border-green-600 rounded-xl p-4 mb-6 flex items-center gap-3">
+              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+              <p className="text-green-400 text-center text-sm">{success}</p>
+            </div>
+          )}
+
+          {error && (
+            <div className="bg-red-900/30 border border-red-600 rounded-xl p-4 mb-6 flex items-center gap-3">
+              <p className="text-red-400 text-center text-sm">{error}</p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <input 
@@ -67,8 +94,8 @@ const Register = () => {
               className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 focus:outline-none focus:border-red-600"
               required 
             />
+
             <input 
-            
               type="email" 
               placeholder="Email address" 
               value={email}
@@ -76,7 +103,6 @@ const Register = () => {
               className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 focus:outline-none focus:border-red-600"
               required 
             />
-
 
             <button 
               type="submit" 
@@ -89,7 +115,7 @@ const Register = () => {
 
           <div className="mt-6 text-center">
             <p className="text-zinc-400">
-              Already have an account?{" "}
+              Already have an account?{' '}
               <button 
                 onClick={() => navigate('/login')}
                 className="text-red-500 hover:underline font-medium"
@@ -97,6 +123,13 @@ const Register = () => {
                 Sign In
               </button>
             </p>
+            <button 
+              onClick={() => navigate('/')}
+              className="mt-4 text-zinc-500 hover:text-zinc-300 text-sm flex items-center justify-center gap-2 mx-auto"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Home
+            </button>
           </div>
         </div>
       </div>
