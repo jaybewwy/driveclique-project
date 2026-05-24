@@ -1,0 +1,186 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Users, Lock, FileText } from 'lucide-react';
+
+const CreateClub = () => {
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    location: '',
+    maxMembers: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    // Validate form
+    if (!formData.name || !formData.description) {
+      setError('Please fill in all required fields');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // TODO: Replace with actual API call to create club
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setSuccess('Club created successfully! Redirecting...');
+      
+      // Clear form
+      setFormData({
+        name: '',
+        description: '',
+        location: '',
+        maxMembers: ''
+      });
+
+      // Redirect to My Clubs after 2 seconds
+      setTimeout(() => {
+        navigate('/my-clubs');
+      }, 2000);
+    } catch (err) {
+      setError(err.message || 'Failed to create club');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
+      <div className="w-full max-w-2xl">
+        {/* Header */}
+        <div className="mb-8">
+          <button
+            onClick={() => navigate('/my-clubs')}
+            className="flex items-center gap-2 text-zinc-400 hover:text-white mb-6 transition"
+          >
+            <ArrowLeft size={20} />
+            Back to My Clubs
+          </button>
+          <h1 className="text-4xl font-bold text-white">Create New Club</h1>
+          <p className="text-zinc-400 mt-2">Start your own car community</p>
+        </div>
+
+        {/* Form Card */}
+        <div className="bg-zinc-900 rounded-3xl p-10">
+          {success && (
+            <div className="bg-green-900/30 border border-green-600 rounded-xl p-4 mb-6">
+              <p className="text-green-400 text-center">{success}</p>
+            </div>
+          )}
+
+          {error && (
+            <div className="bg-red-900/30 border border-red-600 rounded-xl p-4 mb-6">
+              <p className="text-red-400 text-center">{error}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Club Name */}
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-3">
+                Club Name <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="e.g. Southern California Mountain Drivers"
+                  className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 pl-12 text-white placeholder-zinc-500 focus:outline-none focus:border-red-600 transition"
+                />
+                <FileText className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
+              </div>
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-3">
+                Description <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                placeholder="What makes your club unique? What kind of drives and events do you plan?"
+                rows={4}
+                className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 text-white placeholder-zinc-500 focus:outline-none focus:border-red-600 transition resize-none"
+              />
+            </div>
+
+            {/* Location */}
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-3">
+                Location
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleChange}
+                  placeholder="e.g. Los Angeles, CA"
+                  className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 pl-12 text-white placeholder-zinc-500 focus:outline-none focus:border-red-600 transition"
+                />
+                <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
+              </div>
+            </div>
+
+            {/* Max Members */}
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-3">
+                Max Members
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  name="maxMembers"
+                  value={formData.maxMembers}
+                  onChange={handleChange}
+                  placeholder="Leave empty for unlimited"
+                  min="2"
+                  className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 pl-12 text-white placeholder-zinc-500 focus:outline-none focus:border-red-600 transition"
+                />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-red-600 hover:bg-red-700 py-4 rounded-2xl font-semibold text-lg transition disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Creating Club...' : 'Create Club'}
+            </button>
+          </form>
+
+          {/* Info */}
+          <div className="mt-8 text-center">
+            <p className="text-zinc-500 text-sm">
+              As the creator, you will be the club leader and have full control over settings, events, and membership.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default CreateClub;
