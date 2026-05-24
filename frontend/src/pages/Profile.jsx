@@ -7,7 +7,7 @@ import NavBar from "../components/NavBar";
 
 const Profile = ({ onLogout }) => {
   const navigate = useNavigate();
-  const [, setUser] = useState(null);
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
@@ -114,6 +114,13 @@ const Profile = ({ onLogout }) => {
       );
 
       if (response.data.success) {
+        // Validate: if display name is toggled on but name is empty, show error
+        if (formData.useDisplayName && !formData.name.trim()) {
+          setMessage({ type: "error", text: "Please enter a display name before enabling 'Show Display Name'." });
+          setSaving(false);
+          return;
+        }
+
         setMessage({ type: "success", text: "Profile updated successfully! Redirecting to dashboard..." });
         // Update localStorage with new user data
         const updatedUser = response.data.user;
@@ -144,7 +151,7 @@ const Profile = ({ onLogout }) => {
       <NavBar onLogout={onLogout} />
 
       <div className="flex max-w-7xl mx-auto">
-        <Sidebar />
+        <Sidebar user={user} />
 
         {/* Main Content */}
         <div className="flex-1 max-w-3xl min-h-screen p-8">

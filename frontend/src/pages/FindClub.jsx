@@ -107,7 +107,7 @@ const FindClub = ({ user, onLogout }) => {
       </nav>
 
       <div className="flex max-w-7xl mx-auto">
-        <Sidebar />
+        <Sidebar user={user} />
 
         {/* Main Content */}
         <div className="flex-1 max-w-4xl min-h-screen p-8">
