@@ -16,18 +16,33 @@ const Login = ({ onLogin }) => {
     setError('');
 
     try {
+      console.log('Attempting login with:', { username });
       const response = await axios.post('http://localhost:5000/api/auth/login', {
         username,
         password
       });
 
+      console.log('Login response status:', response.status);
+      console.log('Login response data:', response.data);
+
       if (response.data.success) {
-        onLogin(response.data.user);
+        console.log('Login successful for user:', response.data.user.username);
+        if (onLogin) {
+          onLogin(response.data.user);
+        }
         localStorage.setItem('token', response.data.token);
+        localStorage.setItem('driveclique_user', JSON.stringify(response.data.user));
+        console.log('Login successful, navigating to dashboard');
         navigate('/dashboard');
+      } else {
+        setError(response.data.message || 'Login failed');
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Invalid username or password");
+      console.error('Login error:', err);
+      console.error('Error response:', err.response?.data);
+      console.error('Error status:', err.response?.status);
+      const errorMessage = err.response?.data?.message || 'Invalid username or password';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -70,13 +85,13 @@ const Login = ({ onLogin }) => {
               disabled={loading}
               className="w-full bg-red-600 hover:bg-red-700 py-4 rounded-2xl font-semibold text-lg transition disabled:opacity-70"
             >
-              {loading ? "Signing In..." : "Sign In"}
+              {loading ? 'Signing In...' : 'Sign In'}
             </button>
           </form>
 
           <div className="mt-6 text-center">
             <p className="text-zinc-400">
-              Don't have an account?{" "}
+              Do not have an account?{' '}
               <button 
                 onClick={() => navigate('/register')}
                 className="text-red-500 hover:underline font-medium"

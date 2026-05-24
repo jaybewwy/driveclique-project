@@ -35,16 +35,20 @@ const Register = () => {
         name: username
       });
 
+      console.log('Register response:', response.data);
+
       if (response.data.success) {
-        setSuccess("Account created successfully! Redirecting to sign in...");
+        setSuccess('Account created successfully! Redirecting to sign in...');
         setError('');
         // Clear form
         setUsername('');
         setEmail('');
         setPassword('');
+        console.log('Registration successful, will redirect in 2.5 seconds');
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Registration failed");
+      console.error('Register error:', err);
+      setError(err.response?.data?.message || 'Registration failed');
       setSuccess('');
     } finally {
       setLoading(false);
@@ -77,53 +81,53 @@ const Register = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <input 
-              type="text" 
-              placeholder="Username" 
+            <input
+              type="text"
+              placeholder="Username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 focus:outline-none focus:border-red-600"
-              required 
+              required
             />
 
-            <input 
-              type="password" 
-              placeholder="Password" 
+            <input
+              type="password"
+              placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 focus:outline-none focus:border-red-600"
-              required 
+              required
             />
 
-            <input 
-              type="email" 
-              placeholder="Email address" 
+            <input
+              type="email"
+              placeholder="Email address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 focus:outline-none focus:border-red-600"
-              required 
+              required
             />
 
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={loading}
               className="w-full bg-red-600 hover:bg-red-700 py-4 rounded-2xl font-semibold text-lg transition disabled:opacity-70"
             >
-              {loading ? "Creating Account..." : "Create Account"}
+              {loading ? 'Creating Account...' : 'Create Account'}
             </button>
           </form>
 
           <div className="mt-6 text-center">
             <p className="text-zinc-400">
               Already have an account?{' '}
-              <button 
+              <button
                 onClick={() => navigate('/login')}
                 className="text-red-500 hover:underline font-medium"
               >
                 Sign In
               </button>
             </p>
-            <button 
+            <button
               onClick={() => navigate('/')}
               className="mt-4 text-zinc-500 hover:text-zinc-300 text-sm flex items-center justify-center gap-2 mx-auto"
             >
