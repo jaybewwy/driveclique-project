@@ -1,21 +1,36 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Car } from 'lucide-react';
+import axios from 'axios';
 
 const Login = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const userData = { 
-      id: 1, 
-      username: username || "AlexRivera", 
-      name: username || "Alex Rivera" 
-    };
-    onLogin(userData);
-    navigate('/dashboard');
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await axios.post('http://localhost:5000/api/auth/login', {
+        username,
+        password
+      });
+
+      if (response.data.success) {
+        onLogin(response.data.user);
+        localStorage.setItem('token', response.data.token);
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || "Invalid username or password");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -29,6 +44,8 @@ const Login = ({ onLogin }) => {
 
         <div className="bg-zinc-900 rounded-3xl p-10">
           <h2 className="text-3xl font-bold mb-8 text-center">Sign In</h2>
+
+          {error && <p className="text-red-500 text-center mb-4">{error}</p>}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <input 
@@ -48,22 +65,12 @@ const Login = ({ onLogin }) => {
               required 
             />
 
-            {/* Forgot Password Link */}
-            <div className="text-left">
-              <button 
-                type="button"
-                onClick={() => alert("Forgot Password feature coming soon!")}
-                className="text-red-500 hover:text-red-400 text-sm hover:underline transition"
-              >
-                Forgot Password?
-              </button>
-            </div>
-
             <button 
               type="submit" 
-              className="w-full bg-red-600 hover:bg-red-700 py-4 rounded-2xl font-semibold text-lg transition"
+              disabled={loading}
+              className="w-full bg-red-600 hover:bg-red-700 py-4 rounded-2xl font-semibold text-lg transition disabled:opacity-70"
             >
-              Sign In
+              {loading ? "Signing In..." : "Sign In"}
             </button>
           </form>
 
