@@ -19,7 +19,8 @@ const Profile = ({ onLogout }) => {
     carYear: "",
     carMake: "",
     carModel: "",
-    carColor: ""
+    carColor: "",
+    useDisplayName: false
   });
   const [previewAvatar, setPreviewAvatar] = useState("");
 
@@ -48,7 +49,8 @@ const Profile = ({ onLogout }) => {
             carYear: userData.car?.year || "",
             carMake: userData.car?.make || "",
             carModel: userData.car?.model || "",
-            carColor: userData.car?.color || ""
+            carColor: userData.car?.color || "",
+            useDisplayName: userData.useDisplayName || false
           });
         }
       } catch (error) {
@@ -95,6 +97,7 @@ const Profile = ({ onLogout }) => {
           name: formData.name,
           bio: formData.bio,
           avatar: formData.avatar,
+          useDisplayName: formData.useDisplayName,
           car: {
             year: formData.carYear,
             make: formData.carMake,
@@ -247,6 +250,33 @@ const Profile = ({ onLogout }) => {
                     placeholder="John Doe"
                     className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600"
                   />
+                  <p className="text-xs text-zinc-500 mt-1">
+                    This name will be shown to other users if you enable the option below.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between bg-black rounded-xl p-4">
+                  <div>
+                    <div className="text-sm font-medium text-zinc-300">Show Display Name</div>
+                    <div className="text-xs text-zinc-500 mt-1">
+                      Use your display name instead of username on Dashboard and member lists
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={formData.useDisplayName}
+                    onClick={() => setFormData(prev => ({ ...prev, useDisplayName: !prev.useDisplayName }))}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      formData.useDisplayName ? 'bg-red-600' : 'bg-zinc-700'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        formData.useDisplayName ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
                 </div>
 
                 <div>

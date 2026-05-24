@@ -69,7 +69,9 @@ const Dashboard = ({ user, onLogout }) => {
         {/* Main Feed */}
         <div className="flex-1 max-w-2xl border-r border-zinc-800 min-h-screen p-6">
           <div className="mb-6">
-            <h2 className="text-3xl font-semibold">Welcome back, {user?.name || user?.username}!</h2>
+            <h2 className="text-3xl font-semibold">
+              Welcome back, {user?.useDisplayName && user?.name ? user.name : user?.username}!
+            </h2>
             <p className="text-zinc-400">What's happening in the car community?</p>
           </div>
 

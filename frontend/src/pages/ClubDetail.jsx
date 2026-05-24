@@ -195,7 +195,9 @@ const ClubDetail = ({ onLogout }) => {
                       )}
                     </div>
                     <div className="flex-1">
-                      <p className="font-medium">{member.name || member.username}</p>
+                      <p className="font-medium">
+                        {member.useDisplayName && member.name ? member.name : member.username}
+                      </p>
                       {member.car && (member.car.year || member.car.make || member.car.model) && (
                         <p className="text-sm text-zinc-500 flex items-center gap-1 mt-1">
                           {member.car.year} {member.car.make} {member.car.model}
@@ -248,7 +250,9 @@ const ClubDetail = ({ onLogout }) => {
             </div>
             <div>
               <p className="text-sm text-zinc-500">Leader</p>
-              <p className="font-medium">{club.leader.username}</p>
+              <p className="font-medium">
+                {club.leader.useDisplayName && club.leader.name ? club.leader.name : club.leader.username}
+              </p>
             </div>
             <div>
               <p className="text-sm text-zinc-500">Invite Code</p>
