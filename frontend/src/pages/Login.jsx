@@ -16,31 +16,22 @@ const Login = ({ onLogin }) => {
     setError('');
 
     try {
-      console.log('Attempting login with:', { username });
       const response = await axios.post('http://localhost:5000/api/auth/login', {
         username,
         password
       });
 
-      console.log('Login response status:', response.status);
-      console.log('Login response data:', response.data);
-
       if (response.data.success) {
-        console.log('Login successful for user:', response.data.user.username);
         if (onLogin) {
           onLogin(response.data.user);
         }
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('driveclique_user', JSON.stringify(response.data.user));
-        console.log('Login successful, navigating to dashboard');
         navigate('/dashboard');
       } else {
         setError(response.data.message || 'Login failed');
       }
     } catch (err) {
-      console.error('Login error:', err);
-      console.error('Error response:', err.response?.data);
-      console.error('Error status:', err.response?.status);
       const errorMessage = err.response?.data?.message || 'Invalid username or password';
       setError(errorMessage);
     } finally {

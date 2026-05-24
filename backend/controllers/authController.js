@@ -13,12 +13,10 @@ const getProfile = async (req, res) => {
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
-    console.log('getProfile - raw user from DB:', { useDisplayName: user.useDisplayName, _id: user._id });
     // Ensure useDisplayName is always included, even for existing users
     if (user.useDisplayName === undefined) {
       user.useDisplayName = false;
     }
-    console.log('getProfile - returning user:', { useDisplayName: user.useDisplayName });
     res.json({ success: true, user });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });

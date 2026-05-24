@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Car, Search, Bell, User, Camera, Home, Users, X, Save } from "lucide-react";
+import { Car, User, Camera, X, Save } from "lucide-react";
 import Sidebar from "../components/Sidebar";
+import NavBar from "../components/NavBar";
 
 const Profile = ({ onLogout }) => {
   const navigate = useNavigate();
@@ -113,11 +114,15 @@ const Profile = ({ onLogout }) => {
       );
 
       if (response.data.success) {
-        setMessage({ type: "success", text: "Profile updated successfully!" });
+        setMessage({ type: "success", text: "Profile updated successfully! Redirecting to dashboard..." });
         // Update localStorage with new user data
         const updatedUser = response.data.user;
         localStorage.setItem("driveclique_user", JSON.stringify(updatedUser));
         setUser(updatedUser);
+        // Redirect to dashboard after 3 seconds
+        setTimeout(() => {
+          navigate("/dashboard");
+        }, 3000);
       }
     } catch (error) {
       setMessage({ type: "error", text: error.response?.data?.message || "Failed to update profile" });
@@ -136,47 +141,7 @@ const Profile = ({ onLogout }) => {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
-      {/* Top Navigation Bar */}
-      <nav className="bg-black border-b border-zinc-800 px-4 py-3 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center">
-            <Car className="w-6 h-6" />
-          </div>
-          <h1 className="text-2xl font-bold">DriveClique</h1>
-        </div>
-
-        <div className="flex-1 max-w-xl mx-8">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search clubs, drives, or members..."
-              className="w-full bg-zinc-900 border border-zinc-700 rounded-full py-3 pl-12 text-sm focus:outline-none focus:border-red-600"
-            />
-            <Search className="absolute left-4 top-3.5 text-zinc-500 w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-6">
-          <button onClick={() => navigate("/dashboard")} className="p-3 hover:bg-zinc-900 rounded-full">
-            <Home className="w-6 h-6" />
-          </button>
-          <button onClick={() => navigate("/my-clubs")} className="p-3 hover:bg-zinc-900 rounded-full">
-            <Users className="w-6 h-6" />
-          </button>
-          <button className="p-3 hover:bg-zinc-900 rounded-full relative">
-            <Bell className="w-6 h-6" />
-            <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center">3</span>
-          </button>
-          <div className="w-9 h-9 bg-zinc-700 rounded-full overflow-hidden cursor-pointer" onClick={() => navigate("/profile")}>
-            {formData.avatar ? (
-              <img src={formData.avatar} alt="Profile" className="w-full h-full object-cover" />
-            ) : (
-              <User className="w-full h-full p-1" />
-            )}
-          </div>
-          <button onClick={onLogout} className="text-sm text-zinc-400 hover:text-red-500">Logout</button>
-        </div>
-      </nav>
+      <NavBar onLogout={onLogout} />
 
       <div className="flex max-w-7xl mx-auto">
         <Sidebar />

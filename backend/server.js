@@ -12,15 +12,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Test Route
+// Root Route
 app.get('/', (req, res) => {
-  res.send('🚀 DriveClique Backend is running successfully!');
+  res.json({ message: 'DriveClique API is running' });
 });
 
-// ====================== ROUTES ======================
+// Routes
 app.use('/api/auth', require('./routes/authentication'));
 app.use('/api/clubs', require('./routes/clubs'));
-app.use('/api/drives', require('./routes/drives'));     // ← Added
+app.use('/api/drives', require('./routes/drives'));
 
 // 404 Handler
 app.use((req, res) => {
@@ -30,5 +30,5 @@ app.use((req, res) => {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`✅ Server is running on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
