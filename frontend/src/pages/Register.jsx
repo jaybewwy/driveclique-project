@@ -17,23 +17,23 @@ const Register = ({ onRegister }) => {
     setLoading(true);
     setError('');
 
-      try {
-        const response = await axios.post('http://localhost:5000/api/auth/register', {
-          username,
-          email,
-          password,
-          name: username
-        });
+    try {
+      const response = await axios.post('http://localhost:5000/api/auth/register', {
+        username,
+        email,
+        password,
+        name: username
+      });
 
-        if (response.data.success) {
-          const userData = response.data.user;
-          if (onRegister) {
-            onRegister(userData);
-          }
-          localStorage.setItem('token', response.data.token);
-          localStorage.setItem('driveclique_user', JSON.stringify(userData));
-          navigate('/dashboard');
+      if (response.data.success) {
+        const userData = response.data.user;
+        if (onRegister) {
+          onRegister(userData);
         }
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('driveclique_user', JSON.stringify(userData));
+        navigate('/dashboard');
+      }
     } catch (err) {
       console.error('Register error:', err);
       setError(err.response?.data?.message || 'Registration failed');
