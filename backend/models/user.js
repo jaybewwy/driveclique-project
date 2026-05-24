@@ -19,7 +19,33 @@ const UserSchema = new mongoose.Schema({
     type: String, 
     required: true 
   },
-  name: String,
+  name: {
+    type: String,
+    trim: true
+  },
+  bio: {
+    type: String,
+    trim: true,
+    maxlength: 500
+  },
+  avatar: {
+    type: String,
+    default: ''
+  },
+  car: {
+    year: {
+      type: String,
+      trim: true
+    },
+    make: {
+      type: String,
+      trim: true
+    },
+    model: {
+      type: String,
+      trim: true
+    }
+  },
   role: { 
     type: String, 
     enum: ['user', 'leader'], 

@@ -9,6 +9,7 @@ import ClubPage from './pages/ClubPage';
 import ClubDetail from './pages/ClubDetail';
 import CreateClub from './pages/CreateClub';
 import BrowseClubs from './pages/BrowseClubs';
+import Profile from './pages/Profile';
 
 function getInitialAuth() {
   try {
@@ -56,6 +57,7 @@ function App() {
         <Route path="/club/:clubId" element={isAuthenticated ? <ClubDetail user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/create-club" element={isAuthenticated ? <CreateClub user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/browse-clubs" element={isAuthenticated ? <BrowseClubs user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
+        <Route path="/profile" element={isAuthenticated ? <Profile user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
 
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/login" replace />} />

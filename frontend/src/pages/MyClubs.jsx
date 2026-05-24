@@ -1,12 +1,17 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Car, Users, Calendar, Home, Search, Bell, Plus, Crown, Copy } from "lucide-react";
+import { Car, Users, Calendar, Home, Search, Bell, Plus, Crown, Copy, Lock, X, Check } from "lucide-react";
 
 const MyClubs = ({ onLogout }) => {
   const navigate = useNavigate();
   const [clubs, setClubs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
+  const [joinError, setJoinError] = useState("");
+  const [joinLoading, setJoinLoading] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(null);
 
   useEffect(() => {
     const fetchClubs = async () => {
@@ -31,13 +36,117 @@ const MyClubs = ({ onLogout }) => {
 
   const copyInviteCode = (code) => {
     navigator.clipboard.writeText(code);
-    alert(`Invite code "${code}" copied!`);
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(null), 2000);
+  };
+
+  const handleJoinByCode = () => {
+    setShowJoinModal(true);
+    setInviteCode("");
+    setJoinError("");
+  };
+
+  const submitJoinByCode = async () => {
+    if (!inviteCode.trim()) {
+      setJoinError("Please enter an invite code");
+      return;
+    }
+    setJoinLoading(true);
+    setJoinError("");
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.post(
+        `http://localhost:5000/api/clubs/join-by-code/${inviteCode.trim()}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      if (response.data.success) {
+        setShowJoinModal(false);
+        alert("Joined club successfully!");
+        window.location.reload();
+      }
+    } catch (error) {
+      setJoinError(error.response?.data?.message || "Invalid invite code");
+    } finally {
+      setJoinLoading(false);
+    }
+  };
+
+  const closeModal = () => {
+    setShowJoinModal(false);
+    setInviteCode("");
+    setJoinError("");
   };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <p className="text-zinc-400">Loading clubs...</p>
+      </div>
+    );
+  }
+
+  // Join with Code Modal
+  if (showJoinModal) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={closeModal}></div>
+        <div className="relative bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl">
+          <button
+            onClick={closeModal}
+            className="absolute top-4 right-4 text-zinc-500 hover:text-white transition"
+          >
+            <X size={24} />
+          </button>
+
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-8 h-8 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold mb-2">Join with Invite Code</h2>
+            <p className="text-zinc-400 text-sm">
+              Enter the invite code from a club leader to join a private club.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">
+                Invite Code
+              </label>
+              <input
+                type="text"
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                placeholder="e.g. HRK707"
+                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 text-center text-lg font-mono tracking-widest text-white placeholder-zinc-500 focus:outline-none focus:border-red-600 transition"
+                autoFocus
+              />
+            </div>
+
+            {joinError && (
+              <div className="bg-red-900/30 border border-red-600 rounded-xl p-3">
+                <p className="text-red-400 text-sm text-center">{joinError}</p>
+              </div>
+            )}
+
+            <button
+              onClick={submitJoinByCode}
+              disabled={joinLoading}
+              className="w-full bg-red-600 hover:bg-red-700 py-3 rounded-xl font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {joinLoading ? "Joining..." : "Join Club"}
+            </button>
+          </div>
+
+          <p className="text-zinc-500 text-xs text-center mt-4">
+            Contact the club leader to get an invite code.
+          </p>
+        </div>
       </div>
     );
   }
@@ -117,6 +226,12 @@ const MyClubs = ({ onLogout }) => {
             <h1 className="text-4xl font-bold">My Clubs</h1>
             <div className="flex gap-4">
               <button
+                onClick={handleJoinByCode}
+                className="bg-zinc-800 hover:bg-zinc-700 px-6 py-3 rounded-2xl flex items-center gap-2 font-medium"
+              >
+                <Lock size={20} /> Join with Code
+              </button>
+              <button
                 onClick={() => navigate("/browse-clubs")}
                 className="bg-zinc-800 hover:bg-zinc-700 px-6 py-3 rounded-2xl flex items-center gap-2 font-medium"
               >
@@ -177,14 +292,21 @@ const MyClubs = ({ onLogout }) => {
                     </p>
 
                     <div className="bg-zinc-800 rounded-2xl p-3 mb-4">
-                      <div className="text-xs text-zinc-500 mb-1">Invite Code</div>
-                      <div className="flex items-center justify-between bg-black rounded-xl px-3 py-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-zinc-500">Invite Code</span>
+                        {copiedCode === club.inviteCode && (
+                          <span className="text-xs text-green-400 flex items-center gap-1">
+                            <Check size={12} /> Copied!
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between bg-black rounded-xl px-3 py-2 mt-1">
                         <span className="font-mono text-sm tracking-widest">
                           {club.inviteCode}
                         </span>
                         <button
                           onClick={() => copyInviteCode(club.inviteCode)}
-                          className="text-red-500 hover:text-red-400"
+                          className="text-red-500 hover:text-red-400 transition"
                         >
                           <Copy size={16} />
                         </button>

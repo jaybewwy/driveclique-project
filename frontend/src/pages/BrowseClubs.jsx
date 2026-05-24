@@ -15,11 +15,14 @@ const BrowseClubs = ({ onLogout }) => {
     const fetchData = async () => {
       try {
         const token = localStorage.getItem("token");
+        console.log("Token:", token ? "exists" : "missing");
         if (!token) {
+          console.log("No token, redirecting to login");
           navigate("/login");
           return;
         }
         const filterParam = filter === "public" ? "&filter=public" : "";
+        console.log("Fetching clubs with filter:", filter);
         const response = await axios.get(
           `http://localhost:5000/api/clubs/browse?query=${searchQuery}${filterParam}`,
           {
@@ -28,9 +31,12 @@ const BrowseClubs = ({ onLogout }) => {
             },
           }
         );
+        console.log("Response:", response.data);
         if (response.data.success) {
-          setClubs(response.data.clubs);
+          setClubs(response.data.clubs || []);
           setError(null);
+        } else {
+          setError(response.data.message || "Failed to load clubs");
         }
       } catch (err) {
         console.error("Error fetching clubs:", err);

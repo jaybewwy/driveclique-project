@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Car, Users, Calendar, Home, Search, Bell, Copy, Check, X, ArrowLeft } from "lucide-react";
 
-const ClubDetail = () => {
+const ClubDetail = ({ onLogout }) => {
   const { clubId } = useParams();
   const navigate = useNavigate();
   const [club, setClub] = useState(null);
@@ -128,9 +128,10 @@ const ClubDetail = () => {
             <Bell className="w-6 h-6" />
             <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center">3</span>
           </button>
-          <div className="w-9 h-9 bg-zinc-700 rounded-full overflow-hidden cursor-pointer">
+          <div className="w-9 h-9 bg-zinc-700 rounded-full overflow-hidden cursor-pointer" onClick={() => navigate("/profile")}>
             <img src="https://i.pravatar.cc/128?u=alex" alt="Profile" />
           </div>
+          <button onClick={onLogout} className="text-sm text-zinc-400 hover:text-red-500">Logout</button>
         </div>
       </nav>
 
@@ -247,7 +248,6 @@ const ClubDetail = () => {
                           <div className="w-10 h-10 bg-zinc-700 rounded-full"></div>
                           <div>
                             <p className="font-medium">{user.username}</p>
-                            <p className="text-sm text-zinc-500">{user.email}</p>
                           </div>
                         </div>
                         <button className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-xl text-sm">
@@ -291,10 +291,22 @@ const ClubDetail = () => {
               <div className="space-y-3">
                 {club.members.map((member) => (
                   <div key={member._id} className="flex items-center gap-4 bg-black rounded-xl px-4 py-3">
-                    <div className="w-12 h-12 bg-zinc-700 rounded-full"></div>
+                    <div className="w-12 h-12 bg-zinc-700 rounded-full overflow-hidden flex-shrink-0">
+                      {member.avatar ? (
+                        <img src={member.avatar} alt={member.username} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className="text-zinc-500 text-sm">{member.username.charAt(0).toUpperCase()}</span>
+                        </div>
+                      )}
+                    </div>
                     <div className="flex-1">
-                      <p className="font-medium">{member.username}</p>
-                      <p className="text-sm text-zinc-500">{member.email}</p>
+                      <p className="font-medium">{member.name || member.username}</p>
+                      {member.car && (member.car.year || member.car.make || member.car.model) && (
+                        <p className="text-sm text-zinc-500 flex items-center gap-1 mt-1">
+                          {member.car.year} {member.car.make} {member.car.model}
+                        </p>
+                      )}
                     </div>
                     {member._id === club.leader._id && (
                       <span className="text-amber-500 text-sm flex items-center gap-1">Leader</span>

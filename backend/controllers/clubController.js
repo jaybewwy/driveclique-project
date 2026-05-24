@@ -167,9 +167,12 @@ const searchClubs = async (req, res) => {
     const { query, filter } = req.query;
     let searchQuery = {};
     
-    // Only show public clubs or clubs the user is a member of
-    const userId = req.user?.id;
-    if (filter === 'public') {
+    // Only show public clubs when filter is 'public' or 'all' (default)
+    // Private clubs should not appear in browse unless user is invited
+    if (filter !== 'public') {
+      // For 'all' filter, show only public clubs (not private ones)
+      searchQuery.isPrivate = false;
+    } else {
       searchQuery.isPrivate = false;
     }
     
@@ -179,8 +182,9 @@ const searchClubs = async (req, res) => {
     
     const clubs = await Club.find(searchQuery)
       .populate('leader', 'username email')
-      .limit(20);
+      .limit(50);
 
+    console.log('Search clubs - filter:', filter, 'query:', query, 'results:', clubs.length);
     res.json({ success: true, clubs });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });

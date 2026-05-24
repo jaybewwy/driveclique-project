@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Car, Users, Calendar, Home, Search, Bell, Plus } from "lucide-react";
+import { Car, Users, Calendar, Home, Search, Bell, Plus, User } from "lucide-react";
 
 const Dashboard = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -90,6 +90,14 @@ const Dashboard = ({ user, onLogout }) => {
             <div className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 rounded-2xl cursor-pointer">
               <Plus className="w-6 h-6" />
               <span>Create Drive</span>
+            </div>
+
+            <div 
+              onClick={() => navigate('/profile')}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 rounded-2xl cursor-pointer"
+            >
+              <User className="w-6 h-6" />
+              <span>Profile</span>
             </div>
           </div>
         </div>
