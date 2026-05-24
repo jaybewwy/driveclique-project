@@ -13,6 +13,12 @@ const getProfile = async (req, res) => {
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
+    console.log('getProfile - raw user from DB:', { useDisplayName: user.useDisplayName, _id: user._id });
+    // Ensure useDisplayName is always included, even for existing users
+    if (user.useDisplayName === undefined) {
+      user.useDisplayName = false;
+    }
+    console.log('getProfile - returning user:', { useDisplayName: user.useDisplayName });
     res.json({ success: true, user });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -24,6 +30,12 @@ const updateProfile = async (req, res) => {
   try {
     const { name, bio, avatar, car, useDisplayName } = req.body;
     const user = await User.findById(req.user.id);
+
+    // Normalize booleans coming from the client.
+    // In some cases it may arrive as a string ("true"/"false").
+    const normalizedUseDisplayName =
+      typeof useDisplayName === 'string' ? useDisplayName === 'true' : useDisplayName;
+
     
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -33,7 +45,7 @@ const updateProfile = async (req, res) => {
     if (name !== undefined) user.name = name;
     if (bio !== undefined) user.bio = bio;
     if (avatar !== undefined) user.avatar = avatar;
-    if (useDisplayName !== undefined) user.useDisplayName = useDisplayName;
+    if (useDisplayName !== undefined) user.useDisplayName = normalizedUseDisplayName;
     if (car !== undefined) {
       user.car = {
         year: car.year || '',
