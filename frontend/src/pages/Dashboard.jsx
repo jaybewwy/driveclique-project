@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Car, Users, Calendar, Home, Search, Bell, Plus, User } from "lucide-react";
+import { Car, Users, Search, Bell, Home } from "lucide-react";
+import Sidebar from "../components/Sidebar";
 
 const Dashboard = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -63,44 +64,7 @@ const Dashboard = ({ user, onLogout }) => {
       </nav>
 
       <div className="flex max-w-7xl mx-auto">
-        {/* Left Sidebar - Navigation */}
-        <div className="w-72 hidden lg:block border-r border-zinc-800 p-4 sticky top-16 h-screen overflow-y-auto">
-          <div className="space-y-2">
-            <div 
-              onClick={() => navigate('/dashboard')}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 rounded-2xl cursor-pointer bg-zinc-900"
-            >
-              <Home className="w-6 h-6 text-red-500" />
-              <span className="font-medium">Home</span>
-            </div>
-
-            <div 
-              onClick={() => navigate('/my-clubs')}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 rounded-2xl cursor-pointer"
-            >
-              <Users className="w-6 h-6" />
-              <span>My Clubs</span>
-            </div>
-
-            <div className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 rounded-2xl cursor-pointer">
-              <Calendar className="w-6 h-6" />
-              <span>Upcoming Drives</span>
-            </div>
-
-            <div className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 rounded-2xl cursor-pointer">
-              <Plus className="w-6 h-6" />
-              <span>Create Drive</span>
-            </div>
-
-            <div 
-              onClick={() => navigate('/profile')}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 rounded-2xl cursor-pointer"
-            >
-              <User className="w-6 h-6" />
-              <span>Profile</span>
-            </div>
-          </div>
-        </div>
+        <Sidebar />
 
         {/* Main Feed */}
         <div className="flex-1 max-w-2xl border-r border-zinc-800 min-h-screen p-6">

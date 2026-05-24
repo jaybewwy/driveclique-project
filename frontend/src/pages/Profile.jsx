@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Car, Users, Calendar, Home, Search, Bell, Save, X, User, Camera } from "lucide-react";
+import { Car, Search, Bell, User, Camera, Home, Users, X, Save } from "lucide-react";
+import Sidebar from "../components/Sidebar";
 
 const Profile = ({ onLogout }) => {
   const navigate = useNavigate();
@@ -17,7 +18,8 @@ const Profile = ({ onLogout }) => {
     avatar: "",
     carYear: "",
     carMake: "",
-    carModel: ""
+    carModel: "",
+    carColor: ""
   });
   const [previewAvatar, setPreviewAvatar] = useState("");
 
@@ -45,7 +47,8 @@ const Profile = ({ onLogout }) => {
             avatar: userData.avatar || "",
             carYear: userData.car?.year || "",
             carMake: userData.car?.make || "",
-            carModel: userData.car?.model || ""
+            carModel: userData.car?.model || "",
+            carColor: userData.car?.color || ""
           });
         }
       } catch (error) {
@@ -95,7 +98,8 @@ const Profile = ({ onLogout }) => {
           car: {
             year: formData.carYear,
             make: formData.carMake,
-            model: formData.carModel
+            model: formData.carModel,
+            color: formData.carColor
           }
         },
         {
@@ -172,27 +176,7 @@ const Profile = ({ onLogout }) => {
       </nav>
 
       <div className="flex max-w-7xl mx-auto">
-        {/* Left Sidebar - Navigation */}
-        <div className="w-72 hidden lg:block border-r border-zinc-800 p-4 sticky top-16 h-screen overflow-y-auto">
-          <div className="space-y-2">
-            <div onClick={() => navigate("/dashboard")} className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 rounded-2xl cursor-pointer">
-              <Home className="w-6 h-6" />
-              <span className="font-medium">Home</span>
-            </div>
-            <div onClick={() => navigate("/my-clubs")} className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 rounded-2xl cursor-pointer">
-              <Users className="w-6 h-6" />
-              <span>My Clubs</span>
-            </div>
-            <div className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 rounded-2xl cursor-pointer bg-zinc-900">
-              <User className="w-6 h-6 text-red-500" />
-              <span className="font-medium">Profile</span>
-            </div>
-            <div className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 rounded-2xl cursor-pointer">
-              <Calendar className="w-6 h-6" />
-              <span>Upcoming Drives</span>
-            </div>
-          </div>
-        </div>
+        <Sidebar />
 
         {/* Main Content */}
         <div className="flex-1 max-w-3xl min-h-screen p-8">
@@ -359,6 +343,19 @@ const Profile = ({ onLogout }) => {
                     className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600"
                   />
                 </div>
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  Color
+                </label>
+                <input
+                  type="text"
+                  name="carColor"
+                  value={formData.carColor}
+                  onChange={handleChange}
+                  placeholder="Red"
+                  className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600"
+                />
               </div>
             </div>
 

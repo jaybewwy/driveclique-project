@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Car, Users, Calendar, Home, Search, Bell, Plus, Crown, Copy, Lock, X, Check } from "lucide-react";
+import { Car, Home, Search, Bell, Users, Plus, Crown, Copy, Lock, X, Check } from "lucide-react";
+import Sidebar from "../components/Sidebar";
 
 const MyClubs = ({ onLogout }) => {
   const navigate = useNavigate();
@@ -201,25 +202,7 @@ const MyClubs = ({ onLogout }) => {
       </nav>
 
       <div className="flex max-w-7xl mx-auto">
-        <div className="w-72 hidden lg:block border-r border-zinc-800 p-4 sticky top-16 h-screen overflow-y-auto">
-          <div className="space-y-2">
-            <div
-              onClick={() => navigate("/dashboard")}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 rounded-2xl cursor-pointer"
-            >
-              <Home className="w-6 h-6" />
-              <span className="font-medium">Home</span>
-            </div>
-            <div className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 rounded-2xl cursor-pointer bg-zinc-900">
-              <Users className="w-6 h-6 text-red-500" />
-              <span className="font-medium">My Clubs</span>
-            </div>
-            <div className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 rounded-2xl cursor-pointer">
-              <Calendar className="w-6 h-6" />
-              <span>Upcoming Drives</span>
-            </div>
-          </div>
-        </div>
+        <Sidebar />
 
         <div className="flex-1 max-w-4xl min-h-screen p-8">
           <div className="flex justify-between items-center mb-8">
@@ -232,10 +215,10 @@ const MyClubs = ({ onLogout }) => {
                 <Lock size={20} /> Join with Code
               </button>
               <button
-                onClick={() => navigate("/browse-clubs")}
+                onClick={() => navigate("/find-club")}
                 className="bg-zinc-800 hover:bg-zinc-700 px-6 py-3 rounded-2xl flex items-center gap-2 font-medium"
               >
-                <Search size={20} /> Browse Clubs
+                <Search size={20} /> Find A Club
               </button>
               <button
                 onClick={() => navigate("/create-club")}

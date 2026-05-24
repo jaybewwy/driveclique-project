@@ -44,6 +44,10 @@ const UserSchema = new mongoose.Schema({
     model: {
       type: String,
       trim: true
+    },
+    color: {
+      type: String,
+      trim: true
     }
   },
   role: { 
