@@ -1,8 +1,30 @@
-import { useNavigate } from 'react-router-dom';
-import { Car, Users, Calendar, Home, Search, Bell, Plus } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { Car, Users, Calendar, Home, Search, Bell, Plus } from "lucide-react";
 
 const Dashboard = ({ user, onLogout }) => {
   const navigate = useNavigate();
+  const [clubs, setClubs] = useState([]);
+
+  useEffect(() => {
+    const fetchClubs = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await axios.get("http://localhost:5000/api/clubs", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (response.data.success) {
+          setClubs(response.data.clubs);
+        }
+      } catch (error) {
+        console.error("Error fetching clubs:", error);
+      }
+    };
+    fetchClubs();
+  }, []);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
@@ -97,15 +119,25 @@ const Dashboard = ({ user, onLogout }) => {
         {/* Right Sidebar */}
         <div className="w-80 hidden xl:block p-6 sticky top-16 h-screen overflow-y-auto">
           <h3 className="font-semibold mb-4">Your Clubs</h3>
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-orange-500 rounded-xl"></div>
-              <div>
-                <p className="font-medium">Southern California Mountain Drivers</p>
-                <p className="text-xs text-zinc-500">47 members</p>
-              </div>
+          {clubs.length === 0 ? (
+            <p className="text-zinc-500 text-sm">No clubs yet</p>
+          ) : (
+            <div className="space-y-4">
+              {clubs.map((club) => (
+                <div 
+                  key={club._id} 
+                  className="flex items-center gap-3 cursor-pointer hover:bg-zinc-900 p-2 rounded-xl transition"
+                  onClick={() => navigate(`/club/${club._id}`)}
+                >
+                  <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-orange-500 rounded-xl"></div>
+                  <div>
+                    <p className="font-medium">{club.name}</p>
+                    <p className="text-xs text-zinc-500">{club.members.length} members</p>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

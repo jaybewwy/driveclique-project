@@ -32,4 +32,4 @@ const ClubSchema = new mongoose.Schema({
   }
 });
 
-module.exports = mongoose.model('Club', ClubSchema);
+module.exports = mongoose.model('CarClub', ClubSchema);
