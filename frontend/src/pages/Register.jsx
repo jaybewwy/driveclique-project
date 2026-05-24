@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Car, CheckCircle, ArrowLeft } from 'lucide-react';
 import axios from 'axios';
 
-const Register = () => {
+const Register = ({ onRegister }) => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -11,16 +11,6 @@ const Register = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const navigate = useNavigate();
-
-  // Auto-redirect to login after successful registration
-  useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => {
-        navigate('/login');
-      }, 2500);
-      return () => clearTimeout(timer);
-    }
-  }, [success, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -38,13 +28,15 @@ const Register = () => {
       console.log('Register response:', response.data);
 
       if (response.data.success) {
-        setSuccess('Account created successfully! Redirecting to sign in...');
-        setError('');
-        // Clear form
-        setUsername('');
-        setEmail('');
-        setPassword('');
-        console.log('Registration successful, will redirect in 2.5 seconds');
+        // Auto-login after successful registration
+        const userData = response.data.user;
+        if (onRegister) {
+          onRegister(userData);
+        }
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('driveclique_user', JSON.stringify(userData));
+        console.log('Registration successful, auto-logging in and redirecting to dashboard');
+        navigate('/dashboard');
       }
     } catch (err) {
       console.error('Register error:', err);

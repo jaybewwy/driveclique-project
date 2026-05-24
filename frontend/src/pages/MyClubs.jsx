@@ -116,10 +116,11 @@ const MyClubs = ({ onLogout }) => {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">
+              <label htmlFor="invite-code-input" className="block text-sm font-medium text-zinc-300 mb-2">
                 Invite Code
               </label>
               <input
+                id="invite-code-input"
                 type="text"
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
