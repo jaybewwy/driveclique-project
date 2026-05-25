@@ -12,6 +12,7 @@ const {
   searchClubs,
   toggleClubPrivacy,
   joinClubByInviteCode,
+  updateClub,
   deleteClub
 } = require('../controllers/clubController');
 
@@ -131,6 +132,26 @@ router.post(
     isPrivate: { required: true, type: 'boolean' }
   }),
   toggleClubPrivacy
+);
+
+/**
+ * @route   PUT /api/clubs/:clubId
+ * @desc    Update a club (name, description, avatar, privacy)
+ * @access  Private (Club Leaders only)
+ */
+router.put(
+  '/:clubId',
+  validateParams({
+    clubId: { required: true, objectId: true }
+  }),
+  validateInput({
+    name: { type: 'string', minLength: 1, maxLength: 100 },
+    description: { type: 'string', minLength: 10, maxLength: 1000 },
+    location: { type: 'string', maxLength: 200 },
+    avatar: { type: 'string', maxLength: 500 },
+    isPrivate: { type: 'boolean' }
+  }),
+  updateClub
 );
 
 /**

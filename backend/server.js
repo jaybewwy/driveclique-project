@@ -25,10 +25,10 @@ app.use(cors({
 }));
 
 // Parse JSON request bodies
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
 
 // Parse URL-encoded request bodies
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Request logging middleware (development only)
 if (process.env.NODE_ENV === 'development') {

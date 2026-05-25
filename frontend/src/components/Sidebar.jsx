@@ -43,7 +43,7 @@ const Sidebar = ({ user }) => {
   };
 
   return (
-    <div className="w-72 hidden lg:block border-r border-zinc-800 p-4 sticky top-16 h-screen overflow-y-auto">
+    <div className="w-72 hidden lg:block border-r border-zinc-800 p-4 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
       {/* User Info Section */}
       {displayName && (
         <div className="flex items-center gap-3 px-4 py-4 mb-4 bg-zinc-900 rounded-2xl">

@@ -63,7 +63,7 @@ const Dashboard = ({ user, onLogout }) => {
         </div>
 
         {/* Right Sidebar */}
-        <div className="w-80 hidden xl:block p-6 sticky top-16 h-screen overflow-y-auto">
+        <div className="w-80 hidden xl:block p-6 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
           <h3 className="font-semibold mb-4">Your Clubs</h3>
           {loading ? (
             <p className="text-zinc-500 text-sm">Loading clubs...</p>

@@ -201,7 +201,7 @@ const FindClub = ({ user, onLogout }) => {
         </div>
 
         {/* Right Sidebar */}
-        <div className="w-80 hidden xl:block p-6 sticky top-16 h-screen overflow-y-auto">
+        <div className="w-80 hidden xl:block p-6 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
           <h3 className="font-semibold mb-4">Popular Clubs</h3>
           <div className="space-y-4">
             {clubs
