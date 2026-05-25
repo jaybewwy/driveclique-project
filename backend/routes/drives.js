@@ -1,32 +1,102 @@
 const express = require('express');
 const router = express.Router();
-
-// Import controllers and middleware
-const { 
-    createDrive, 
-    getClubDrives, 
-    rsvpToDrive,
-    getDriveAttendees,
-    cancelDrive,
-    getLeaderDashboard
+const { protect } = require('../middleware/authentication');
+const { validateParams, validateInput } = require('../middleware/validation');
+const {
+  createDrive,
+  getClubDrives,
+  rsvpToDrive,
+  cancelDrive,
+  getDriveAttendees,
+  getLeaderDashboard
 } = require('../controllers/driveController');
 
-const { protect } = require('../middleware/authentication');
+// All routes require authentication
+router.use(protect);
 
-// ====================== PROTECTED ROUTES ======================
+/**
+ * @route   POST /api/drives
+ * @desc    Create a new drive/event
+ * @access  Private (Club Leaders only)
+ */
+router.post(
+  '/',
+  validateInput({
+    clubId: { required: true, type: 'string' },
+    name: { required: true, type: 'string', minLength: 1, maxLength: 100 },
+    date: { required: true, type: 'string' },
+    time: { required: true, type: 'string' },
+    location: { required: true, type: 'string', maxLength: 200 },
+    description: { type: 'string', maxLength: 1000 },
+    difficulty: { type: 'string', enum: ['Easy', 'Medium', 'Hard'] },
+    maxAttendees: { type: 'number', min: 1, max: 1000 }
+  }),
+  createDrive
+);
 
-// Create a new Drive (Only Club Leader)
-router.post('/', protect, createDrive);
+/**
+ * @route   GET /api/drives/dashboard
+ * @desc    Get leader dashboard with all clubs and drives
+ * @access  Private (Club Leaders only)
+ */
+router.get('/dashboard', getLeaderDashboard);
 
-// Get all drives for a specific club
-router.get('/club/:clubId', getClubDrives);
+/**
+ * @route   GET /api/drives/club/:clubId
+ * @desc    Get all drives for a specific club
+ * @access  Private
+ */
+router.get(
+  '/club/:clubId',
+  validateParams({
+    clubId: { required: true, objectId: true }
+  }),
+  getClubDrives
+);
 
-// RSVP to a Drive/Event
-router.post('/:driveId/rsvp', protect, rsvpToDrive);
+/**
+ * @route   GET /api/drives/:driveId/attendees
+ * @desc    Get drive attendees and stats
+ * @access  Private (Club Leaders only)
+ */
+router.get(
+  '/:driveId/attendees',
+  validateParams({
+    driveId: { required: true, objectId: true }
+  }),
+  getDriveAttendees
+);
 
-// New route for cancelling a drive.
-router.delete('/:driveId/cancel', protect, cancelDrive); 
+/**
+ * @route   POST /api/drives/:driveId/rsvp
+ * @desc    RSVP to a drive
+ * @access  Private
+ */
+router.post(
+  '/:driveId/rsvp',
+  validateParams({
+    driveId: { required: true, objectId: true }
+  }),
+  validateInput({
+    status: { required: true, type: 'string', enum: ['going', 'maybe', 'not-going'] }
+  }),
+  rsvpToDrive
+);
 
-// Leader Dashboard Summary
-router.get('/leader/dashboard', protect, getLeaderDashboard);
+/**
+ * @route   POST /api/drives/:driveId/cancel
+ * @desc    Cancel a drive
+ * @access  Private (Club Leaders only)
+ */
+router.post(
+  '/:driveId/cancel',
+  validateParams({
+    driveId: { required: true, objectId: true }
+  }),
+  validateInput({
+    cancellationReason: { required: true, type: 'string', minLength: 10, maxLength: 500 }
+  }),
+  cancelDrive
+);
+
 module.exports = router;

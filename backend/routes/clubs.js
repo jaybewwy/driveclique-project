@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const { protect } = require('../middleware/authentication');
+const { validateParams, validateInput } = require('../middleware/validation');
 const { 
   createClub, 
   getUserClubs, 
@@ -12,19 +14,140 @@ const {
   joinClubByInviteCode,
   deleteClub
 } = require('../controllers/clubController');
-const { protect } = require('../middleware/authentication');
 
+// All routes require authentication
 router.use(protect);
 
-router.post('/', createClub);
+/**
+ * @route   POST /api/clubs
+ * @desc    Create a new club
+ * @access  Private
+ */
+router.post(
+  '/',
+  validateInput({
+    name: { required: true, type: 'string', minLength: 1, maxLength: 100 },
+    description: { required: true, type: 'string', minLength: 10, maxLength: 1000 },
+    location: { type: 'string', maxLength: 200 },
+    maxMembers: { type: 'number', min: 2, max: 10000 }
+  }),
+  createClub
+);
+
+/**
+ * @route   GET /api/clubs
+ * @desc    Get all clubs for current user
+ * @access  Private
+ */
 router.get('/', getUserClubs);
+
+/**
+ * @route   GET /api/clubs/browse
+ * @desc    Search and browse public clubs
+ * @access  Private
+ */
 router.get('/browse', searchClubs);
-router.post('/join-by-code/:inviteCode', joinClubByInviteCode);
-router.get('/invite/:inviteCode', getClubByInviteCode);
-router.get('/:clubId', getClubById);
-router.post('/:clubId/join', requestToJoinClub);
-router.post('/:clubId/handle-request', handleJoinRequest);
-router.post('/:clubId/toggle-privacy', toggleClubPrivacy);
-router.delete('/:clubId', deleteClub);
+
+/**
+ * @route   POST /api/clubs/join-by-code/:inviteCode
+ * @desc    Join a club using invite code
+ * @access  Private
+ */
+router.post(
+  '/join-by-code/:inviteCode',
+  validateParams({
+    inviteCode: { required: true, type: 'string' }
+  }),
+  joinClubByInviteCode
+);
+
+/**
+ * @route   GET /api/clubs/invite/:inviteCode
+ * @desc    Get club details by invite code
+ * @access  Private
+ */
+router.get(
+  '/invite/:inviteCode',
+  validateParams({
+    inviteCode: { required: true, type: 'string' }
+  }),
+  getClubByInviteCode
+);
+
+/**
+ * @route   GET /api/clubs/:clubId
+ * @desc    Get club details by ID
+ * @access  Private
+ */
+router.get(
+  '/:clubId',
+  validateParams({
+    clubId: { required: true, objectId: true }
+  }),
+  getClubById
+);
+
+/**
+ * @route   POST /api/clubs/:clubId/join
+ * @desc    Request to join a club
+ * @access  Private
+ */
+router.post(
+  '/:clubId/join',
+  validateParams({
+    clubId: { required: true, objectId: true }
+  }),
+  requestToJoinClub
+);
+
+/**
+ * @route   POST /api/clubs/:clubId/handle-request
+ * @desc    Handle a join request (accept/reject)
+ * @access  Private (Club Leaders only)
+ */
+router.post(
+  '/:clubId/handle-request',
+  validateParams({
+    clubId: { required: true, objectId: true }
+  }),
+  validateInput({
+    requestId: { required: true, type: 'string' },
+    status: { required: true, type: 'string', enum: ['accepted', 'rejected'] }
+  }),
+  handleJoinRequest
+);
+
+/**
+ * @route   POST /api/clubs/:clubId/toggle-privacy
+ * @desc    Toggle club privacy setting
+ * @access  Private (Club Leaders only)
+ */
+router.post(
+  '/:clubId/toggle-privacy',
+  validateParams({
+    clubId: { required: true, objectId: true }
+  }),
+  validateInput({
+    isPrivate: { required: true, type: 'boolean' }
+  }),
+  toggleClubPrivacy
+);
+
+/**
+ * @route   DELETE /api/clubs/:clubId
+ * @desc    Delete a club
+ * @access  Private (Club Leaders only)
+ */
+router.delete(
+  '/:clubId',
+  validateParams({
+    clubId: { required: true, objectId: true }
+  }),
+  validateInput({
+    deletionReason: { required: true, type: 'string', minLength: 10, maxLength: 500 },
+    leaderEmail: { required: true, type: 'string', email: true }
+  }),
+  deleteClub
+);
 
 module.exports = router;

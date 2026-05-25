@@ -1,27 +1,27 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { clubsAPI, getErrorMessage } from "../services/api";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 
 const Dashboard = ({ user, onLogout }) => {
   const navigate = useNavigate();
   const [clubs, setClubs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchClubs = async () => {
       try {
-        const token = localStorage.getItem("token");
-        const response = await axios.get("http://localhost:5000/api/clubs", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const response = await clubsAPI.getAll();
         if (response.data.success) {
           setClubs(response.data.clubs);
         }
-      } catch (error) {
-        console.error("Error fetching clubs:", error);
+      } catch (err) {
+        console.error("Error fetching clubs:", err);
+        setError(getErrorMessage(err));
+      } finally {
+        setLoading(false);
       }
     };
     fetchClubs();
@@ -41,6 +41,12 @@ const Dashboard = ({ user, onLogout }) => {
             <p className="text-zinc-400">What's happening in the car community?</p>
           </div>
 
+          {error && (
+            <div className="bg-red-900/30 border border-red-600 rounded-xl p-4 mb-6">
+              <p className="text-red-400 text-sm">{error}</p>
+            </div>
+          )}
+
           <div className="bg-zinc-900 rounded-3xl p-6 mb-8">
             <div className="flex gap-4">
               <div className="w-10 h-10 bg-zinc-700 rounded-full flex-shrink-0"></div>
@@ -59,7 +65,11 @@ const Dashboard = ({ user, onLogout }) => {
         {/* Right Sidebar */}
         <div className="w-80 hidden xl:block p-6 sticky top-16 h-screen overflow-y-auto">
           <h3 className="font-semibold mb-4">Your Clubs</h3>
-          {clubs.length === 0 ? (
+          {loading ? (
+            <p className="text-zinc-500 text-sm">Loading clubs...</p>
+          ) : error ? (
+            <p className="text-zinc-500 text-sm">Unable to load clubs</p>
+          ) : clubs.length === 0 ? (
             <p className="text-zinc-500 text-sm">No clubs yet</p>
           ) : (
             <div className="space-y-4">

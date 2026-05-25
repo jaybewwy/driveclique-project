@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 import { Car, User, Camera, X, Save } from "lucide-react";
+import { authAPI, getErrorMessage } from "../services/api";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 
@@ -28,16 +28,7 @@ const Profile = ({ onLogout, onUpdateUser }) => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          navigate("/login");
-          return;
-        }
-        const response = await axios.get("http://localhost:5000/api/auth/profile", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const response = await authAPI.getProfile();
         if (response.data.success) {
           const userData = response.data.user;
           setUser(userData);
@@ -79,7 +70,6 @@ const Profile = ({ onLogout, onUpdateUser }) => {
   const handleAvatarUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Convert to base64 for preview and storage
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = reader.result;
@@ -92,54 +82,43 @@ const Profile = ({ onLogout, onUpdateUser }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Client-side validation
+    if (formData.useDisplayName && !formData.name.trim()) {
+      setMessage({ type: "error", text: "Please enter a display name before enabling 'Show Display Name'." });
+      return;
+    }
+
     setSaving(true);
     setMessage({ type: "", text: "" });
 
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.put(
-        "http://localhost:5000/api/auth/profile",
-        {
-          name: formData.name,
-          bio: formData.bio,
-          avatar: formData.avatar,
-          useDisplayName: formData.useDisplayName,
-          car: {
-            year: formData.carYear,
-            make: formData.carMake,
-            model: formData.carModel,
-            color: formData.carColor
-          }
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      const response = await authAPI.updateProfile({
+        name: formData.name,
+        bio: formData.bio,
+        avatar: formData.avatar,
+        useDisplayName: formData.useDisplayName,
+        car: {
+          year: formData.carYear,
+          make: formData.carMake,
+          model: formData.carModel,
+          color: formData.carColor
         }
-      );
+      });
 
       if (response.data.success) {
-        // Validate: if display name is toggled on but name is empty, show error
-        if (formData.useDisplayName && !formData.name.trim()) {
-          setMessage({ type: "error", text: "Please enter a display name before enabling 'Show Display Name'." });
-          setSaving(false);
-          return;
-        }
-
         setMessage({ type: "success", text: "Profile updated successfully! Redirecting to dashboard..." });
-        // Update the global user state via the callback
         const updatedUser = response.data.user;
         if (onUpdateUser) {
           onUpdateUser(updatedUser);
         }
         setUser(updatedUser);
-        // Redirect to dashboard after 3 seconds
         setTimeout(() => {
           navigate("/dashboard");
         }, 3000);
       }
     } catch (error) {
-      setMessage({ type: "error", text: error.response?.data?.message || "Failed to update profile" });
+      setMessage({ type: "error", text: getErrorMessage(error) });
     } finally {
       setSaving(false);
     }
@@ -168,8 +147,14 @@ const Profile = ({ onLogout, onUpdateUser }) => {
           </div>
 
           {message.text && (
-            <div className={`mb-6 p-4 rounded-2xl ${message.type === "success" ? "bg-green-900/30 border border-green-600" : "bg-red-900/30 border border-red-600"}`}>
-              <p className={message.type === "success" ? "text-green-400" : "text-red-400"}>{message.text}</p>
+            <div className={`mb-6 p-4 rounded-2xl ${
+              message.type === "success" 
+                ? "bg-green-900/30 border border-green-600" 
+                : "bg-red-900/30 border border-red-600"
+            }`}>
+              <p className={message.type === "success" ? "text-green-400" : "text-red-400"}>
+                {message.text}
+              </p>
             </div>
           )}
 
@@ -368,7 +353,7 @@ const Profile = ({ onLogout, onUpdateUser }) => {
               </div>
             </div>
 
-            {/* Save Button */}
+            {/* Action Buttons */}
             <div className="flex justify-end">
               <button
                 type="button"
@@ -390,7 +375,7 @@ const Profile = ({ onLogout, onUpdateUser }) => {
           </form>
         </div>
 
-        {/* Right Sidebar */}
+        {/* Right Sidebar - Profile Preview */}
         <div className="w-80 hidden xl:block p-6 sticky top-16 h-screen overflow-y-auto">
           <h3 className="font-semibold mb-4">Profile Preview</h3>
           <div className="bg-zinc-900 rounded-2xl p-6 text-center">

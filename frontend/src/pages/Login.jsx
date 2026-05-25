@@ -1,14 +1,24 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Car } from 'lucide-react';
-import axios from 'axios';
+import { authAPI } from '../services/api';
+import { getErrorMessage } from '../services/api';
 
 const Login = ({ onLogin }) => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [formData, setFormData] = useState({
+    username: '',
+    password: ''
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+
+  const handleChange = (e) => {
+    setFormData(prev => ({
+      ...prev,
+      [e.target.name]: e.target.value
+    }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,24 +26,14 @@ const Login = ({ onLogin }) => {
     setError('');
 
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/login', {
-        username,
-        password
-      });
-
-      if (response.data.success) {
-        if (onLogin) {
-          onLogin(response.data.user);
-        }
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('driveclique_user', JSON.stringify(response.data.user));
+      const response = await authAPI.login(formData);
+      
+      if (response.data.success && onLogin) {
+        onLogin(response.data.user);
         navigate('/dashboard');
-      } else {
-        setError(response.data.message || 'Login failed');
       }
     } catch (err) {
-      const errorMessage = err.response?.data?.message || 'Invalid username or password';
-      setError(errorMessage);
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -51,22 +51,28 @@ const Login = ({ onLogin }) => {
         <div className="bg-zinc-900 rounded-3xl p-10">
           <h2 className="text-3xl font-bold mb-8 text-center">Sign In</h2>
 
-          {error && <p className="text-red-500 text-center mb-4">{error}</p>}
+          {error && (
+            <div className="bg-red-900/30 border border-red-600 rounded-xl p-4 mb-4">
+              <p className="text-red-400 text-center text-sm">{error}</p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <input 
               type="text" 
+              name="username"
               placeholder="Username" 
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={formData.username}
+              onChange={handleChange}
               className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 focus:outline-none focus:border-red-600"
               required 
             />
             <input 
               type="password" 
+              name="password"
               placeholder="Password" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={formData.password}
+              onChange={handleChange}
               className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 focus:outline-none focus:border-red-600"
               required 
             />

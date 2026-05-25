@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 import { ArrowLeft, Users, Lock, FileText } from "lucide-react";
+import { clubsAPI, getErrorMessage } from "../services/api";
 
 const CreateClub = () => {
   const navigate = useNavigate();
@@ -28,6 +28,7 @@ const CreateClub = () => {
     setError("");
     setSuccess("");
 
+    // Client-side validation
     if (!formData.name || !formData.description) {
       setError("Please fill in all required fields");
       setLoading(false);
@@ -35,22 +36,12 @@ const CreateClub = () => {
     }
 
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.post(
-        "http://localhost:5000/api/clubs",
-        {
-          name: formData.name,
-          description: formData.description,
-          location: formData.location,
-          maxMembers: formData.maxMembers ? parseInt(formData.maxMembers) : null,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await clubsAPI.create({
+        name: formData.name,
+        description: formData.description,
+        location: formData.location,
+        maxMembers: formData.maxMembers ? parseInt(formData.maxMembers) : null,
+      });
 
       if (response.data.success) {
         setSuccess("Club created successfully! Redirecting to club page...");
@@ -65,7 +56,7 @@ const CreateClub = () => {
         }, 2000);
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to create club");
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
