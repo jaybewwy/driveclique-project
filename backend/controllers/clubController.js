@@ -275,6 +275,54 @@ const joinClubByInviteCode = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Update a Club (Edit name, description, avatar)
+ * @route PUT /api/clubs/:clubId
+ * @access Private (Club Leaders only)
+ */
+const updateClub = asyncHandler(async (req, res) => {
+  const { clubId } = req.params;
+  const { name, description, location, avatar, isPrivate } = req.body;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    throw new AppError('Authentication required', 401);
+  }
+
+  const club = await Club.findById(clubId);
+  if (!club) {
+    throw new AppError('Club not found', 404);
+  }
+
+  // Verify user is the club leader
+  if (club.leader.toString() !== userId) {
+    throw new AppError('Only the club leader can update this club', 403);
+  }
+
+  // Check for duplicate club name (if name is being changed)
+  if (name && name !== club.name) {
+    const existingClub = await Club.findOne({ name, _id: { $ne: clubId } });
+    if (existingClub) {
+      throw new AppError('A club with this name already exists', 400);
+    }
+    club.name = name;
+  }
+
+  // Update fields if provided
+  if (description !== undefined) club.description = description;
+  if (location !== undefined) club.location = location;
+  if (avatar !== undefined) club.avatar = avatar;
+  if (isPrivate !== undefined) club.isPrivate = isPrivate;
+
+  await club.save();
+
+  res.json({
+    success: true,
+    message: 'Club updated successfully',
+    club
+  });
+});
+
+/**
  * Delete a Club
  * @route DELETE /api/clubs/:clubId
  * @access Private (Club Leaders only)
@@ -324,5 +372,6 @@ module.exports = {
   searchClubs,
   toggleClubPrivacy,
   joinClubByInviteCode,
+  updateClub,
   deleteClub
 };

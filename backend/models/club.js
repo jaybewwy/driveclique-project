@@ -55,7 +55,12 @@ const ClubSchema = new mongoose.Schema({
       type: Date,
       default: Date.now
     }
-  }]
+  }],
+  // Club avatar/picture
+  avatar: {
+    type: String,
+    default: ''
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Club', ClubSchema);
