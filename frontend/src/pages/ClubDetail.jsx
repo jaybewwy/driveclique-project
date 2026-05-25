@@ -31,31 +31,8 @@ const ClubDetail = ({ user, onLogout }) => {
 
   const [drives, setDrives] = useState([]);
 
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [scheduleLoading, setScheduleLoading] = useState(false);
-  const [scheduleError, setScheduleError] = useState("");
   const [selectedDrive, setSelectedDrive] = useState(null);
   const [showDriveModal, setShowDriveModal] = useState(false);
-
-  const [scheduleForm, setScheduleForm] = useState({
-    name: "",
-    date: "",
-    time: "",
-    location: "",
-    description: "",
-  });
-
-  const [timePeriod, setTimePeriod] = useState("AM");
-  const [selectedMonth, setSelectedMonth] = useState("");
-  const [selectedDay, setSelectedDay] = useState("");
-  const [selectedYear, setSelectedYear] = useState("");
-
-  const getFormattedDate = () => {
-    if (selectedMonth && selectedDay && selectedYear) {
-      return `${selectedYear}-${selectedMonth}-${selectedDay.toString().padStart(2, "0")}`;
-    }
-    return "";
-  };
 
   // Fetch club details and drives
   useEffect(() => {
@@ -98,140 +75,16 @@ const ClubDetail = ({ user, onLogout }) => {
     fetchData();
   }, [clubId]);
 
-  let currentUser = {};
-  try {
-    currentUser = JSON.parse(localStorage.getItem("driveclique_user") || "{}");
-  } catch {
-    currentUser = {};
-  }
-
-  const isLeader = Boolean(
-    club?.leader?._id && currentUser?._id && club.leader._id === currentUser._id
-  );
+  // Get the leader ID - handle both populated object and string reference
+  const leaderId = club?.leader?._id?.toString() || club?.leader?.toString() || "";
+  const userId = user?._id?.toString() || user?.id?.toString() || "";
+  const isLeader = Boolean(leaderId && userId && leaderId === userId);
 
   const copyInviteCode = () => {
     if (!club?.inviteCode) return;
     navigator.clipboard.writeText(club.inviteCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleScheduleInputChange = (e) => {
-    const { name, value } = e.target;
-    setScheduleForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleTimeChange = (hour, minute) => {
-    const h = hour || "12";
-    const m = minute || "00";
-    setScheduleForm((prev) => ({ ...prev, time: `${h}:${m} ${timePeriod}` }));
-  };
-
-  const handlePeriodChange = (period) => {
-    setTimePeriod(period);
-    const currentTime = scheduleForm.time;
-    if (currentTime) {
-      const [time] = currentTime.split(" ");
-      setScheduleForm((prev) => ({ ...prev, time: `${time} ${period}` }));
-    }
-  };
-
-  const months = [
-    { value: "01", label: "January" },
-    { value: "02", label: "February" },
-    { value: "03", label: "March" },
-    { value: "04", label: "April" },
-    { value: "05", label: "May" },
-    { value: "06", label: "June" },
-    { value: "07", label: "July" },
-    { value: "08", label: "August" },
-    { value: "09", label: "September" },
-    { value: "10", label: "October" },
-    { value: "11", label: "November" },
-    { value: "12", label: "December" },
-  ];
-
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 5 }, (_, i) => currentYear + i);
-  const days = Array.from({ length: 31 }, (_, i) => i + 1);
-  const hours = Array.from({ length: 12 }, (_, i) => i + 1);
-  const minutes = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, "0"));
-
-  const parseTimeForDropdowns = () => {
-    if (!scheduleForm.time) return { hour: "", minute: "", period: "AM" };
-    const [time, period] = scheduleForm.time.split(" ");
-    const [hour, minute] = time.split(":");
-    return { hour: parseInt(hour, 10), minute, period: period || "AM" };
-  };
-
-  const handleScheduleDrive = async (e) => {
-    e.preventDefault();
-    setScheduleLoading(true);
-    setScheduleError("");
-
-    const formattedDate = getFormattedDate();
-    if (!scheduleForm.name || !formattedDate || !scheduleForm.time || !scheduleForm.location) {
-      setScheduleError("Please fill in all required fields");
-      setScheduleLoading(false);
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem("token");
-      const response = await axios.post(
-        "http://localhost:5000/api/drives",
-        {
-          clubId: clubId,
-          name: scheduleForm.name,
-          date: formattedDate,
-          time: scheduleForm.time,
-          location: scheduleForm.location,
-          description: scheduleForm.description || "",
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.data?.success) {
-        const drivesResponse = await axios.get(
-          `http://localhost:5000/api/drives/club/${clubId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (drivesResponse.data?.success) {
-          setDrives(drivesResponse.data.drives || []);
-        }
-
-        setShowScheduleModal(false);
-        setScheduleForm({ name: "", date: "", time: "", location: "", description: "" });
-        setSelectedMonth("");
-        setSelectedDay("");
-        setSelectedYear("");
-        setTimePeriod("AM");
-      }
-    } catch (error) {
-      console.error("Error scheduling drive:", error);
-      setScheduleError(error.response?.data?.message || "Failed to schedule drive");
-    } finally {
-      setScheduleLoading(false);
-    }
-  };
-
-  const closeScheduleModal = () => {
-    setShowScheduleModal(false);
-    setScheduleForm({ name: "", date: "", time: "", location: "", description: "" });
-    setTimePeriod("AM");
-    setSelectedMonth("");
-    setSelectedDay("");
-    setSelectedYear("");
-    setScheduleError("");
   };
 
   const handleDeleteClub = () => {
@@ -497,7 +350,7 @@ const ClubDetail = ({ user, onLogout }) => {
           {isLeader && (
             <div className="mt-4">
               <button
-                onClick={() => setShowScheduleModal(true)}
+                onClick={() => navigate(`/club/${clubId}/schedule-drive`)}
                 className="w-full bg-red-600 hover:bg-red-700 py-3 rounded-2xl font-medium flex items-center justify-center gap-2 transition"
               >
                 <Plus size={18} />
@@ -621,192 +474,6 @@ const ClubDetail = ({ user, onLogout }) => {
           )}
         </div>
       </div>
-
-      {showScheduleModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">Schedule a Drive</h2>
-              <button
-                type="button"
-                onClick={closeScheduleModal}
-                className="text-zinc-500 hover:text-white transition"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <form onSubmit={handleScheduleDrive} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">
-                  Drive Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  value={scheduleForm.name}
-                  onChange={handleScheduleInputChange}
-                  placeholder="e.g. Mountain Run"
-                  className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">
-                  Date <span className="text-red-500">*</span>
-                </label>
-                <div className="flex gap-2">
-                  <select
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(e.target.value)}
-                    className="flex-1 bg-black border border-zinc-700 rounded-xl px-3 py-3 focus:outline-none focus:border-red-600"
-                    required
-                  >
-                    <option value="">Month</option>
-                    {months.map((m) => (
-                      <option key={m.value} value={m.value}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={selectedDay}
-                    onChange={(e) => setSelectedDay(parseInt(e.target.value))}
-                    className="flex-1 bg-black border border-zinc-700 rounded-xl px-3 py-3 focus:outline-none focus:border-red-600"
-                    required
-                  >
-                    <option value="">Day</option>
-                    {days.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                    className="flex-1 bg-black border border-zinc-700 rounded-xl px-3 py-3 focus:outline-none focus:border-red-600"
-                    required
-                  >
-                    <option value="">Year</option>
-                    {years.map((y) => (
-                      <option key={y} value={y}>
-                        {y}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">
-                  Time <span className="text-red-500">*</span>
-                </label>
-                <div className="flex gap-2">
-                  <select
-                    value={parseTimeForDropdowns().hour || ""}
-                    onChange={(e) =>
-                      handleTimeChange(
-                        parseInt(e.target.value),
-                        parseTimeForDropdowns().minute
-                      )
-                    }
-                    className="flex-1 bg-black border border-zinc-700 rounded-xl px-3 py-3 focus:outline-none focus:border-red-600"
-                    required
-                  >
-                    <option value="">Hour</option>
-                    {hours.map((h) => (
-                      <option key={h} value={h}>
-                        {h}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={parseTimeForDropdowns().minute || ""}
-                    onChange={(e) =>
-                      handleTimeChange(parseTimeForDropdowns().hour, e.target.value)
-                    }
-                    className="flex-1 bg-black border border-zinc-700 rounded-xl px-3 py-3 focus:outline-none focus:border-red-600"
-                    required
-                  >
-                    <option value="">Min</option>
-                    {minutes.map((m) => (
-                      <option key={m} value={m}>
-                        {m}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={parseTimeForDropdowns().period}
-                    onChange={(e) => handlePeriodChange(e.target.value)}
-                    className="flex-1 bg-black border border-zinc-700 rounded-xl px-3 py-3 focus:outline-none focus:border-red-600"
-                  >
-                    <option value="AM">AM</option>
-                    <option value="PM">PM</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">
-                  Location <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="location"
-                  value={scheduleForm.location}
-                  onChange={handleScheduleInputChange}
-                  placeholder="e.g. Mountain View Parking Lot"
-                  className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">
-                  Description (Optional)
-                </label>
-                <textarea
-                  name="description"
-                  value={scheduleForm.description}
-                  onChange={handleScheduleInputChange}
-                  placeholder="Additional details about the drive..."
-                  rows={3}
-                  className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 resize-none"
-                />
-              </div>
-
-              {scheduleError && (
-                <div className="bg-red-900/30 border border-red-600 rounded-xl p-3">
-                  <p className="text-red-400 text-sm text-center">{scheduleError}</p>
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={closeScheduleModal}
-                  className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-3 rounded-2xl font-medium transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={scheduleLoading}
-                  className="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-2xl font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {scheduleLoading ? "Scheduling..." : "Schedule Drive"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {showDriveModal && selectedDrive && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
