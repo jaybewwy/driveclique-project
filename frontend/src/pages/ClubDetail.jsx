@@ -1,4 +1,4 @@
-port { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Search, Copy, Check, X, ArrowLeft, Calendar, Clock, MapPin, Plus, Trash2, AlertTriangle } from "lucide-react";
@@ -41,6 +41,8 @@ const ClubDetail = ({ user, onLogout }) => {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [selectedDrive, setSelectedDrive] = useState(null);
+  const [showDriveModal, setShowDriveModal] = useState(false);
 
   // Fetch club details and drives
   useEffect(() => {
@@ -257,6 +259,16 @@ const ClubDetail = ({ user, onLogout }) => {
     setDeleteError("");
   };
 
+  const handleDriveClick = (drive) => {
+    setSelectedDrive(drive);
+    setShowDriveModal(true);
+  };
+
+  const closeDriveModal = () => {
+    setShowDriveModal(false);
+    setSelectedDrive(null);
+  };
+
   const searchUsers = useCallback(async () => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -446,7 +458,11 @@ const ClubDetail = ({ user, onLogout }) => {
                 .filter(drive => !drive.isCancelled)
                 .sort((a, b) => new Date(a.date) - new Date(b.date))
                 .map((drive) => (
-                  <div key={drive._id} className="bg-zinc-900 rounded-2xl p-4">
+                  <div
+                    key={drive._id}
+                    onClick={() => handleDriveClick(drive)}
+                    className="bg-zinc-900 rounded-2xl p-4 cursor-pointer hover:bg-zinc-800 transition"
+                  >
                     <p className="font-medium text-sm mb-2">{drive.name}</p>
                     <div className="space-y-1 text-xs text-zinc-400">
                       <div className="flex items-center gap-2">
@@ -806,6 +822,60 @@ const ClubDetail = ({ user, onLogout }) => {
                   className="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-2xl font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {deleteLoading ? "Deleting..." : "Delete Club"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Drive Detail Modal */}
+      {showDriveModal && selectedDrive && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">{selectedDrive.name}</h2>
+              <button
+                onClick={closeDriveModal}
+                className="text-zinc-500 hover:text-white transition"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 text-zinc-300">
+                  <Calendar size={18} className="text-red-500" />
+                  <span>{new Date(selectedDrive.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                </div>
+                {selectedDrive.time && (
+                  <div className="flex items-center gap-3 text-zinc-300">
+                    <Clock size={18} className="text-red-500" />
+                    <span>{selectedDrive.time}</span>
+                  </div>
+                )}
+                {selectedDrive.location && (
+                  <div className="flex items-center gap-3 text-zinc-300">
+                    <MapPin size={18} className="text-red-500" />
+                    <span>{selectedDrive.location}</span>
+                  </div>
+                )}
+              </div>
+
+              {selectedDrive.description && (
+                <div className="bg-black rounded-xl p-4 mt-4">
+                  <h3 className="text-sm font-medium text-zinc-400 mb-2">Description</h3>
+                  <p className="text-zinc-300 text-sm whitespace-pre-wrap">{selectedDrive.description}</p>
+                </div>
+              )}
+
+              <div className="pt-4">
+                <button
+                  onClick={closeDriveModal}
+                  className="w-full bg-zinc-800 hover:bg-zinc-700 py-3 rounded-2xl font-medium transition"
+                >
+                  Close
                 </button>
               </div>
             </div>
