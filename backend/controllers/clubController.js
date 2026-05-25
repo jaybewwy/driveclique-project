@@ -57,8 +57,8 @@ const getClubById = async (req, res) => {
   try {
     const { clubId } = req.params;
     const club = await Club.findById(clubId)
-      .populate('leader', 'username email')
-      .populate('members', 'username email');
+      .populate('leader', 'username email avatar name useDisplayName car')
+      .populate('members', 'username email avatar name useDisplayName car');
 
     if (!club) {
       return res.status(404).json({ success: false, message: 'Club not found' });
@@ -74,8 +74,8 @@ const getClubByInviteCode = async (req, res) => {
   try {
     const { inviteCode } = req.params;
     const club = await Club.findOne({ inviteCode })
-      .populate('leader', 'username email')
-      .populate('members', 'username email');
+      .populate('leader', 'username email avatar name useDisplayName car')
+      .populate('members', 'username email avatar name useDisplayName car');
 
     if (!club) {
       return res.status(404).json({ success: false, message: 'Club not found' });
@@ -259,6 +259,34 @@ const joinClubByInviteCode = async (req, res) => {
   }
 };
 
+const deleteClub = async (req, res) => {
+  try {
+    const { clubId } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+
+    const club = await Club.findById(clubId);
+    if (!club) {
+      return res.status(404).json({ success: false, message: 'Club not found' });
+    }
+
+    // Verify user is the club leader
+    if (club.leader.toString() !== userId) {
+      return res.status(403).json({ success: false, message: 'Only the club leader can delete this club' });
+    }
+
+    // Delete the club
+    await Club.findByIdAndDelete(clubId);
+
+    res.json({ success: true, message: 'Club deleted successfully' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = { 
   createClub, 
   getUserClubs, 
@@ -268,5 +296,6 @@ module.exports = {
   handleJoinRequest,
   searchClubs,
   toggleClubPrivacy,
-  joinClubByInviteCode
+  joinClubByInviteCode,
+  deleteClub
 };

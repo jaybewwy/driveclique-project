@@ -9,7 +9,8 @@ const {
   handleJoinRequest,
   searchClubs,
   toggleClubPrivacy,
-  joinClubByInviteCode
+  joinClubByInviteCode,
+  deleteClub
 } = require('../controllers/clubController');
 const { protect } = require('../middleware/authentication');
 
@@ -24,5 +25,6 @@ router.get('/:clubId', getClubById);
 router.post('/:clubId/join', requestToJoinClub);
 router.post('/:clubId/handle-request', handleJoinRequest);
 router.post('/:clubId/toggle-privacy', toggleClubPrivacy);
+router.delete('/:clubId', deleteClub);
 
 module.exports = router;

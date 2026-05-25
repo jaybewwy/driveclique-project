@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+port { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Search, Copy, Check, X, ArrowLeft, Calendar, Clock, MapPin, Plus, Trash2 } from "lucide-react";
+import { Search, Copy, Check, X, ArrowLeft, Calendar, Clock, MapPin, Plus, Trash2, AlertTriangle } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 
@@ -23,8 +23,24 @@ const ClubDetail = ({ user, onLogout }) => {
     location: "",
     description: ""
   });
+  const [timePeriod, setTimePeriod] = useState("AM");
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedDay, setSelectedDay] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
+
+  // Compute formatted date from dropdown selections
+  const getFormattedDate = () => {
+    if (selectedMonth && selectedDay && selectedYear) {
+      return `${selectedYear}-${selectedMonth}-${selectedDay.toString().padStart(2, "0")}`;
+    }
+    return "";
+  };
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleError, setScheduleError] = useState("");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
 
   // Fetch club details and drives
   useEffect(() => {
@@ -77,12 +93,59 @@ const ClubDetail = ({ user, onLogout }) => {
     setScheduleForm(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleTimeChange = (hour, minute) => {
+    const h = hour || "12";
+    const m = minute || "00";
+    setScheduleForm(prev => ({ ...prev, time: `${h}:${m} ${timePeriod}` }));
+  };
+
+  const handlePeriodChange = (period) => {
+    setTimePeriod(period);
+    const currentTime = scheduleForm.time;
+    if (currentTime) {
+      const [time] = currentTime.split(" ");
+      setScheduleForm(prev => ({ ...prev, time: `${time} ${period}` }));
+    }
+  };
+
+  // Generate arrays for date/time dropdowns
+  const months = [
+    { value: "01", label: "January" },
+    { value: "02", label: "February" },
+    { value: "03", label: "March" },
+    { value: "04", label: "April" },
+    { value: "05", label: "May" },
+    { value: "06", label: "June" },
+    { value: "07", label: "July" },
+    { value: "08", label: "August" },
+    { value: "09", label: "September" },
+    { value: "10", label: "October" },
+    { value: "11", label: "November" },
+    { value: "12", label: "December" }
+  ];
+
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 5 }, (_, i) => currentYear + i);
+  const days = Array.from({ length: 31 }, (_, i) => i + 1);
+  const hours = Array.from({ length: 12 }, (_, i) => i + 1);
+  const minutes = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, "0"));
+
+
+  // Parse time for dropdowns
+  const parseTimeForDropdowns = () => {
+    if (!scheduleForm.time) return { hour: "", minute: "", period: "AM" };
+    const [time, period] = scheduleForm.time.split(" ");
+    const [hour, minute] = time.split(":");
+    return { hour: parseInt(hour, 10), minute, period: period || "AM" };
+  };
+
   const handleScheduleDrive = async (e) => {
     e.preventDefault();
     setScheduleLoading(true);
     setScheduleError("");
 
-    if (!scheduleForm.name || !scheduleForm.date || !scheduleForm.time || !scheduleForm.location) {
+    const formattedDate = getFormattedDate();
+    if (!scheduleForm.name || !formattedDate || !scheduleForm.time || !scheduleForm.location) {
       setScheduleError("Please fill in all required fields");
       setScheduleLoading(false);
       return;
@@ -95,7 +158,7 @@ const ClubDetail = ({ user, onLogout }) => {
         {
           clubId: clubId,
           name: scheduleForm.name,
-          date: scheduleForm.date,
+          date: formattedDate,
           time: scheduleForm.time,
           location: scheduleForm.location,
           description: scheduleForm.description || ""
@@ -108,8 +171,18 @@ const ClubDetail = ({ user, onLogout }) => {
       );
 
       if (response.data.success) {
-        // Add the new drive to the list
-        setDrives(prev => [...prev, response.data.drive]);
+        // Re-fetch drives from the server to ensure we have the latest data
+        const drivesResponse = await axios.get(
+          `http://localhost:5000/api/drives/club/${clubId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (drivesResponse.data.success) {
+          setDrives(drivesResponse.data.drives || []);
+        }
         // Close modal and reset form
         setShowScheduleModal(false);
         setScheduleForm({
@@ -119,6 +192,10 @@ const ClubDetail = ({ user, onLogout }) => {
           location: "",
           description: ""
         });
+        setSelectedMonth("");
+        setSelectedDay("");
+        setSelectedYear("");
+        setTimePeriod("AM");
       }
     } catch (error) {
       setScheduleError(error.response?.data?.message || "Failed to schedule drive");
@@ -136,7 +213,48 @@ const ClubDetail = ({ user, onLogout }) => {
       location: "",
       description: ""
     });
+    setTimePeriod("AM");
+    setSelectedMonth("");
+    setSelectedDay("");
+    setSelectedYear("");
     setScheduleError("");
+  };
+
+  const handleDeleteClub = async () => {
+    if (deleteConfirmName !== club.name) {
+      setDeleteError("Club name does not match");
+      return;
+    }
+
+    setDeleteLoading(true);
+    setDeleteError("");
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.delete(
+        `http://localhost:5000/api/clubs/${clubId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setShowDeleteModal(false);
+        navigate("/my-clubs");
+      }
+    } catch (error) {
+      setDeleteError(error.response?.data?.message || "Failed to delete club");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setDeleteConfirmName("");
+    setDeleteError("");
   };
 
   const searchUsers = useCallback(async () => {
@@ -314,16 +432,57 @@ const ClubDetail = ({ user, onLogout }) => {
                 {club.leader.useDisplayName && club.leader.name ? club.leader.name : club.leader.username}
               </p>
             </div>
-            <div>
-              <p className="text-sm text-zinc-500">Invite Code</p>
-              <p className="font-mono text-lg">{club.inviteCode}</p>
-            </div>
           </div>
+
+          {/* Drive and Events Section */}
+          <h3 className="font-semibold mb-4 mt-8">Drive and Events</h3>
+          {drives.length === 0 ? (
+            <div className="bg-zinc-900 rounded-2xl p-4">
+              <p className="text-zinc-500 text-sm">No drives scheduled yet</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {drives
+                .filter(drive => !drive.isCancelled)
+                .sort((a, b) => new Date(a.date) - new Date(b.date))
+                .map((drive) => (
+                  <div key={drive._id} className="bg-zinc-900 rounded-2xl p-4">
+                    <p className="font-medium text-sm mb-2">{drive.name}</p>
+                    <div className="space-y-1 text-xs text-zinc-400">
+                      <div className="flex items-center gap-2">
+                        <Calendar size={12} />
+                        <span>{new Date(drive.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      </div>
+                      {drive.time && (
+                        <div className="flex items-center gap-2">
+                          <Clock size={12} />
+                          <span>{drive.time}</span>
+                        </div>
+                      )}
+                      {drive.location && (
+                        <div className="flex items-center gap-2">
+                          <MapPin size={12} />
+                          <span className="truncate">{drive.location}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
 
           {isLeader && (
             <>
+              <button
+                onClick={() => setShowScheduleModal(true)}
+                className="w-full mt-4 bg-red-600 hover:bg-red-700 py-3 rounded-2xl font-medium flex items-center justify-center gap-2 transition"
+              >
+                <Plus size={18} />
+                Schedule a Drive
+              </button>
+
               <h3 className="font-semibold mb-4 mt-8">Club Settings</h3>
-              <div className="bg-zinc-900 rounded-2xl p-4 space-y-4">
+              <div className="bg-zinc-900 rounded-2xl p-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-zinc-400">
                     {club.isPrivate ? "Private Club" : "Public Club"}
@@ -353,6 +512,20 @@ const ClubDetail = ({ user, onLogout }) => {
                     />
                   </button>
                 </div>
+              </div>
+
+              <h3 className="font-semibold mb-4 mt-8 text-red-500">Danger Zone</h3>
+              <div className="bg-red-900/20 border border-red-600 rounded-2xl p-4">
+                <p className="text-red-400 text-sm mb-3">
+                  Permanently delete this club and all associated data.
+                </p>
+                <button
+                  onClick={() => setShowDeleteModal(true)}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2 transition"
+                >
+                  <Trash2 size={18} />
+                  Delete Club
+                </button>
               </div>
 
               <h3 className="font-semibold mb-4 mt-8">Invite Members</h3>
@@ -411,6 +584,234 @@ const ClubDetail = ({ user, onLogout }) => {
           )}
         </div>
       </div>
+
+      {/* Schedule Drive Modal */}
+      {showScheduleModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">Schedule a Drive</h2>
+              <button
+                onClick={closeScheduleModal}
+                className="text-zinc-500 hover:text-white transition"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={handleScheduleDrive} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  Drive Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={scheduleForm.name}
+                  onChange={handleScheduleInputChange}
+                  placeholder="e.g. Mountain Run"
+                  className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  Date <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="flex-1 bg-black border border-zinc-700 rounded-xl px-3 py-3 focus:outline-none focus:border-red-600"
+                    required
+                  >
+                    <option value="">Month</option>
+                    {months.map(m => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={selectedDay}
+                    onChange={(e) => setSelectedDay(parseInt(e.target.value))}
+                    className="flex-1 bg-black border border-zinc-700 rounded-xl px-3 py-3 focus:outline-none focus:border-red-600"
+                    required
+                  >
+                    <option value="">Day</option>
+                    {days.map(d => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                    className="flex-1 bg-black border border-zinc-700 rounded-xl px-3 py-3 focus:outline-none focus:border-red-600"
+                    required
+                  >
+                    <option value="">Year</option>
+                    {years.map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  Time <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    value={parseTimeForDropdowns().hour || ""}
+                    onChange={(e) => handleTimeChange(parseInt(e.target.value), parseTimeForDropdowns().minute)}
+                    className="flex-1 bg-black border border-zinc-700 rounded-xl px-3 py-3 focus:outline-none focus:border-red-600"
+                    required
+                  >
+                    <option value="">Hour</option>
+                    {hours.map(h => (
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={parseTimeForDropdowns().minute || ""}
+                    onChange={(e) => handleTimeChange(parseTimeForDropdowns().hour, e.target.value)}
+                    className="flex-1 bg-black border border-zinc-700 rounded-xl px-3 py-3 focus:outline-none focus:border-red-600"
+                    required
+                  >
+                    <option value="">Min</option>
+                    {minutes.map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={parseTimeForDropdowns().period}
+                    onChange={(e) => handlePeriodChange(e.target.value)}
+                    className="flex-1 bg-black border border-zinc-700 rounded-xl px-3 py-3 focus:outline-none focus:border-red-600"
+                  >
+                    <option value="AM">AM</option>
+                    <option value="PM">PM</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  Location <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="location"
+                  value={scheduleForm.location}
+                  onChange={handleScheduleInputChange}
+                  placeholder="e.g. Mountain View Parking Lot"
+                  className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  Description (Optional)
+                </label>
+                <textarea
+                  name="description"
+                  value={scheduleForm.description}
+                  onChange={handleScheduleInputChange}
+                  placeholder="Additional details about the drive..."
+                  rows="3"
+                  className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 resize-none"
+                />
+              </div>
+
+              {scheduleError && (
+                <div className="bg-red-900/30 border border-red-600 rounded-xl p-3">
+                  <p className="text-red-400 text-sm text-center">{scheduleError}</p>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={closeScheduleModal}
+                  className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-3 rounded-2xl font-medium transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={scheduleLoading}
+                  className="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-2xl font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {scheduleLoading ? "Scheduling..." : "Schedule Drive"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Club Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-red-500 flex items-center gap-3">
+                <AlertTriangle size={28} />
+                Delete Club
+              </h2>
+              <button
+                onClick={closeDeleteModal}
+                className="text-zinc-500 hover:text-white transition"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-red-900/20 border border-red-600 rounded-xl p-4">
+                <p className="text-red-400 text-sm">
+                  <strong>Warning:</strong> This action cannot be undone. Deleting this club will permanently remove all club data, including members, drives, and events.
+                </p>
+              </div>
+
+              <p className="text-zinc-300">
+                To confirm deletion, type the club name: <span className="font-bold text-white">"{club.name}"</span>
+              </p>
+
+              <input
+                type="text"
+                value={deleteConfirmName}
+                onChange={(e) => setDeleteConfirmName(e.target.value)}
+                placeholder="Enter club name to confirm"
+                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600"
+              />
+
+              {deleteError && (
+                <div className="bg-red-900/30 border border-red-600 rounded-xl p-3">
+                  <p className="text-red-400 text-sm text-center">{deleteError}</p>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={closeDeleteModal}
+                  className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-3 rounded-2xl font-medium transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteClub}
+                  disabled={deleteLoading || deleteConfirmName !== club.name}
+                  className="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-2xl font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {deleteLoading ? "Deleting..." : "Delete Club"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
