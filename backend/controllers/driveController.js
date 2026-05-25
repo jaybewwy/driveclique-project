@@ -211,6 +211,88 @@ const getDriveAttendees = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Update a Drive (Edit details or mark as complete)
+ * @route PUT /api/drives/:driveId
+ * @access Private (Club Leaders only)
+ */
+const updateDrive = asyncHandler(async (req, res) => {
+  const { driveId } = req.params;
+  const { name, date, time, location, description, difficulty, maxAttendees, isCompleted } = req.body;
+  const leaderId = req.user.id;
+
+  // Find drive with club info
+  const drive = await Drive.findById(driveId).populate('club');
+  if (!drive) {
+    throw new AppError('Drive not found', 404);
+  }
+
+  // Verify user is the club leader
+  if (drive.club.leader.toString() !== leaderId) {
+    throw new AppError('Only the club leader can update this drive', 403);
+  }
+
+  // Update fields if provided
+  if (name !== undefined) drive.name = name;
+  if (date !== undefined) drive.date = date;
+  if (time !== undefined) drive.time = time;
+  if (location !== undefined) drive.location = location;
+  if (description !== undefined) drive.description = description;
+  if (difficulty !== undefined) drive.difficulty = difficulty;
+  if (maxAttendees !== undefined) drive.maxAttendees = maxAttendees;
+  
+  // Handle completion status
+  if (isCompleted !== undefined) {
+    if (isCompleted) {
+      drive.isCompleted = true;
+      drive.completedAt = new Date();
+    } else {
+      drive.isCompleted = false;
+      drive.completedAt = undefined;
+    }
+  }
+
+  await drive.save();
+
+  res.json({
+    success: true,
+    message: 'Drive updated successfully',
+    drive
+  });
+});
+
+/**
+ * Delete a Drive
+ * @route DELETE /api/drives/:driveId
+ * @access Private (Club Leaders only)
+ */
+const deleteDrive = asyncHandler(async (req, res) => {
+  const { driveId } = req.params;
+  const leaderId = req.user.id;
+
+  // Find drive with club info
+  const drive = await Drive.findById(driveId).populate('club');
+  if (!drive) {
+    throw new AppError('Drive not found', 404);
+  }
+
+  // Verify user is the club leader
+  if (drive.club.leader.toString() !== leaderId) {
+    throw new AppError('Only the club leader can delete this drive', 403);
+  }
+
+  // Delete the drive
+  await Drive.findByIdAndDelete(driveId);
+
+  // Also delete associated RSVPs
+  await RSVP.deleteMany({ drive: driveId });
+
+  res.json({
+    success: true,
+    message: 'Drive deleted successfully'
+  });
+});
+
+/**
  * Get Leader Dashboard Summary
  * @route GET /api/drives/dashboard
  * @access Private (Club Leaders only)
@@ -309,6 +391,8 @@ module.exports = {
   getClubDrives,
   rsvpToDrive,
   cancelDrive,
+  updateDrive,
+  deleteDrive,
   getDriveAttendees,
   getLeaderDashboard
 };

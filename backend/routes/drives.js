@@ -7,6 +7,8 @@ const {
   getClubDrives,
   rsvpToDrive,
   cancelDrive,
+  updateDrive,
+  deleteDrive,
   getDriveAttendees,
   getLeaderDashboard
 } = require('../controllers/driveController');
@@ -97,6 +99,42 @@ router.post(
     cancellationReason: { required: true, type: 'string', minLength: 10, maxLength: 500 }
   }),
   cancelDrive
+);
+
+/**
+ * @route   PUT /api/drives/:driveId
+ * @desc    Update a drive (edit details or mark as complete)
+ * @access  Private (Club Leaders only)
+ */
+router.put(
+  '/:driveId',
+  validateParams({
+    driveId: { required: true, objectId: true }
+  }),
+  validateInput({
+    name: { type: 'string', minLength: 1, maxLength: 100 },
+    date: { type: 'string' },
+    time: { type: 'string' },
+    location: { type: 'string', maxLength: 200 },
+    description: { type: 'string', maxLength: 1000 },
+    difficulty: { type: 'string', enum: ['Easy', 'Medium', 'Hard'] },
+    maxAttendees: { type: 'number', min: 1, max: 1000 },
+    isCompleted: { type: 'boolean' }
+  }),
+  updateDrive
+);
+
+/**
+ * @route   DELETE /api/drives/:driveId
+ * @desc    Delete a drive
+ * @access  Private (Club Leaders only)
+ */
+router.delete(
+  '/:driveId',
+  validateParams({
+    driveId: { required: true, objectId: true }
+  }),
+  deleteDrive
 );
 
 module.exports = router;

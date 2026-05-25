@@ -48,6 +48,14 @@ const DriveSchema = new mongoose.Schema({
   cancelledBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
+  },
+  // Completion field
+  isCompleted: {
+      type: Boolean,
+      default: false
+  },
+  completedAt: {
+      type: Date
   }
 }, { timestamps: true });
 
