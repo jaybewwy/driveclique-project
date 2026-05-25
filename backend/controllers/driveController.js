@@ -1,5 +1,5 @@
 const Drive = require('../models/Drive');
-const Club = require('../models/carclub');
+const Club = require('../models/club');
 const RSVP = require('../models/RSVP');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 

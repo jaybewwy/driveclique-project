@@ -109,7 +109,7 @@ const ClubDetail = ({ user, onLogout }) => {
     try {
       const token = localStorage.getItem("token");
       const response = await axios.get(
-        `http://localhost:5000/api/auth/search?query=${searchQuery}`,
+        `http://localhost:5000/api/auth/users/search?query=${searchQuery}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,

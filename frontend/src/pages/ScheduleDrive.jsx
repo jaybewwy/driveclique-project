@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Calendar, MapPin, ArrowLeft, Info, CalendarDays, AlertCircle, CheckCircle } from 'lucide-react';
+import { Calendar, MapPin, ArrowLeft, Info, CalendarDays, AlertCircle, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const ScheduleDrive = () => {
   const { clubId } = useParams();
@@ -23,15 +23,26 @@ const ScheduleDrive = () => {
   });
 
   const [timePeriod, setTimePeriod] = useState('AM');
-  const [selectedMonth, setSelectedMonth] = useState('');
-  const [selectedDay, setSelectedDay] = useState('');
-  const [selectedYear, setSelectedYear] = useState('');
+  
+  // Calendar state for box-calendar date selection
+  const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
+  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+  const [selectedDate, setSelectedDate] = useState(null);
+  
+  // Get today's date for disabling past dates
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   // Fetch club data on component mount
   useEffect(() => {
     const fetchClubData = async () => {
       try {
         const token = localStorage.getItem('token');
+        if (!clubId) {
+          setError('Club ID is required');
+          setLoading(false);
+          return;
+        }
         const response = await axios.get(`http://localhost:5000/api/clubs/${clubId}`, {
           headers: {
             Authorization: `Bearer ${token}`
@@ -41,8 +52,9 @@ const ScheduleDrive = () => {
           setClubData(response.data.club);
         }
         setLoading(false);
-      } catch {
-        setError('Failed to load club information');
+      } catch (err) {
+        console.error('Error fetching club data:', err);
+        setError(err.response?.data?.message || 'Failed to load club information');
         setLoading(false);
       }
     };
@@ -73,24 +85,11 @@ const ScheduleDrive = () => {
     }
   };
 
-  const months = [
-    { value: '01', label: 'January' },
-    { value: '02', label: 'February' },
-    { value: '03', label: 'March' },
-    { value: '04', label: 'April' },
-    { value: '05', label: 'May' },
-    { value: '06', label: 'June' },
-    { value: '07', label: 'July' },
-    { value: '08', label: 'August' },
-    { value: '09', label: 'September' },
-    { value: '10', label: 'October' },
-    { value: '11', label: 'November' },
-    { value: '12', label: 'December' }
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 5 }, (_, i) => currentYear + i);
-  const days = Array.from({ length: 31 }, (_, i) => i + 1);
   const hours = Array.from({ length: 12 }, (_, i) => i + 1);
   const minutes = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
 
@@ -102,10 +101,79 @@ const ScheduleDrive = () => {
   };
 
   const getFormattedDate = () => {
-    if (selectedMonth && selectedDay && selectedYear) {
-      return `${selectedYear}-${selectedMonth}-${selectedDay.toString().padStart(2, '0')}`;
+    if (selectedDate) {
+      const year = selectedDate.getFullYear();
+      const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const day = String(selectedDate.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
     }
     return '';
+  };
+
+  const getDisplayDate = () => {
+    if (selectedDate) {
+      return selectedDate.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+    return 'Select a date';
+  };
+
+  // Calendar navigation
+  const goToPreviousMonth = () => {
+    if (calendarMonth === 0) {
+      setCalendarMonth(11);
+      setCalendarYear(calendarYear - 1);
+    } else {
+      setCalendarMonth(calendarMonth - 1);
+    }
+  };
+
+  const goToNextMonth = () => {
+    if (calendarMonth === 11) {
+      setCalendarMonth(0);
+      setCalendarYear(calendarYear + 1);
+    } else {
+      setCalendarMonth(calendarMonth + 1);
+    }
+  };
+
+  // Check if a date is in the past (disabled)
+  const isDateDisabled = (day) => {
+    const dateToCheck = new Date(calendarYear, calendarMonth, day);
+    return dateToCheck < today;
+  };
+
+  // Check if a date is selected
+  const isDateSelected = (day) => {
+    if (!selectedDate) return false;
+    return (
+      selectedDate.getDate() === day &&
+      selectedDate.getMonth() === calendarMonth &&
+      selectedDate.getFullYear() === calendarYear
+    );
+  };
+
+  // Handle date selection from calendar
+  const handleDateSelect = (day) => {
+    if (isDateDisabled(day)) return;
+    const newDate = new Date(calendarYear, calendarMonth, day);
+    setSelectedDate(newDate);
+  };
+
+  // Get days in the current month
+  const getDaysInMonth = () => {
+    const year = calendarYear;
+    const month = calendarMonth;
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDay = firstDay.getDay();
+    
+    return { daysInMonth, startingDay };
   };
 
   const validateForm = () => {
@@ -132,11 +200,11 @@ const ScheduleDrive = () => {
     }
     
     // Check if date is in the past
-    const selectedDate = new Date(formattedDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const selectedDateObj = new Date(formattedDate);
+    const todayObj = new Date();
+    todayObj.setHours(0, 0, 0, 0);
     
-    if (selectedDate < today) {
+    if (selectedDateObj < todayObj) {
       setValidationError('Cannot schedule a drive in the past');
       return false;
     }
@@ -183,11 +251,13 @@ const ScheduleDrive = () => {
           });
         }, 2000);
       }
-    } catch (error) {
-      setValidationError(error.response?.data?.message || 'Failed to schedule drive. Please try again.');
+    } catch (err) {
+      setValidationError(err.response?.data?.message || 'Failed to schedule drive. Please try again.');
       setIsScheduling(false);
     }
   };
+
+  const { daysInMonth, startingDay } = getDaysInMonth();
 
   if (loading) {
     return (
@@ -315,53 +385,86 @@ const ScheduleDrive = () => {
                 />
               </div>
 
-              {/* Date Selection */}
+              {/* Date Selection - Box Calendar */}
               <div>
                 <label className="block text-sm font-medium text-zinc-300 mb-3">
                   Date <span className="text-red-500">*</span>
                 </label>
-                <div className="flex gap-3">
-                  <select
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(e.target.value)}
-                    className="flex-1 bg-black border border-zinc-700 rounded-2xl px-4 py-4 focus:outline-none focus:border-red-600 transition"
-                    required
-                  >
-                    <option value="">Month</option>
-                    {months.map((m) => (
-                      <option key={m.value} value={m.value}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
+                
+                {/* Calendar Box */}
+                <div className="bg-black border border-zinc-700 rounded-2xl p-4">
+                  {/* Calendar Header */}
+                  <div className="flex items-center justify-between mb-4">
+                    <button
+                      type="button"
+                      onClick={goToPreviousMonth}
+                      className="p-2 hover:bg-zinc-800 rounded-xl transition"
+                    >
+                      <ChevronLeft className="w-5 h-5 text-zinc-400" />
+                    </button>
+                    <span className="text-white font-semibold text-lg">
+                      {monthNames[calendarMonth]} {calendarYear}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={goToNextMonth}
+                      className="p-2 hover:bg-zinc-800 rounded-xl transition"
+                    >
+                      <ChevronRight className="w-5 h-5 text-zinc-400" />
+                    </button>
+                  </div>
 
-                  <select
-                    value={selectedDay}
-                    onChange={(e) => setSelectedDay(parseInt(e.target.value))}
-                    className="flex-1 bg-black border border-zinc-700 rounded-2xl px-4 py-4 focus:outline-none focus:border-red-600 transition"
-                    required
-                  >
-                    <option value="">Day</option>
-                    {days.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
+                  {/* Day Headers */}
+                  <div className="grid grid-cols-7 gap-1 mb-2">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                      <div key={day} className="text-center text-xs text-zinc-500 py-2">
+                        {day}
+                      </div>
                     ))}
-                  </select>
+                  </div>
 
-                  <select
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                    className="flex-1 bg-black border border-zinc-700 rounded-2xl px-4 py-4 focus:outline-none focus:border-red-600 transition"
-                    required
-                  >
-                    <option value="">Year</option>
-                    {years.map((y) => (
-                      <option key={y} value={y}>
-                        {y}
-                      </option>
+                  {/* Calendar Days */}
+                  <div className="grid grid-cols-7 gap-1">
+                    {/* Empty cells for days before the first day of the month */}
+                    {Array.from({ length: startingDay }, (_, i) => (
+                      <div key={`empty-${i}`} className="aspect-square"></div>
                     ))}
-                  </select>
+                    
+                    {/* Days of the month */}
+                    {Array.from({ length: daysInMonth }, (_, i) => {
+                      const day = i + 1;
+                      const disabled = isDateDisabled(day);
+                      const selected = isDateSelected(day);
+                      
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => handleDateSelect(day)}
+                          disabled={disabled}
+                          className={`
+                            aspect-square rounded-xl text-sm font-medium transition
+                            flex items-center justify-center
+                            ${disabled 
+                              ? 'text-zinc-700 cursor-not-allowed' 
+                              : selected
+                                ? 'bg-red-600 text-white'
+                                : 'text-white hover:bg-zinc-800'
+                            }
+                          `}
+                        >
+                          {day}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Selected Date Display */}
+                <div className="mt-3 text-sm text-zinc-400">
+                  {selectedDate && (
+                    <span className="text-red-400">{getDisplayDate()}</span>
+                  )}
                 </div>
               </div>
 
@@ -446,7 +549,7 @@ const ScheduleDrive = () => {
                   onChange={handleChange}
                   rows="4"
                   className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 text-white placeholder-zinc-500 focus:outline-none focus:border-red-600 transition resize-none"
-                  placeholder="Additional details about the drive, route information, or special instructions..."
+                  placeholder="Additional details about the drive..."
                 />
               </div>
             </div>

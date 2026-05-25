@@ -1,4 +1,4 @@
-import { Home, User, Users, Search, Calendar, Plus } from "lucide-react";
+import { Home, User, Users, Search } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const Sidebar = ({ user }) => {
@@ -32,18 +32,6 @@ const Sidebar = ({ user }) => {
       label: "Find A Club",
       icon: Search,
       path: "/find-club",
-    },
-    {
-      id: "upcoming-drives",
-      label: "Upcoming Drives",
-      icon: Calendar,
-      path: "/drives", // TODO: Create drives page
-    },
-    {
-      id: "create-drive",
-      label: "Create Drive",
-      icon: Plus,
-      path: "/create-drive", // TODO: Create drive creation page
     },
   ];
 

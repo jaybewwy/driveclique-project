@@ -22,7 +22,7 @@ const ClubPage = () => {
 
         // Get token from localStorage
         const token = localStorage.getItem('token');
-        const user = JSON.parse(localStorage.getItem('user'));
+        const user = JSON.parse(localStorage.getItem('driveclique_user'));
 
         if (!token) {
           navigate('/login');

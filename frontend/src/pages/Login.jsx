@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Car } from 'lucide-react';
 import { authAPI } from '../services/api';
-import { getErrorMessage } from '../services/api';
 
 const Login = ({ onLogin }) => {
   const [formData, setFormData] = useState({
@@ -29,11 +28,17 @@ const Login = ({ onLogin }) => {
       const response = await authAPI.login(formData);
       
       if (response.data.success && onLogin) {
+        // Store token in localStorage
+        if (response.data.token) {
+          localStorage.setItem('token', response.data.token);
+        }
+        // Store user data with consistent key
+        localStorage.setItem('driveclique_user', JSON.stringify(response.data.user));
         onLogin(response.data.user);
         navigate('/dashboard');
       }
-    } catch (err) {
-      setError(getErrorMessage(err));
+    } catch {
+      setError('Login failed.');
     } finally {
       setLoading(false);
     }

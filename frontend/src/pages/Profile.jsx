@@ -203,10 +203,11 @@ const Profile = ({ onLogout, onUpdateUser }) => {
               <h2 className="text-xl font-semibold mb-6">Personal Information</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  <label htmlFor="display-name" className="block text-sm font-medium text-zinc-300 mb-2">
                     Display Name
                   </label>
                   <input
+                    id="display-name"
                     type="text"
                     name="name"
                     value={formData.name}
@@ -244,10 +245,11 @@ const Profile = ({ onLogout, onUpdateUser }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  <label htmlFor="username" className="block text-sm font-medium text-zinc-300 mb-2">
                     Username
                   </label>
                   <input
+                    id="username"
                     type="text"
                     name="username"
                     value={formData.username}
@@ -258,10 +260,11 @@ const Profile = ({ onLogout, onUpdateUser }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  <label htmlFor="email" className="block text-sm font-medium text-zinc-300 mb-2">
                     Email
                   </label>
                   <input
+                    id="email"
                     type="email"
                     name="email"
                     value={formData.email}
@@ -299,10 +302,11 @@ const Profile = ({ onLogout, onUpdateUser }) => {
               </p>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  <label htmlFor="carYear" className="block text-sm font-medium text-zinc-300 mb-2">
                     Year
                   </label>
                   <input
+                    id="carYear"
                     type="text"
                     name="carYear"
                     value={formData.carYear}
@@ -312,10 +316,11 @@ const Profile = ({ onLogout, onUpdateUser }) => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  <label htmlFor="carMake" className="block text-sm font-medium text-zinc-300 mb-2">
                     Make
                   </label>
                   <input
+                    id="carMake"
                     type="text"
                     name="carMake"
                     value={formData.carMake}
@@ -325,10 +330,11 @@ const Profile = ({ onLogout, onUpdateUser }) => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  <label htmlFor="carModel" className="block text-sm font-medium text-zinc-300 mb-2">
                     Model
                   </label>
                   <input
+                    id="carModel"
                     type="text"
                     name="carModel"
                     value={formData.carModel}
@@ -339,10 +345,11 @@ const Profile = ({ onLogout, onUpdateUser }) => {
                 </div>
               </div>
               <div className="mt-4">
-                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                <label htmlFor="carColor" className="block text-sm font-medium text-zinc-300 mb-2">
                   Color
                 </label>
                 <input
+                  id="carColor"
                   type="text"
                   name="carColor"
                   value={formData.carColor}

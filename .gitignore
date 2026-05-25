@@ -44,3 +44,8 @@ tests/
 *.spec.js
 *.test.ts
 *.test.js
+
+# Misc
+*.md
+*.bak
+*.tmp   

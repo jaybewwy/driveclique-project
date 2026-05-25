@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const DriveSchema = new mongoose.Schema({
   club: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'CarClub', 
+    ref: 'Club', 
     required: true 
   },
   name: { 

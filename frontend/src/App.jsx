@@ -5,7 +5,6 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import MyClubs from './pages/MyClubs';
-import ClubPage from './pages/ClubPage';
 import ClubDetail from './pages/ClubDetail';
 import CreateClub from './pages/CreateClub';
 import FindClub from './pages/FindClub';
@@ -60,7 +59,6 @@ function App() {
 
         <Route path="/dashboard" element={isAuthenticated ? <Dashboard user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/my-clubs" element={isAuthenticated ? <MyClubs user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
-        <Route path="/clubs/:clubId" element={isAuthenticated ? <ClubPage user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/club/:clubId" element={isAuthenticated ? <ClubDetail user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/create-club" element={isAuthenticated ? <CreateClub user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/find-club" element={isAuthenticated ? <FindClub user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
