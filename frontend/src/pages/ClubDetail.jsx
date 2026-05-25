@@ -1,56 +1,68 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Search, Copy, Check, X, ArrowLeft, Calendar, Clock, MapPin, Plus, Trash2, AlertTriangle } from "lucide-react";
+import {
+  Search,
+  Copy,
+  Check,
+  X,
+  ArrowLeft,
+  Calendar,
+  Clock,
+  MapPin,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 
 const ClubDetail = ({ user, onLogout }) => {
   const { clubId } = useParams();
   const navigate = useNavigate();
+
   const [club, setClub] = useState(null);
   const [loading, setLoading] = useState(true);
+
   const [copied, setCopied] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [activeTab, setActiveTab] = useState("members");
+
   const [drives, setDrives] = useState([]);
+
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduleError, setScheduleError] = useState("");
+  const [selectedDrive, setSelectedDrive] = useState(null);
+  const [showDriveModal, setShowDriveModal] = useState(false);
+
   const [scheduleForm, setScheduleForm] = useState({
     name: "",
     date: "",
     time: "",
     location: "",
-    description: ""
+    description: "",
   });
+
   const [timePeriod, setTimePeriod] = useState("AM");
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedDay, setSelectedDay] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
 
-  // Compute formatted date from dropdown selections
   const getFormattedDate = () => {
     if (selectedMonth && selectedDay && selectedYear) {
       return `${selectedYear}-${selectedMonth}-${selectedDay.toString().padStart(2, "0")}`;
     }
     return "";
   };
-  const [scheduleLoading, setScheduleLoading] = useState(false);
-  const [scheduleError, setScheduleError] = useState("");
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
-  const [deleteConfirmName, setDeleteConfirmName] = useState("");
-  const [selectedDrive, setSelectedDrive] = useState(null);
-  const [showDriveModal, setShowDriveModal] = useState(false);
 
   // Fetch club details and drives
   useEffect(() => {
     const fetchData = async () => {
       try {
         const token = localStorage.getItem("token");
-        
-        // Fetch club details
+
         const clubResponse = await axios.get(
           `http://localhost:5000/api/clubs/${clubId}`,
           {
@@ -59,11 +71,11 @@ const ClubDetail = ({ user, onLogout }) => {
             },
           }
         );
-        if (clubResponse.data.success) {
+
+        if (clubResponse.data?.success) {
           setClub(clubResponse.data.club);
         }
 
-        // Fetch drives for this club
         const drivesResponse = await axios.get(
           `http://localhost:5000/api/drives/club/${clubId}`,
           {
@@ -72,7 +84,8 @@ const ClubDetail = ({ user, onLogout }) => {
             },
           }
         );
-        if (drivesResponse.data.success) {
+
+        if (drivesResponse.data?.success) {
           setDrives(drivesResponse.data.drives || []);
         }
       } catch (error) {
@@ -81,10 +94,23 @@ const ClubDetail = ({ user, onLogout }) => {
         setLoading(false);
       }
     };
+
     fetchData();
   }, [clubId]);
 
+  let currentUser = {};
+  try {
+    currentUser = JSON.parse(localStorage.getItem("driveclique_user") || "{}");
+  } catch {
+    currentUser = {};
+  }
+
+  const isLeader = Boolean(
+    club?.leader?._id && currentUser?._id && club.leader._id === currentUser._id
+  );
+
   const copyInviteCode = () => {
+    if (!club?.inviteCode) return;
     navigator.clipboard.writeText(club.inviteCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -92,13 +118,13 @@ const ClubDetail = ({ user, onLogout }) => {
 
   const handleScheduleInputChange = (e) => {
     const { name, value } = e.target;
-    setScheduleForm(prev => ({ ...prev, [name]: value }));
+    setScheduleForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleTimeChange = (hour, minute) => {
     const h = hour || "12";
     const m = minute || "00";
-    setScheduleForm(prev => ({ ...prev, time: `${h}:${m} ${timePeriod}` }));
+    setScheduleForm((prev) => ({ ...prev, time: `${h}:${m} ${timePeriod}` }));
   };
 
   const handlePeriodChange = (period) => {
@@ -106,11 +132,10 @@ const ClubDetail = ({ user, onLogout }) => {
     const currentTime = scheduleForm.time;
     if (currentTime) {
       const [time] = currentTime.split(" ");
-      setScheduleForm(prev => ({ ...prev, time: `${time} ${period}` }));
+      setScheduleForm((prev) => ({ ...prev, time: `${time} ${period}` }));
     }
   };
 
-  // Generate arrays for date/time dropdowns
   const months = [
     { value: "01", label: "January" },
     { value: "02", label: "February" },
@@ -123,7 +148,7 @@ const ClubDetail = ({ user, onLogout }) => {
     { value: "09", label: "September" },
     { value: "10", label: "October" },
     { value: "11", label: "November" },
-    { value: "12", label: "December" }
+    { value: "12", label: "December" },
   ];
 
   const currentYear = new Date().getFullYear();
@@ -132,8 +157,6 @@ const ClubDetail = ({ user, onLogout }) => {
   const hours = Array.from({ length: 12 }, (_, i) => i + 1);
   const minutes = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, "0"));
 
-
-  // Parse time for dropdowns
   const parseTimeForDropdowns = () => {
     if (!scheduleForm.time) return { hour: "", minute: "", period: "AM" };
     const [time, period] = scheduleForm.time.split(" ");
@@ -163,7 +186,7 @@ const ClubDetail = ({ user, onLogout }) => {
           date: formattedDate,
           time: scheduleForm.time,
           location: scheduleForm.location,
-          description: scheduleForm.description || ""
+          description: scheduleForm.description || "",
         },
         {
           headers: {
@@ -172,8 +195,7 @@ const ClubDetail = ({ user, onLogout }) => {
         }
       );
 
-      if (response.data.success) {
-        // Re-fetch drives from the server to ensure we have the latest data
+      if (response.data?.success) {
         const drivesResponse = await axios.get(
           `http://localhost:5000/api/drives/club/${clubId}`,
           {
@@ -182,24 +204,20 @@ const ClubDetail = ({ user, onLogout }) => {
             },
           }
         );
-        if (drivesResponse.data.success) {
+
+        if (drivesResponse.data?.success) {
           setDrives(drivesResponse.data.drives || []);
         }
-        // Close modal and reset form
+
         setShowScheduleModal(false);
-        setScheduleForm({
-          name: "",
-          date: "",
-          time: "",
-          location: "",
-          description: ""
-        });
+        setScheduleForm({ name: "", date: "", time: "", location: "", description: "" });
         setSelectedMonth("");
         setSelectedDay("");
         setSelectedYear("");
         setTimePeriod("AM");
       }
     } catch (error) {
+      console.error("Error scheduling drive:", error);
       setScheduleError(error.response?.data?.message || "Failed to schedule drive");
     } finally {
       setScheduleLoading(false);
@@ -208,13 +226,7 @@ const ClubDetail = ({ user, onLogout }) => {
 
   const closeScheduleModal = () => {
     setShowScheduleModal(false);
-    setScheduleForm({
-      name: "",
-      date: "",
-      time: "",
-      location: "",
-      description: ""
-    });
+    setScheduleForm({ name: "", date: "", time: "", location: "", description: "" });
     setTimePeriod("AM");
     setSelectedMonth("");
     setSelectedDay("");
@@ -222,41 +234,8 @@ const ClubDetail = ({ user, onLogout }) => {
     setScheduleError("");
   };
 
-  const handleDeleteClub = async () => {
-    if (deleteConfirmName !== club.name) {
-      setDeleteError("Club name does not match");
-      return;
-    }
-
-    setDeleteLoading(true);
-    setDeleteError("");
-
-    try {
-      const token = localStorage.getItem("token");
-      const response = await axios.delete(
-        `http://localhost:5000/api/clubs/${clubId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.data.success) {
-        setShowDeleteModal(false);
-        navigate("/my-clubs");
-      }
-    } catch (error) {
-      setDeleteError(error.response?.data?.message || "Failed to delete club");
-    } finally {
-      setDeleteLoading(false);
-    }
-  };
-
-  const closeDeleteModal = () => {
-    setShowDeleteModal(false);
-    setDeleteConfirmName("");
-    setDeleteError("");
+  const handleDeleteClub = () => {
+    navigate(`/club/${clubId}/delete`);
   };
 
   const handleDriveClick = (drive) => {
@@ -284,7 +263,7 @@ const ClubDetail = ({ user, onLogout }) => {
           },
         }
       );
-      if (response.data.success) {
+      if (response.data?.success) {
         setSearchResults(response.data.users);
       }
     } catch (error) {
@@ -294,12 +273,10 @@ const ClubDetail = ({ user, onLogout }) => {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (searchQuery.trim()) {
-        searchUsers();
-      } else {
-        setSearchResults([]);
-      }
+      if (searchQuery.trim()) searchUsers();
+      else setSearchResults([]);
     }, 300);
+
     return () => clearTimeout(timer);
   }, [searchQuery, searchUsers]);
 
@@ -318,9 +295,6 @@ const ClubDetail = ({ user, onLogout }) => {
       </div>
     );
   }
-
-  const currentUser = JSON.parse(localStorage.getItem("driveclique_user") || "{}");
-  const isLeader = club.leader._id === currentUser._id;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
@@ -344,7 +318,6 @@ const ClubDetail = ({ user, onLogout }) => {
             {club.location && <p className="text-zinc-500 mt-1">{club.location}</p>}
           </div>
 
-
           <div className="bg-zinc-900 rounded-3xl p-6">
             <div className="flex gap-4 mb-6">
               <button
@@ -355,8 +328,9 @@ const ClubDetail = ({ user, onLogout }) => {
                     : "bg-zinc-800 text-zinc-400 hover:text-white"
                 }`}
               >
-                Members ({club.members.length})
+                Members ({club.members?.length || 0})
               </button>
+
               {isLeader && club.joinRequests && club.joinRequests.length > 0 && (
                 <button
                   onClick={() => setActiveTab("requests")}
@@ -366,24 +340,35 @@ const ClubDetail = ({ user, onLogout }) => {
                       : "bg-zinc-800 text-zinc-400 hover:text-white"
                   }`}
                 >
-                  Requests ({club.joinRequests.filter((r) => r.status === "pending").length})
+                  Requests (
+                  {club.joinRequests.filter((r) => r.status === "pending").length})
                 </button>
               )}
             </div>
 
             {activeTab === "members" && (
               <div className="space-y-3">
-                {club.members.map((member) => (
-                  <div key={member._id} className="flex items-center gap-4 bg-black rounded-xl px-4 py-3">
+                {(club.members || []).map((member) => (
+                  <div
+                    key={member._id}
+                    className="flex items-center gap-4 bg-black rounded-xl px-4 py-3"
+                  >
                     <div className="w-12 h-12 bg-zinc-700 rounded-full overflow-hidden flex-shrink-0">
                       {member.avatar ? (
-                        <img src={member.avatar} alt={member.username} className="w-full h-full object-cover" />
+                        <img
+                          src={member.avatar}
+                          alt={member.username}
+                          className="w-full h-full object-cover"
+                        />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <span className="text-zinc-500 text-sm">{member.username.charAt(0).toUpperCase()}</span>
+                          <span className="text-zinc-500 text-sm">
+                            {member.username?.charAt(0)?.toUpperCase?.()}
+                          </span>
                         </div>
                       )}
                     </div>
+
                     <div className="flex-1">
                       <p className="font-medium">
                         {member.useDisplayName && member.name ? member.name : member.username}
@@ -394,8 +379,11 @@ const ClubDetail = ({ user, onLogout }) => {
                         </p>
                       )}
                     </div>
-                    {member._id === club.leader._id && (
-                      <span className="text-amber-500 text-sm flex items-center gap-1">Leader</span>
+
+                    {club.leader?._id && member._id === club.leader._id && (
+                      <span className="text-amber-500 text-sm flex items-center gap-1">
+                        Leader
+                      </span>
                     )}
                   </div>
                 ))}
@@ -404,26 +392,34 @@ const ClubDetail = ({ user, onLogout }) => {
 
             {activeTab === "requests" && isLeader && (
               <div className="space-y-3">
-                {club.joinRequests
+                {(club.joinRequests || [])
                   .filter((r) => r.status === "pending")
                   .map((request) => (
-                    <div key={request._id} className="flex items-center gap-4 bg-black rounded-xl px-4 py-3">
-                      <div className="w-12 h-12 bg-zinc-700 rounded-full"></div>
+                    <div
+                      key={request._id}
+                      className="flex items-center gap-4 bg-black rounded-xl px-4 py-3"
+                    >
+                      <div className="w-12 h-12 bg-zinc-700 rounded-full" />
+
                       <div className="flex-1">
-                        <p className="font-medium">{request.user?.username || "Unknown User"}</p>
+                        <p className="font-medium">
+                          {request.user?.username || "Unknown User"}
+                        </p>
                         <p className="text-sm text-zinc-500">Wants to join your club</p>
                       </div>
+
                       <div className="flex gap-2">
-                        <button className="bg-green-600 hover:bg-green-700 p-3 rounded-xl">
+                        <button className="bg-green-600 hover:bg-green-700 p-3 rounded-xl" type="button">
                           <Check size={18} />
                         </button>
-                        <button className="bg-red-600 hover:bg-red-700 p-3 rounded-xl">
+                        <button className="bg-red-600 hover:bg-red-700 p-3 rounded-xl" type="button">
                           <X size={18} />
                         </button>
                       </div>
                     </div>
                   ))}
-                {club.joinRequests.filter((r) => r.status === "pending").length === 0 && (
+
+                {(club.joinRequests || []).filter((r) => r.status === "pending").length === 0 && (
                   <p className="text-zinc-500 text-center py-8">No pending requests</p>
                 )}
               </div>
@@ -431,183 +427,208 @@ const ClubDetail = ({ user, onLogout }) => {
           </div>
         </div>
 
-        <div className="w-80 hidden xl:block p-6 sticky top-16 h-screen overflow-y-auto">
+        <div className="w-80 hidden xl:block p-6 sticky top-16 self-start">
           <h3 className="font-semibold mb-4">Club Info</h3>
+
           <div className="bg-zinc-900 rounded-2xl p-4 space-y-4">
             <div>
               <p className="text-sm text-zinc-500">Members</p>
-              <p className="text-2xl font-bold">{club.members.length}</p>
+              <p className="text-2xl font-bold">{club.members?.length || 0}</p>
             </div>
             <div>
               <p className="text-sm text-zinc-500">Leader</p>
               <p className="font-medium">
-                {club.leader.useDisplayName && club.leader.name ? club.leader.name : club.leader.username}
+                {club.leader?.useDisplayName && club.leader?.name
+                  ? club.leader.name
+                  : club.leader?.username}
               </p>
             </div>
           </div>
 
-          {/* Drive and Events Section */}
-          <h3 className="font-semibold mb-4 mt-8">Drive and Events</h3>
-          {drives.length === 0 ? (
-            <div className="bg-zinc-900 rounded-2xl p-4">
-              <p className="text-zinc-500 text-sm">No drives scheduled yet</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {drives
-                .filter(drive => !drive.isCancelled)
-                .sort((a, b) => new Date(a.date) - new Date(b.date))
-                .map((drive) => (
-                  <div
-                    key={drive._id}
-                    onClick={() => handleDriveClick(drive)}
-                    className="bg-zinc-900 rounded-2xl p-4 cursor-pointer hover:bg-zinc-800 transition"
-                  >
-                    <p className="font-medium text-sm mb-2">{drive.name}</p>
-                    <div className="space-y-1 text-xs text-zinc-400">
-                      <div className="flex items-center gap-2">
-                        <Calendar size={12} />
-                        <span>{new Date(drive.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+          <div className="border-t border-zinc-800 pt-6 mt-6">
+            <h3 className="font-semibold mb-4">Drive and Events</h3>
+
+            {drives.length === 0 ? (
+              <div className="bg-zinc-900 rounded-2xl p-4">
+                <p className="text-zinc-500 text-sm">No drives scheduled yet</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {drives
+                  .filter((drive) => !drive.isCancelled)
+                  .sort((a, b) => new Date(a.date) - new Date(b.date))
+                  .map((drive) => (
+                    <div
+                      key={drive._id}
+                      onClick={() => handleDriveClick(drive)}
+                      className="bg-zinc-900 rounded-2xl p-4 cursor-pointer hover:bg-zinc-800 transition"
+                    >
+                      <p className="font-medium text-sm mb-2">{drive.name}</p>
+                      <div className="space-y-1 text-xs text-zinc-400">
+                        <div className="flex items-center gap-2">
+                          <Calendar size={12} />
+                          <span>
+                            {new Date(drive.date).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </span>
+                        </div>
+                        {drive.time && (
+                          <div className="flex items-center gap-2">
+                            <Clock size={12} />
+                            <span>{drive.time}</span>
+                          </div>
+                        )}
+                        {drive.location && (
+                          <div className="flex items-center gap-2">
+                            <MapPin size={12} />
+                            <span className="truncate">{drive.location}</span>
+                          </div>
+                        )}
                       </div>
-                      {drive.time && (
-                        <div className="flex items-center gap-2">
-                          <Clock size={12} />
-                          <span>{drive.time}</span>
-                        </div>
-                      )}
-                      {drive.location && (
-                        <div className="flex items-center gap-2">
-                          <MapPin size={12} />
-                          <span className="truncate">{drive.location}</span>
-                        </div>
-                      )}
                     </div>
-                  </div>
-                ))}
-            </div>
-          )}
+                  ))}
+              </div>
+            )}
+          </div>
 
           {isLeader && (
-            <>
+            <div className="mt-4">
               <button
                 onClick={() => setShowScheduleModal(true)}
-                className="w-full mt-4 bg-red-600 hover:bg-red-700 py-3 rounded-2xl font-medium flex items-center justify-center gap-2 transition"
+                className="w-full bg-red-600 hover:bg-red-700 py-3 rounded-2xl font-medium flex items-center justify-center gap-2 transition"
               >
                 <Plus size={18} />
                 Schedule a Drive
               </button>
 
-              <h3 className="font-semibold mb-4 mt-8">Club Settings</h3>
-              <div className="bg-zinc-900 rounded-2xl p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-zinc-400">
-                    {club.isPrivate ? "Private Club" : "Public Club"}
-                  </span>
-                  <button
-                    onClick={async () => {
-                      try {
-                        const token = localStorage.getItem("token");
-                        await axios.post(
-                          `http://localhost:5000/api/clubs/${club._id}/toggle-privacy`,
-                          { isPrivate: !club.isPrivate },
-                          { headers: { Authorization: `Bearer ${token}` } }
-                        );
-                        setClub({ ...club, isPrivate: !club.isPrivate });
-                      } catch (error) {
-                        console.error("Error toggling privacy:", error);
-                      }
-                    }}
-                    className={`relative w-10 h-5 rounded-full transition ${
-                      club.isPrivate ? "bg-red-600" : "bg-zinc-600"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition ${
-                        club.isPrivate ? "left-5" : "left-0.5"
+              <div className="border-t border-zinc-800 pt-6 mt-6">
+                <h3 className="font-semibold mb-4">Club Settings</h3>
+
+                <div className="bg-zinc-900 rounded-2xl p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-zinc-400">
+                      {club.isPrivate ? "Private Club" : "Public Club"}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const token = localStorage.getItem("token");
+                          await axios.post(
+                            `http://localhost:5000/api/clubs/${club._id}/toggle-privacy`,
+                            { isPrivate: !club.isPrivate },
+                            {
+                              headers: { Authorization: `Bearer ${token}` },
+                            }
+                          );
+                          setClub({ ...club, isPrivate: !club.isPrivate });
+                        } catch (error) {
+                          console.error("Error toggling privacy:", error);
+                        }
+                      }}
+                      className={`relative w-10 h-5 rounded-full transition ${
+                        club.isPrivate ? "bg-red-600" : "bg-zinc-600"
                       }`}
-                    />
-                  </button>
-                </div>
-              </div>
-
-              <h3 className="font-semibold mb-4 mt-8 text-red-500">Danger Zone</h3>
-              <div className="bg-red-900/20 border border-red-600 rounded-2xl p-4">
-                <p className="text-red-400 text-sm mb-3">
-                  Permanently delete this club and all associated data.
-                </p>
-                <button
-                  onClick={() => setShowDeleteModal(true)}
-                  className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2 transition"
-                >
-                  <Trash2 size={18} />
-                  Delete Club
-                </button>
-              </div>
-
-              <h3 className="font-semibold mb-4 mt-8">Invite Members</h3>
-              <div className="bg-zinc-900 rounded-2xl p-4 space-y-4">
-                <div className="bg-black rounded-xl px-4 py-3 flex items-center justify-between">
-                  <span className="font-mono text-sm">{club.inviteCode}</span>
-                  <button
-                    onClick={copyInviteCode}
-                    className="text-red-500 hover:text-red-400 flex items-center gap-1 text-sm"
-                  >
-                    {copied ? (
-                      <>
-                        <Check size={14} />
-                        <span>Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={14} />
-                        <span>Copy</span>
-                      </>
-                    )}
-                  </button>
+                    >
+                      <span
+                        className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition ${
+                          club.isPrivate ? "left-5" : "left-0.5"
+                        }`}
+                      />
+                    </button>
+                  </div>
                 </div>
 
-                <div className="border-t border-zinc-800 pt-4">
-                  <h4 className="font-medium mb-3 text-sm">Find Users to Invite</h4>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search by username..."
-                      className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-600"
-                    />
-                    <Search className="absolute right-3 top-2.5 text-zinc-500 w-4 h-4" />
+                <h3 className="font-semibold mb-4 mt-8">Invite Members</h3>
+                <div className="bg-zinc-900 rounded-2xl p-4 space-y-4">
+                  <div className="bg-black rounded-xl px-4 py-3 flex items-center justify-between">
+                    <span className="font-mono text-sm">{club.inviteCode}</span>
+                    <button
+                      type="button"
+                      onClick={copyInviteCode}
+                      className="text-red-500 hover:text-red-400 flex items-center gap-1 text-sm"
+                    >
+                      {copied ? (
+                        <>
+                          <Check size={14} />
+                          <span>Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={14} />
+                          <span>Copy</span>
+                        </>
+                      )}
+                    </button>
                   </div>
 
-                  {searchResults.length > 0 && (
-                    <div className="mt-3 space-y-2">
-                      {searchResults.map((user) => (
-                        <div key={user._id} className="flex items-center justify-between bg-black rounded-xl px-3 py-2">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-zinc-700 rounded-full"></div>
-                            <span className="text-sm">{user.username}</span>
-                          </div>
-                          <button className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded-lg text-xs">
-                            Invite
-                          </button>
-                        </div>
-                      ))}
+                  <div className="border-t border-zinc-800 pt-4">
+                    <h4 className="font-medium mb-3 text-sm">Find Users to Invite</h4>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search by username..."
+                        className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-600"
+                      />
+                      <Search className="absolute right-3 top-2.5 text-zinc-500 w-4 h-4" />
                     </div>
-                  )}
+
+                    {searchResults.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        {searchResults.map((u) => (
+                          <div
+                            key={u._id}
+                            className="flex items-center justify-between bg-black rounded-xl px-3 py-2"
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 bg-zinc-700 rounded-full" />
+                              <span className="text-sm">{u.username}</span>
+                            </div>
+                            <button className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded-lg text-xs" type="button">
+                              Invite
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="border-t border-zinc-800 pt-6 mt-6">
+                  <h3 className="font-semibold mb-4 text-red-500">Danger Zone</h3>
+                  <div className="bg-red-900/20 border border-red-600 rounded-2xl p-4">
+                    <p className="text-red-400 text-sm mb-3">
+                      Permanently delete this club and all associated data.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleDeleteClub}
+                      className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2 transition"
+                    >
+                      <Trash2 size={18} />
+                      Delete Club
+                    </button>
+                  </div>
                 </div>
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Schedule Drive Modal */}
       {showScheduleModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold">Schedule a Drive</h2>
               <button
+                type="button"
                 onClick={closeScheduleModal}
                 className="text-zinc-500 hover:text-white transition"
               >
@@ -643,10 +664,13 @@ const ClubDetail = ({ user, onLogout }) => {
                     required
                   >
                     <option value="">Month</option>
-                    {months.map(m => (
-                      <option key={m.value} value={m.value}>{m.label}</option>
+                    {months.map((m) => (
+                      <option key={m.value} value={m.value}>
+                        {m.label}
+                      </option>
                     ))}
                   </select>
+
                   <select
                     value={selectedDay}
                     onChange={(e) => setSelectedDay(parseInt(e.target.value))}
@@ -654,10 +678,13 @@ const ClubDetail = ({ user, onLogout }) => {
                     required
                   >
                     <option value="">Day</option>
-                    {days.map(d => (
-                      <option key={d} value={d}>{d}</option>
+                    {days.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
                     ))}
                   </select>
+
                   <select
                     value={selectedYear}
                     onChange={(e) => setSelectedYear(parseInt(e.target.value))}
@@ -665,8 +692,10 @@ const ClubDetail = ({ user, onLogout }) => {
                     required
                   >
                     <option value="">Year</option>
-                    {years.map(y => (
-                      <option key={y} value={y}>{y}</option>
+                    {years.map((y) => (
+                      <option key={y} value={y}>
+                        {y}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -679,26 +708,39 @@ const ClubDetail = ({ user, onLogout }) => {
                 <div className="flex gap-2">
                   <select
                     value={parseTimeForDropdowns().hour || ""}
-                    onChange={(e) => handleTimeChange(parseInt(e.target.value), parseTimeForDropdowns().minute)}
+                    onChange={(e) =>
+                      handleTimeChange(
+                        parseInt(e.target.value),
+                        parseTimeForDropdowns().minute
+                      )
+                    }
                     className="flex-1 bg-black border border-zinc-700 rounded-xl px-3 py-3 focus:outline-none focus:border-red-600"
                     required
                   >
                     <option value="">Hour</option>
-                    {hours.map(h => (
-                      <option key={h} value={h}>{h}</option>
+                    {hours.map((h) => (
+                      <option key={h} value={h}>
+                        {h}
+                      </option>
                     ))}
                   </select>
+
                   <select
                     value={parseTimeForDropdowns().minute || ""}
-                    onChange={(e) => handleTimeChange(parseTimeForDropdowns().hour, e.target.value)}
+                    onChange={(e) =>
+                      handleTimeChange(parseTimeForDropdowns().hour, e.target.value)
+                    }
                     className="flex-1 bg-black border border-zinc-700 rounded-xl px-3 py-3 focus:outline-none focus:border-red-600"
                     required
                   >
                     <option value="">Min</option>
-                    {minutes.map(m => (
-                      <option key={m} value={m}>{m}</option>
+                    {minutes.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
                     ))}
                   </select>
+
                   <select
                     value={parseTimeForDropdowns().period}
                     onChange={(e) => handlePeriodChange(e.target.value)}
@@ -734,7 +776,7 @@ const ClubDetail = ({ user, onLogout }) => {
                   value={scheduleForm.description}
                   onChange={handleScheduleInputChange}
                   placeholder="Additional details about the drive..."
-                  rows="3"
+                  rows={3}
                   className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 resize-none"
                 />
               </div>
@@ -766,76 +808,13 @@ const ClubDetail = ({ user, onLogout }) => {
         </div>
       )}
 
-      {/* Delete Club Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-red-500 flex items-center gap-3">
-                <AlertTriangle size={28} />
-                Delete Club
-              </h2>
-              <button
-                onClick={closeDeleteModal}
-                className="text-zinc-500 hover:text-white transition"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="bg-red-900/20 border border-red-600 rounded-xl p-4">
-                <p className="text-red-400 text-sm">
-                  <strong>Warning:</strong> This action cannot be undone. Deleting this club will permanently remove all club data, including members, drives, and events.
-                </p>
-              </div>
-
-              <p className="text-zinc-300">
-                To confirm deletion, type the club name: <span className="font-bold text-white">"{club.name}"</span>
-              </p>
-
-              <input
-                type="text"
-                value={deleteConfirmName}
-                onChange={(e) => setDeleteConfirmName(e.target.value)}
-                placeholder="Enter club name to confirm"
-                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600"
-              />
-
-              {deleteError && (
-                <div className="bg-red-900/30 border border-red-600 rounded-xl p-3">
-                  <p className="text-red-400 text-sm text-center">{deleteError}</p>
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={closeDeleteModal}
-                  className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-3 rounded-2xl font-medium transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteClub}
-                  disabled={deleteLoading || deleteConfirmName !== club.name}
-                  className="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-2xl font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {deleteLoading ? "Deleting..." : "Delete Club"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Drive Detail Modal */}
       {showDriveModal && selectedDrive && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold">{selectedDrive.name}</h2>
               <button
+                type="button"
                 onClick={closeDriveModal}
                 className="text-zinc-500 hover:text-white transition"
               >
@@ -847,14 +826,23 @@ const ClubDetail = ({ user, onLogout }) => {
               <div className="space-y-3">
                 <div className="flex items-center gap-3 text-zinc-300">
                   <Calendar size={18} className="text-red-500" />
-                  <span>{new Date(selectedDrive.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                  <span>
+                    {new Date(selectedDrive.date).toLocaleDateString("en-US", {
+                      weekday: "long",
+                      month: "long",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </span>
                 </div>
+
                 {selectedDrive.time && (
                   <div className="flex items-center gap-3 text-zinc-300">
                     <Clock size={18} className="text-red-500" />
                     <span>{selectedDrive.time}</span>
                   </div>
                 )}
+
                 {selectedDrive.location && (
                   <div className="flex items-center gap-3 text-zinc-300">
                     <MapPin size={18} className="text-red-500" />
@@ -872,6 +860,7 @@ const ClubDetail = ({ user, onLogout }) => {
 
               <div className="pt-4">
                 <button
+                  type="button"
                   onClick={closeDriveModal}
                   className="w-full bg-zinc-800 hover:bg-zinc-700 py-3 rounded-2xl font-medium transition"
                 >
@@ -887,3 +876,4 @@ const ClubDetail = ({ user, onLogout }) => {
 };
 
 export default ClubDetail;
+

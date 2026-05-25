@@ -262,27 +262,39 @@ const joinClubByInviteCode = async (req, res) => {
 const deleteClub = async (req, res) => {
   try {
     const { clubId } = req.params;
+    const { deletionReason, leaderEmail } = req.body;
     const userId = req.user?.id;
 
     if (!userId) {
       return res.status(401).json({ success: false, message: 'Authentication required' });
     }
 
-    const club = await Club.findById(clubId);
+    const club = await Club.findById(clubId)
+      .populate('leader', 'email username');
+    
     if (!club) {
       return res.status(404).json({ success: false, message: 'Club not found' });
     }
 
     // Verify user is the club leader
-    if (club.leader.toString() !== userId) {
+    if (club.leader._id.toString() !== userId) {
       return res.status(403).json({ success: false, message: 'Only the club leader can delete this club' });
     }
+
+    // Verify the provided email matches the leader's email
+    if (!leaderEmail || club.leader.email.toLowerCase() !== leaderEmail.toLowerCase()) {
+      return res.status(403).json({ success: false, message: 'Email does not match the registered group leader\'s email' });
+    }
+
+    // Log deletion reason for audit purposes
+    console.log(`Club deletion: "${club.name}" (ID: ${clubId}) - Reason: ${deletionReason || 'Not provided'}`);
 
     // Delete the club
     await Club.findByIdAndDelete(clubId);
 
     res.json({ success: true, message: 'Club deleted successfully' });
   } catch (error) {
+    console.error('Delete club error:', error);
     res.status(400).json({ success: false, message: error.message });
   }
 };
