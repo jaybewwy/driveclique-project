@@ -233,27 +233,29 @@ const MyClubs = ({ user, onLogout }) => {
                       {club.description}
                     </p>
 
-                    <div className="bg-zinc-800 rounded-2xl p-3 mb-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-zinc-500">Invite Code</span>
-                        {copiedCode === club.inviteCode && (
-                          <span className="text-xs text-green-400 flex items-center gap-1">
-                            <Check size={12} /> Copied!
+                    {isLeader && (
+                      <div className="bg-zinc-800 rounded-2xl p-3 mb-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-zinc-500">Invite Code</span>
+                          {copiedCode === club.inviteCode && (
+                            <span className="text-xs text-green-400 flex items-center gap-1">
+                              <Check size={12} /> Copied!
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between bg-black rounded-xl px-3 py-2 mt-1">
+                          <span className="font-mono text-sm tracking-widest">
+                            {club.inviteCode}
                           </span>
-                        )}
+                          <button
+                            onClick={() => copyInviteCode(club.inviteCode)}
+                            className="text-red-500 hover:text-red-400 transition"
+                          >
+                            <Copy size={16} />
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between bg-black rounded-xl px-3 py-2 mt-1">
-                        <span className="font-mono text-sm tracking-widest">
-                          {club.inviteCode}
-                        </span>
-                        <button
-                          onClick={() => copyInviteCode(club.inviteCode)}
-                          className="text-red-500 hover:text-red-400 transition"
-                        >
-                          <Copy size={16} />
-                        </button>
-                      </div>
-                    </div>
+                    )}
 
                     <button
                       onClick={() => navigate(`/club/${club._id}`)}
