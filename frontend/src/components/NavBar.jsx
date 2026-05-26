@@ -4,11 +4,6 @@ import { useNavigate } from "react-router-dom";
 const NavBar = ({ user, onLogout, showSearch = true }) => {
   const navigate = useNavigate();
 
-  const getUserAvatar = () => {
-    if (user?.avatar) return user.avatar;
-    return null;
-  };
-
   return (
     <nav className="bg-black border-b border-zinc-800 px-4 py-3 flex items-center justify-between sticky top-0 z-50">
       {/* Logo */}
@@ -65,17 +60,17 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
           <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center">3</span>
         </button>
         <div 
-          className="w-9 h-9 bg-zinc-700 rounded-full overflow-hidden cursor-pointer" 
+          className="w-9 h-9 bg-zinc-700 rounded-full overflow-hidden cursor-pointer border-2 border-zinc-600 hover:border-red-500 transition"
           onClick={() => navigate("/profile")}
           title="Profile"
         >
-          {getUserAvatar() ? (
-            <img src={getUserAvatar()} alt="Profile" className="w-full h-full object-cover" />
+          {user?.avatar ? (
+            <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" />
           ) : (
-            <User className="w-full h-full p-1" />
+            <User className="w-full h-full p-1 text-zinc-400" />
           )}
         </div>
-        <button 
+        <button
           onClick={onLogout} 
           className="text-sm text-zinc-400 hover:text-red-500"
         >

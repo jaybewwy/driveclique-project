@@ -18,6 +18,7 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Crown,
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
@@ -33,7 +34,6 @@ const ClubDetail = ({ user, onLogout }) => {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
-  const [activeTab, setActiveTab] = useState("members");
 
   const [drives, setDrives] = useState([]);
 
@@ -41,6 +41,7 @@ const ClubDetail = ({ user, onLogout }) => {
   const [showDriveModal, setShowDriveModal] = useState(false);
   const [showAllDrivesModal, setShowAllDrivesModal] = useState(false);
   const [showPastEventsModal, setShowPastEventsModal] = useState(false);
+  const [showMembersModal, setShowMembersModal] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState({});
@@ -298,6 +299,30 @@ const ClubDetail = ({ user, onLogout }) => {
     const url = e.target.value;
     setClubEditFormData({ ...clubEditFormData, avatar: url });
     setClubAvatarPreview(url);
+  };
+
+  const handleRemoveMember = async (memberId, memberUsername) => {
+    if (!window.confirm(`Are you sure you want to remove ${memberUsername} from the club?`)) return;
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.put(
+        `http://localhost:5000/api/clubs/${clubId}/remove-member`,
+        { memberId },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (response.data?.success) {
+        // Update local state to remove the member
+        setClub(prevClub => ({
+          ...prevClub,
+          members: prevClub.members.filter(m => m._id !== memberId)
+        }));
+      }
+    } catch (error) {
+      console.error("Error removing member:", error);
+      alert(error.response?.data?.message || "Failed to remove member");
+    }
   };
 
   const handleDeleteClubConfirm = async () => {
@@ -580,7 +605,7 @@ const ClubDetail = ({ user, onLogout }) => {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
-      <NavBar onLogout={onLogout} />
+      <NavBar user={user} onLogout={onLogout} />
 
       <div className="flex max-w-7xl mx-auto">
         <Sidebar user={user} />
@@ -623,122 +648,18 @@ const ClubDetail = ({ user, onLogout }) => {
           </div>
 
           <div className="bg-zinc-900 rounded-3xl p-6">
-            <div className="flex gap-4 mb-6">
-              <button
-                onClick={() => setActiveTab("members")}
-                className={`px-6 py-3 rounded-2xl font-medium transition ${
-                  activeTab === "members"
-                    ? "bg-red-600 text-white"
-                    : "bg-zinc-800 text-zinc-400 hover:text-white"
-                }`}
-              >
-                Members ({club.members?.length || 0})
-              </button>
-
-              {isLeader && club.joinRequests && club.joinRequests.length > 0 && (
-                <button
-                  onClick={() => setActiveTab("requests")}
-                  className={`px-6 py-3 rounded-2xl font-medium transition ${
-                    activeTab === "requests"
-                      ? "bg-red-600 text-white"
-                      : "bg-zinc-800 text-zinc-400 hover:text-white"
-                  }`}
-                >
-                  Requests (
-                  {club.joinRequests.filter((r) => r.status === "pending").length})
-                </button>
-              )}
+            <div className="flex justify-center items-center">
+              <p className="text-zinc-500 text-sm">
+                View members and manage club settings from the right sidebar.
+              </p>
             </div>
-
-            {activeTab === "members" && (
-              <div className="space-y-3">
-                {(club.members || []).map((member) => (
-                  <div
-                    key={member._id}
-                    className="flex items-center gap-4 bg-black rounded-xl px-4 py-3"
-                  >
-                    <div className="w-12 h-12 bg-zinc-700 rounded-full overflow-hidden flex-shrink-0">
-                      {member.avatar ? (
-                        <img
-                          src={member.avatar}
-                          alt={member.username}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <span className="text-zinc-500 text-sm">
-                            {member.username?.charAt(0)?.toUpperCase?.()}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex-1">
-                      <p className="font-medium">
-                        {member.useDisplayName && member.name ? member.name : member.username}
-                      </p>
-                      {member.car && (member.car.year || member.car.make || member.car.model) && (
-                        <p className="text-sm text-zinc-500 flex items-center gap-1 mt-1">
-                          {member.car.year} {member.car.make} {member.car.model}
-                        </p>
-                      )}
-                    </div>
-
-                    {club.leader?._id && member._id === club.leader._id && (
-                      <span className="text-amber-500 text-sm flex items-center gap-1">
-                        Leader
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {activeTab === "requests" && isLeader && (
-              <div className="space-y-3">
-                {(club.joinRequests || [])
-                  .filter((r) => r.status === "pending")
-                  .map((request) => (
-                    <div
-                      key={request._id}
-                      className="flex items-center gap-4 bg-black rounded-xl px-4 py-3"
-                    >
-                      <div className="w-12 h-12 bg-zinc-700 rounded-full" />
-
-                      <div className="flex-1">
-                        <p className="font-medium">
-                          {request.user?.username || "Unknown User"}
-                        </p>
-                        <p className="text-sm text-zinc-500">Wants to join your club</p>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <button className="bg-green-600 hover:bg-green-700 p-3 rounded-xl" type="button">
-                          <Check size={18} />
-                        </button>
-                        <button className="bg-red-600 hover:bg-red-700 p-3 rounded-xl" type="button">
-                          <X size={18} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-
-                {(club.joinRequests || []).filter((r) => r.status === "pending").length === 0 && (
-                  <p className="text-zinc-500 text-center py-8">No pending requests</p>
-                )}
-              </div>
-            )}
           </div>
         </div>
 
-        <div className="w-80 hidden xl:block p-6 sticky top-16 self-start h-[calc(100vh-4rem)] overflow-y-auto">
+        <div className="w-80 hidden lg:block p-6 sticky top-16 self-start h-[calc(100vh-4rem)] overflow-y-auto">
           <h3 className="font-semibold mb-4">Club Info</h3>
 
           <div className="bg-zinc-900 rounded-2xl p-4 space-y-4">
-            <div>
-              <p className="text-sm text-zinc-500">Members</p>
-              <p className="text-2xl font-bold">{club.members?.length || 0}</p>
-            </div>
             <div>
               <p className="text-sm text-zinc-500">Leader</p>
               <p className="font-medium">
@@ -881,6 +802,21 @@ const ClubDetail = ({ user, onLogout }) => {
                   Edit Club Details
                 </button>
 
+                <div className="bg-zinc-900 rounded-2xl p-4 mt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-zinc-500">Members</p>
+                      <p className="text-2xl font-bold text-red-500">{club.members?.length || 0}</p>
+                    </div>
+                    <button
+                      onClick={() => setShowMembersModal(true)}
+                      className="text-red-500 hover:text-red-400 text-sm font-medium transition"
+                    >
+                      View All
+                    </button>
+                  </div>
+                </div>
+
                 <h3 className="font-semibold mb-4 mt-8">Invite Members</h3>
                 <div className="bg-zinc-900 rounded-2xl p-4 space-y-4">
                   <div className="bg-black rounded-xl px-4 py-3 flex items-center justify-between">
@@ -1002,6 +938,91 @@ const ClubDetail = ({ user, onLogout }) => {
               <button
                 type="button"
                 onClick={closeAllDrivesModal}
+                className="w-full bg-zinc-800 hover:bg-zinc-700 py-3 rounded-2xl font-medium transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Members Modal */}
+      {showMembersModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-900 rounded-3xl p-8 max-w-lg w-full border border-zinc-800 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">All Members ({club.members?.length || 0})</h2>
+              <button
+                type="button"
+                onClick={() => setShowMembersModal(false)}
+                className="text-zinc-500 hover:text-white transition"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-3 overflow-y-auto flex-1 pr-2">
+              {(club.members || []).map((member) => {
+                const isLeader = club.leader?._id && member._id === club.leader._id;
+                return (
+                  <div
+                    key={member._id}
+                    className="flex items-center gap-4 bg-black rounded-xl px-4 py-3"
+                  >
+                    <div className="w-12 h-12 bg-zinc-700 rounded-full overflow-hidden flex-shrink-0">
+                      {member.avatar ? (
+                        <img
+                          src={member.avatar}
+                          alt={member.username}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className="text-zinc-500 text-sm">
+                            {member.username?.charAt(0)?.toUpperCase?.()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex-1">
+                      <p className="font-medium">
+                        {member.useDisplayName && member.name ? member.name : member.username}
+                      </p>
+                      <p className="text-sm text-zinc-500">@{member.username}</p>
+                      {member.car && (member.car.year || member.car.make || member.car.model) && (
+                        <p className="text-xs text-zinc-500 flex items-center gap-1 mt-1">
+                          {member.car.year} {member.car.make} {member.car.model}
+                        </p>
+                      )}
+                    </div>
+
+                    {isLeader ? (
+                      <span className="text-amber-500 text-sm flex items-center gap-1 bg-amber-900/30 px-3 py-1 rounded-full">
+                        <Crown size={12} /> Leader
+                      </span>
+                    ) : isLeader && isLeader ? null : (
+                      isLeader ? null : (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveMember(member._id, member.username)}
+                          className="text-red-500 hover:text-red-400 p-2 hover:bg-red-900/30 rounded-lg transition"
+                          title="Remove from club"
+                        >
+                          <X size={18} />
+                        </button>
+                      )
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="pt-4 mt-4 border-t border-zinc-800">
+              <button
+                type="button"
+                onClick={() => setShowMembersModal(false)}
                 className="w-full bg-zinc-800 hover:bg-zinc-700 py-3 rounded-2xl font-medium transition"
               >
                 Close

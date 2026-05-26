@@ -156,7 +156,7 @@ const MyClubs = ({ user, onLogout }) => {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
-      <NavBar onLogout={onLogout} />
+      <NavBar user={user} onLogout={onLogout} />
 
       <div className="flex max-w-7xl mx-auto">
         <Sidebar user={user} />
@@ -211,13 +211,33 @@ const MyClubs = ({ user, onLogout }) => {
                     className="bg-zinc-900 rounded-3xl p-6 flex flex-col border border-zinc-800"
                   >
                     <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="text-xl font-semibold">{club.name}</h3>
-                        {isLeader && (
-                          <div className="flex items-center gap-1 text-amber-500 text-sm mt-1">
-                            <Crown size={14} /> Leader
-                          </div>
-                        )}
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-zinc-800 overflow-hidden flex-shrink-0 border-2 border-zinc-700">
+                          {club.avatar ? (
+                            <img
+                              src={club.avatar}
+                              alt={club.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.src = 'https://via.placeholder.com/48?text=Club';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-red-600 to-orange-600">
+                              <span className="text-white font-bold">
+                                {club.name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-semibold">{club.name}</h3>
+                          {isLeader && (
+                            <div className="flex items-center gap-1 text-amber-500 text-sm mt-1">
+                              <Crown size={14} /> Leader
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div className="text-right">
                         <div className="text-2xl font-bold text-red-500">
@@ -266,7 +286,7 @@ const MyClubs = ({ user, onLogout }) => {
           )}
         </div>
 
-        <div className="w-80 hidden xl:block p-6 sticky top-16 h-screen overflow-y-auto">
+        <div className="w-80 hidden lg:block p-6 sticky top-16 h-screen overflow-y-auto">
           <h3 className="font-semibold mb-4">Your Clubs</h3>
           {clubs.length === 0 ? (
             <p className="text-zinc-500 text-sm">No clubs yet</p>
@@ -274,7 +294,24 @@ const MyClubs = ({ user, onLogout }) => {
             <div className="space-y-4">
               {clubs.map((club) => (
                 <div key={club._id} className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-orange-500 rounded-xl"></div>
+                  <div className="w-10 h-10 rounded-full bg-zinc-800 overflow-hidden flex-shrink-0 border border-zinc-700">
+                    {club.avatar ? (
+                      <img
+                        src={club.avatar}
+                        alt={club.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.src = 'https://via.placeholder.com/40?text=Club';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-red-600 to-orange-600">
+                        <span className="text-white text-xs font-bold">
+                          {club.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                   <div>
                     <p className="font-medium">{club.name}</p>
                     <p className="text-xs text-zinc-500">

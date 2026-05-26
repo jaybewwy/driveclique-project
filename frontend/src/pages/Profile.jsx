@@ -134,7 +134,7 @@ const Profile = ({ onLogout, onUpdateUser }) => {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
-      <NavBar onLogout={onLogout} />
+      <NavBar user={user} onLogout={onLogout} />
 
       <div className="flex max-w-7xl mx-auto">
         <Sidebar user={user} />

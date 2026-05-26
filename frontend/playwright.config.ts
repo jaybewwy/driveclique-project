@@ -11,7 +11,7 @@ export default defineConfig({
   reporter: [['list']],
   use: {
     headless: true,
-    baseURL: 'http://localhost:5174',
+    baseURL: 'http://localhost:5173',
     viewport: { width: 1280, height: 720 },
     actionTimeout: 10_000,
     ignoreHTTPSErrors: true,
