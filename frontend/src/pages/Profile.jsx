@@ -4,6 +4,7 @@ import { Car, User, Camera, X, Save } from "lucide-react";
 import { authAPI, getErrorMessage } from "../services/api";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
+import { compressImage } from "../utils/imageCompressor";
 
 const Profile = ({ onLogout, onUpdateUser }) => {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ const Profile = ({ onLogout, onUpdateUser }) => {
     useDisplayName: false
   });
   const [previewAvatar, setPreviewAvatar] = useState("");
+  const [avatarFileName, setAvatarFileName] = useState("");
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -67,16 +69,18 @@ const Profile = ({ onLogout, onUpdateUser }) => {
     }
   };
 
-  const handleAvatarUpload = (e) => {
+  const handleAvatarUpload = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result;
-        setPreviewAvatar(base64String);
-        setFormData(prev => ({ ...prev, avatar: base64String }));
-      };
-      reader.readAsDataURL(file);
+      try {
+        const { compressedData, fileName } = await compressImage(file);
+        setPreviewAvatar(compressedData);
+        setFormData(prev => ({ ...prev, avatar: compressedData }));
+        setAvatarFileName(fileName);
+      } catch (error) {
+        console.error('Error compressing image:', error);
+        alert('Failed to process image. Please try again.');
+      }
     }
   };
 
@@ -178,6 +182,11 @@ const Profile = ({ onLogout, onUpdateUser }) => {
                       className="hidden"
                     />
                   </label>
+                  {avatarFileName && (
+                    <p className="absolute -bottom-6 left-0 right-0 text-xs text-zinc-500 text-center">
+                      {avatarFileName}
+                    </p>
+                  )}
                 </div>
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-zinc-300 mb-2">

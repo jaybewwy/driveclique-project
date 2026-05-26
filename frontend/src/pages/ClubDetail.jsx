@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
+import { compressImage } from "../utils/imageCompressor";
 
 const ClubDetail = ({ user, onLogout }) => {
   const { clubId } = useParams();
@@ -48,6 +49,7 @@ const ClubDetail = ({ user, onLogout }) => {
   const [showClubEditModal, setShowClubEditModal] = useState(false);
   const [clubEditFormData, setClubEditFormData] = useState({});
   const [clubAvatarPreview, setClubAvatarPreview] = useState('');
+  const [avatarFileName, setAvatarFileName] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteEmail, setDeleteEmail] = useState('');
   const [deleteReason, setDeleteReason] = useState('');
@@ -247,6 +249,7 @@ const ClubDetail = ({ user, onLogout }) => {
     setShowClubEditModal(false);
     setClubEditFormData({});
     setClubAvatarPreview('');
+    setAvatarFileName('');
   };
 
   const handleUpdateClub = async () => {
@@ -300,6 +303,22 @@ const ClubDetail = ({ user, onLogout }) => {
     const url = e.target.value;
     setClubEditFormData({ ...clubEditFormData, avatar: url });
     setClubAvatarPreview(url);
+    setAvatarFileName('');
+  };
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      try {
+        const { compressedData, fileName } = await compressImage(file);
+        setClubEditFormData({ ...clubEditFormData, avatar: compressedData });
+        setClubAvatarPreview(compressedData);
+        setAvatarFileName(fileName);
+      } catch (error) {
+        console.error('Error compressing image:', error);
+        alert('Failed to process image. Please try again.');
+      }
+    }
   };
 
   const handleRemoveMember = async (memberId, memberUsername) => {
@@ -1364,22 +1383,14 @@ const ClubDetail = ({ user, onLogout }) => {
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            const base64String = reader.result;
-                            setClubEditFormData({ ...clubEditFormData, avatar: base64String });
-                            setClubAvatarPreview(base64String);
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
+                      onChange={handleAvatarUpload}
                       className="hidden"
                     />
                     Choose Image
                   </label>
+                  {avatarFileName && (
+                    <p className="text-xs text-zinc-500">Selected: {avatarFileName}</p>
+                  )}
                 </div>
                 <div className="mt-3">
                   <label className="block text-sm text-zinc-400 mb-2">Or enter URL</label>
