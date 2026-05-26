@@ -362,6 +362,42 @@ const deleteClub = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Club deleted successfully' });
 });
 
+/**
+ * Leave a Club
+ * @route PUT /api/clubs/:clubId/leave
+ * @access Private
+ */
+const leaveClub = asyncHandler(async (req, res) => {
+  const { clubId } = req.params;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    throw new AppError('Authentication required', 401);
+  }
+
+  const club = await Club.findById(clubId);
+  if (!club) {
+    throw new AppError('Club not found', 404);
+  }
+
+  // Check if user is a member
+  const isMember = club.members.some((m) => m.toString() === userId);
+  if (!isMember) {
+    throw new AppError('You are not a member of this club', 400);
+  }
+
+  // Prevent the leader from leaving (they must transfer ownership or delete the club)
+  if (club.leader.toString() === userId) {
+    throw new AppError('The club leader cannot leave. Please transfer ownership or delete the club.', 400);
+  }
+
+  // Remove user from members
+  club.members = club.members.filter((m) => m.toString() !== userId);
+  await club.save();
+
+  res.json({ success: true, message: 'You have left the club' });
+});
+
 module.exports = { 
   createClub, 
   getUserClubs, 
@@ -373,5 +409,6 @@ module.exports = {
   toggleClubPrivacy,
   joinClubByInviteCode,
   updateClub,
-  deleteClub
+  deleteClub,
+  leaveClub
 };

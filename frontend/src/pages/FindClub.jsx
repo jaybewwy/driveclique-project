@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Car, Home, Search, Bell, User, MapPin, Lock, Globe, Users, Calendar } from "lucide-react";
+import { Car, Home, Bell, User, MapPin, Lock, Globe, Users, Calendar, X } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 
 const FindClub = ({ user, onLogout }) => {
@@ -9,6 +9,10 @@ const FindClub = ({ user, onLogout }) => {
   const [clubs, setClubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
+  const [joinError, setJoinError] = useState("");
+  const [joinLoading, setJoinLoading] = useState(false);
 
   useEffect(() => {
     const fetchClubs = async () => {
@@ -31,14 +35,15 @@ const FindClub = ({ user, onLogout }) => {
     fetchClubs();
   }, []);
 
-  // Filter clubs based on search query
+  // Filter clubs to only show public clubs, then filter by search query
+  const publicClubs = clubs.filter(club => !club.isPrivate);
   const filteredClubs = searchQuery.trim()
-    ? clubs.filter(club =>
+    ? publicClubs.filter(club =>
         club.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (club.description && club.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (club.location && club.location.toLowerCase().includes(searchQuery.toLowerCase()))
       )
-    : clubs;
+    : publicClubs;
 
   const handleJoinClub = async (clubId, e) => {
     e.stopPropagation();
@@ -62,6 +67,115 @@ const FindClub = ({ user, onLogout }) => {
     }
   };
 
+  const handleJoinByCode = () => {
+    setShowJoinModal(true);
+    setInviteCode("");
+    setJoinError("");
+  };
+
+  const submitJoinByCode = async () => {
+    if (!inviteCode.trim()) {
+      setJoinError("Please enter an invite code");
+      return;
+    }
+    setJoinLoading(true);
+    setJoinError("");
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.post(
+        `http://localhost:5000/api/clubs/join-by-code/${inviteCode.trim()}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      if (response.data.success) {
+        // Redirect to the club page
+        const clubId = response.data.clubId || response.data.club?._id;
+        if (clubId) {
+          navigate(`/club/${clubId}`);
+        } else {
+          setShowJoinModal(false);
+          alert("Joined club successfully!");
+        }
+      }
+    } catch {
+      setJoinError("Invite code incorrect.");
+    } finally {
+      setJoinLoading(false);
+    }
+  };
+
+  const closeModal = () => {
+    setShowJoinModal(false);
+    setInviteCode("");
+    setJoinError("");
+  };
+
+  // Join with Code Modal
+  if (showJoinModal) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={closeModal}></div>
+        <div className="relative bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl">
+          <button
+            onClick={closeModal}
+            className="absolute top-4 right-4 text-zinc-500 hover:text-white transition"
+          >
+            <X size={24} />
+          </button>
+
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-8 h-8 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold mb-2">Join with Invite Code</h2>
+            <p className="text-zinc-400 text-sm">
+              Enter the invite code from a club leader to join.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="invite-code-input" className="block text-sm font-medium text-zinc-300 mb-2">
+                Invite Code
+              </label>
+              <input
+                id="invite-code-input"
+                type="text"
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                placeholder="e.g. HRK707"
+                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 text-center text-lg font-mono tracking-widest text-white placeholder-zinc-500 focus:outline-none focus:border-red-600 transition"
+                autoFocus
+              />
+            </div>
+
+            {joinError && (
+              <div className="bg-red-900/30 border border-red-600 rounded-xl p-3">
+                <p className="text-red-400 text-sm text-center">{joinError}</p>
+              </div>
+            )}
+
+            <button
+              onClick={submitJoinByCode}
+              disabled={joinLoading}
+              className="w-full bg-red-600 hover:bg-red-700 py-3 rounded-xl font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {joinLoading ? "Joining..." : "Join Club"}
+            </button>
+          </div>
+
+          <p className="text-zinc-500 text-xs text-center mt-4">
+            Contact the club leader to get an invite code.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       {/* Top Navigation Bar */}
@@ -74,14 +188,11 @@ const FindClub = ({ user, onLogout }) => {
         </div>
 
         <div className="flex-1 max-w-xl mx-8">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search clubs, drives, or members..."
-              className="w-full bg-zinc-900 border border-zinc-700 rounded-full py-3 pl-12 text-sm focus:outline-none focus:border-red-600"
-            />
-            <Search className="absolute left-4 top-3.5 text-zinc-500 w-5 h-5" />
-          </div>
+          <input
+            type="text"
+            placeholder="Search clubs, drives, or members..."
+            className="w-full bg-zinc-900 border border-zinc-700 rounded-full py-3 px-4 text-sm focus:outline-none focus:border-red-600"
+          />
         </div>
 
         <div className="flex items-center gap-6">
@@ -112,22 +223,19 @@ const FindClub = ({ user, onLogout }) => {
         {/* Main Content */}
         <div className="flex-1 max-w-4xl min-h-screen p-8">
           <div className="mb-8">
-            <h1 className="text-4xl font-bold">Find A Club</h1>
+            <h1 className="text-4xl font-bold">Find Clubs</h1>
             <p className="text-zinc-400 mt-1">Discover and join car clubs in your area</p>
           </div>
 
           {/* Search Bar */}
           <div className="mb-8">
-            <div className="relative">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by club name, description, or location..."
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-2xl px-6 py-4 pl-12 text-lg focus:outline-none focus:border-red-600"
-              />
-              <Search className="absolute left-4 top-4.5 text-zinc-500 w-6 h-6" />
-            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by club name, description, or location..."
+              className="w-full bg-zinc-900 border border-zinc-700 rounded-2xl px-6 py-4 text-lg focus:outline-none focus:border-red-600"
+            />
           </div>
 
           {/* Results Count */}
@@ -191,7 +299,17 @@ const FindClub = ({ user, onLogout }) => {
                       >
                         Join Club
                       </button>
-                      <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-orange-500 rounded-2xl flex-shrink-0"></div>
+                      <div className="w-16 h-16 rounded-2xl flex-shrink-0 overflow-hidden">
+                        {club.avatar ? (
+                          <img src={club.avatar} alt={club.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center">
+                            <span className="text-white font-bold text-xl">
+                              {club.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -204,7 +322,7 @@ const FindClub = ({ user, onLogout }) => {
         <div className="w-80 hidden xl:block p-6 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
           <h3 className="font-semibold mb-4">Popular Clubs</h3>
           <div className="space-y-4">
-            {clubs
+            {publicClubs
               .sort((a, b) => b.members.length - a.members.length)
               .slice(0, 5)
               .map((club) => (
@@ -213,13 +331,32 @@ const FindClub = ({ user, onLogout }) => {
                   onClick={() => navigate(`/club/${club._id}`)}
                   className="flex items-center gap-3 cursor-pointer hover:bg-zinc-900 p-2 rounded-xl transition"
                 >
-                  <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-orange-500 rounded-xl"></div>
+                  <div className="w-10 h-10 rounded-xl flex-shrink-0 overflow-hidden">
+                    {club.avatar ? (
+                      <img src={club.avatar} alt={club.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center">
+                        <span className="text-white font-bold text-sm">
+                          {club.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                   <div>
                     <p className="font-medium">{club.name}</p>
                     <p className="text-xs text-zinc-500">{club.members.length} members</p>
                   </div>
                 </div>
               ))}
+          </div>
+
+          <div className="mt-6">
+            <button
+              onClick={handleJoinByCode}
+              className="w-full bg-zinc-800 hover:bg-zinc-700 px-6 py-3 rounded-2xl flex items-center justify-center gap-2 font-medium transition"
+            >
+              <Lock size={20} /> Join with Code
+            </button>
           </div>
 
           <h3 className="font-semibold mb-4 mt-8">Why Join a Club?</h3>

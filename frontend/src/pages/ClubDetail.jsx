@@ -51,6 +51,7 @@ const ClubDetail = ({ user, onLogout }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteEmail, setDeleteEmail] = useState('');
   const [deleteReason, setDeleteReason] = useState('');
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   // Schedule Drive modal state
   const [showScheduleDriveModal, setShowScheduleDriveModal] = useState(false);
@@ -323,6 +324,36 @@ const ClubDetail = ({ user, onLogout }) => {
       console.error("Error removing member:", error);
       alert(error.response?.data?.message || "Failed to remove member");
     }
+  };
+
+  const handleLeaveClub = async () => {
+    setShowLeaveConfirm(true);
+  };
+
+  const confirmLeaveClub = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.put(
+        `http://localhost:5000/api/clubs/${clubId}/leave`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (response.data?.success) {
+        alert("You have left the club.");
+        navigate("/my-clubs");
+      }
+    } catch (error) {
+      console.error("Error leaving club:", error);
+      alert(error.response?.data?.message || "Failed to leave club");
+    } finally {
+      setShowLeaveConfirm(false);
+    }
+  };
+
+  const cancelLeaveClub = () => {
+    setShowLeaveConfirm(false);
   };
 
   const handleDeleteClubConfirm = async () => {
@@ -780,19 +811,24 @@ const ClubDetail = ({ user, onLogout }) => {
             )}
           </div>
 
-          {isLeader && (
-            <div className="mt-4">
+          {/* Members section - visible to all members */}
+          <div className="mt-4">
+            {isLeader && (
               <button
                 onClick={openScheduleDriveModal}
-                className="w-full bg-red-600 hover:bg-red-700 py-3 rounded-2xl font-medium flex items-center justify-center gap-2 transition"
+                className="w-full bg-red-600 hover:bg-red-700 py-3 rounded-2xl font-medium flex items-center justify-center gap-2 transition mb-4"
               >
                 <Plus size={18} />
                 Schedule a Drive
               </button>
+            )}
 
-              <div className="border-t border-zinc-800 pt-6 mt-6">
-                <h3 className="font-semibold mb-4">Club Settings</h3>
+            <div className="border-t border-zinc-800 pt-6">
+              <h3 className="font-semibold mb-4">
+                {isLeader ? "Club Settings" : "Members"}
+              </h3>
 
+              {isLeader && (
                 <button
                   type="button"
                   onClick={openClubEditModal}
@@ -801,22 +837,38 @@ const ClubDetail = ({ user, onLogout }) => {
                   <Edit3 size={18} />
                   Edit Club Details
                 </button>
+              )}
 
-                <div className="bg-zinc-900 rounded-2xl p-4 mt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-zinc-500">Members</p>
-                      <p className="text-2xl font-bold text-red-500">{club.members?.length || 0}</p>
-                    </div>
-                    <button
-                      onClick={() => setShowMembersModal(true)}
-                      className="text-red-500 hover:text-red-400 text-sm font-medium transition"
-                    >
-                      View All
-                    </button>
+              <div className="bg-zinc-900 rounded-2xl p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-zinc-500">Members</p>
+                    <p className="text-2xl font-bold text-red-500">{club.members?.length || 0}</p>
                   </div>
+                  <button
+                    onClick={() => setShowMembersModal(true)}
+                    className="text-red-500 hover:text-red-400 text-sm font-medium transition"
+                  >
+                    View All
+                  </button>
                 </div>
+              </div>
+            </div>
 
+            {!isLeader && (
+              <div className="mt-8 pt-6 border-t border-zinc-800">
+                <button
+                  onClick={handleLeaveClub}
+                  className="w-full bg-zinc-800 hover:bg-red-900/30 text-zinc-400 hover:text-red-400 border border-zinc-700 hover:border-red-600 py-3 rounded-2xl font-medium flex items-center justify-center gap-2 transition"
+                >
+                  <X size={18} />
+                  Leave Club
+                </button>
+              </div>
+            )}
+
+            {isLeader && (
+              <>
                 <h3 className="font-semibold mb-4 mt-8">Invite Members</h3>
                 <div className="bg-zinc-900 rounded-2xl p-4 space-y-4">
                   <div className="bg-black rounded-xl px-4 py-3 flex items-center justify-between">
@@ -873,9 +925,9 @@ const ClubDetail = ({ user, onLogout }) => {
                     )}
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -964,7 +1016,7 @@ const ClubDetail = ({ user, onLogout }) => {
 
             <div className="space-y-3 overflow-y-auto flex-1 pr-2">
               {(club.members || []).map((member) => {
-                const isLeader = club.leader?._id && member._id === club.leader._id;
+                const memberIsLeader = club.leader?._id && member._id === club.leader._id;
                 return (
                   <div
                     key={member._id}
@@ -998,22 +1050,20 @@ const ClubDetail = ({ user, onLogout }) => {
                       )}
                     </div>
 
-                    {isLeader ? (
+                    {memberIsLeader ? (
                       <span className="text-amber-500 text-sm flex items-center gap-1 bg-amber-900/30 px-3 py-1 rounded-full">
                         <Crown size={12} /> Leader
                       </span>
-                    ) : isLeader && isLeader ? null : (
-                      isLeader ? null : (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveMember(member._id, member.username)}
-                          className="text-red-500 hover:text-red-400 p-2 hover:bg-red-900/30 rounded-lg transition"
-                          title="Remove from club"
-                        >
-                          <X size={18} />
-                        </button>
-                      )
-                    )}
+                    ) : isLeader ? (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveMember(member._id, member.username)}
+                        className="text-red-500 hover:text-red-400 p-2 hover:bg-red-900/30 rounded-lg transition"
+                        title="Remove from club"
+                      >
+                        <X size={18} />
+                      </button>
+                    ) : null}
                   </div>
                 );
               })}
@@ -1646,6 +1696,47 @@ const ClubDetail = ({ user, onLogout }) => {
                       Schedule Drive
                     </>
                   )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Leave Club Confirmation Modal */}
+      {showLeaveConfirm && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">Leave Club</h2>
+              <button
+                type="button"
+                onClick={cancelLeaveClub}
+                className="text-zinc-500 hover:text-white transition"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <p className="text-zinc-300 text-center text-lg">
+                Are you sure you want to leave this club?
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={cancelLeaveClub}
+                  className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-3 rounded-2xl font-medium transition"
+                >
+                  No
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmLeaveClub}
+                  className="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-2xl font-medium transition"
+                >
+                  Yes
                 </button>
               </div>
             </div>

@@ -13,7 +13,8 @@ const {
   toggleClubPrivacy,
   joinClubByInviteCode,
   updateClub,
-  deleteClub
+  deleteClub,
+  leaveClub
 } = require('../controllers/clubController');
 
 // All routes require authentication
@@ -169,6 +170,19 @@ router.delete(
     leaderEmail: { required: true, type: 'string', email: true }
   }),
   deleteClub
+);
+
+/**
+ * @route   PUT /api/clubs/:clubId/leave
+ * @desc    Leave a club (remove yourself from members)
+ * @access  Private
+ */
+router.put(
+  '/:clubId/leave',
+  validateParams({
+    clubId: { required: true, objectId: true }
+  }),
+  leaveClub
 );
 
 module.exports = router;

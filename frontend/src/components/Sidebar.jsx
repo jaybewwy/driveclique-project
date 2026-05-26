@@ -1,12 +1,35 @@
+import { useState, useEffect } from "react";
 import { Home, User, Users, Search } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
+import axios from "axios";
 
 const Sidebar = ({ user }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [userClubs, setUserClubs] = useState([]);
 
   // Get the display name or fall back to username
   const displayName = user?.useDisplayName && user?.name ? user.name : user?.username;
+
+  // Fetch user's clubs
+  useEffect(() => {
+    const fetchClubs = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await axios.get("http://localhost:5000/api/clubs", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (response.data.success) {
+          setUserClubs(response.data.clubs);
+        }
+      } catch (error) {
+        console.error("Error fetching clubs:", error);
+      }
+    };
+    fetchClubs();
+  }, []);
 
   const sidebarItems = [
     {
@@ -29,7 +52,7 @@ const Sidebar = ({ user }) => {
     },
     {
       id: "find-club",
-      label: "Find A Club",
+      label: "Find Clubs",
       icon: Search,
       path: "/find-club",
     },
@@ -83,6 +106,44 @@ const Sidebar = ({ user }) => {
           );
         })}
       </div>
+
+      {/* Your Clubs Section */}
+      {userClubs.length > 0 && (
+        <div className="mt-6">
+          <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider px-4 mb-3">
+            Your Clubs
+          </h3>
+          <div className="space-y-1">
+            {userClubs.slice(0, 5).map((club) => (
+              <div
+                key={club._id}
+                onClick={() => navigate(`/club/${club._id}`)}
+                className="flex items-center gap-3 px-4 py-2 hover:bg-zinc-900 rounded-xl cursor-pointer transition"
+              >
+                <div className="w-8 h-8 rounded-lg flex-shrink-0 overflow-hidden bg-zinc-800">
+                  {club.avatar ? (
+                    <img
+                      src={club.avatar}
+                      alt={club.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src = `https://via.placeholder.com/32?text=${club.name.charAt(0).toUpperCase()}`;
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center">
+                      <span className="text-white font-bold text-sm">
+                        {club.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <span className="text-sm truncate flex-1">{club.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

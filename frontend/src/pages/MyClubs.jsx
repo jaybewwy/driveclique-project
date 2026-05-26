@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Search, Users, Plus, Crown, Copy, Lock, X, Check } from "lucide-react";
+import { Users, Plus, Crown, Copy, Lock, X, Check } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 
@@ -40,12 +40,6 @@ const MyClubs = ({ user, onLogout }) => {
     navigator.clipboard.writeText(code);
     setCopiedCode(code);
     setTimeout(() => setCopiedCode(null), 2000);
-  };
-
-  const handleJoinByCode = () => {
-    setShowJoinModal(true);
-    setInviteCode("");
-    setJoinError("");
   };
 
   const submitJoinByCode = async () => {
@@ -165,18 +159,6 @@ const MyClubs = ({ user, onLogout }) => {
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-4xl font-bold">My Clubs</h1>
             <div className="flex gap-4">
-              <button
-                onClick={handleJoinByCode}
-                className="bg-zinc-800 hover:bg-zinc-700 px-6 py-3 rounded-2xl flex items-center gap-2 font-medium"
-              >
-                <Lock size={20} /> Join with Code
-              </button>
-              <button
-                onClick={() => navigate("/find-club")}
-                className="bg-zinc-800 hover:bg-zinc-700 px-6 py-3 rounded-2xl flex items-center gap-2 font-medium"
-              >
-                <Search size={20} /> Find A Club
-              </button>
               <button
                 onClick={() => navigate("/create-club")}
                 className="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-2xl flex items-center gap-2 font-medium"
