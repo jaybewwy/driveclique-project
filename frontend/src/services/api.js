@@ -119,6 +119,7 @@ export const clubsAPI = {
   getClubById: (clubId) => api.get(`/clubs/${clubId}`),
   getClubByInviteCode: (inviteCode) => api.get(`/clubs/invite/${inviteCode}`),
   create: (clubData) => api.post('/clubs', clubData),
+  update: (clubId, clubData) => api.put(`/clubs/${clubId}`, clubData),
   search: (params) => api.get('/clubs/browse', { params }),
   requestToJoin: (clubId) => api.post(`/clubs/${clubId}/join`),
   handleJoinRequest: (clubId, requestId, status) => 

@@ -250,23 +250,48 @@ const ClubDetail = ({ user, onLogout }) => {
   };
 
   const handleUpdateClub = async () => {
+    // Validate description length before sending
+    if (clubEditFormData.description && clubEditFormData.description.length < 10) {
+      alert("Description must be at least 10 characters long");
+      return;
+    }
+    
     try {
       const token = localStorage.getItem("token");
+      const url = `http://localhost:5000/api/clubs/${clubId}`;
+      
+      console.log("Updating club:", clubId);
+      console.log("URL:", url);
+      console.log("Token exists:", !!token);
+      console.log("Form data:", clubEditFormData);
+      
       const response = await axios.put(
-        `http://localhost:5000/api/clubs/${clubId}`,
+        url,
         clubEditFormData,
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
         }
       );
+      
+      console.log("Response:", response.data);
+      
       if (response.data?.success) {
         setClub(response.data.club);
         closeClubEditModal();
       }
     } catch (error) {
       console.error("Error updating club:", error);
-      if (error.response?.data?.message) {
+      console.error("Response status:", error.response?.status);
+      console.error("Response data:", error.response?.data);
+      if (error.response?.status === 404) {
+        alert("Club not found. Please refresh the page and try again.");
+      } else if (error.response?.data?.message) {
         alert(error.response.data.message);
+      } else {
+        alert("Failed to update club. Please check your connection and try again.");
       }
     }
   };

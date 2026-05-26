@@ -76,19 +76,6 @@ router.get(
 );
 
 /**
- * @route   GET /api/clubs/:clubId
- * @desc    Get club details by ID
- * @access  Private
- */
-router.get(
-  '/:clubId',
-  validateParams({
-    clubId: { required: true, objectId: true }
-  }),
-  getClubById
-);
-
-/**
  * @route   POST /api/clubs/:clubId/join
  * @desc    Request to join a club
  * @access  Private
@@ -135,6 +122,19 @@ router.post(
 );
 
 /**
+ * @route   GET /api/clubs/:clubId
+ * @desc    Get club details by ID
+ * @access  Private
+ */
+router.get(
+  '/:clubId',
+  validateParams({
+    clubId: { required: true, objectId: true }
+  }),
+  getClubById
+);
+
+/**
  * @route   PUT /api/clubs/:clubId
  * @desc    Update a club (name, description, avatar, privacy)
  * @access  Private (Club Leaders only)
@@ -148,7 +148,7 @@ router.put(
     name: { type: 'string', minLength: 1, maxLength: 100 },
     description: { type: 'string', minLength: 10, maxLength: 1000 },
     location: { type: 'string', maxLength: 200 },
-    avatar: { type: 'string', maxLength: 500 },
+    avatar: { type: 'string', maxLength: 100000 },
     isPrivate: { type: 'boolean' }
   }),
   updateClub
