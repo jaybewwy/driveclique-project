@@ -9,8 +9,6 @@ import ClubDetail from './pages/ClubDetail';
 import CreateClub from './pages/CreateClub';
 import FindClub from './pages/FindClub';
 import Profile from './pages/Profile';
-import DeleteClubConfirmation from './pages/DeleteClubConfirmation';
-import ScheduleDrive from './pages/ScheduleDrive';
 
 function getInitialAuth() {
   try {
@@ -63,8 +61,6 @@ function App() {
         <Route path="/create-club" element={isAuthenticated ? <CreateClub user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/find-club" element={isAuthenticated ? <FindClub user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/profile" element={isAuthenticated ? <Profile user={user} onLogout={logout} onUpdateUser={updateUser} /> : <Navigate to="/login" replace />} />
-        <Route path="/club/:clubId/delete" element={isAuthenticated ? <DeleteClubConfirmation user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
-        <Route path="/club/:clubId/schedule-drive" element={isAuthenticated ? <ScheduleDrive user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
 
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
