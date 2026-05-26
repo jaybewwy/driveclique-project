@@ -952,7 +952,7 @@ const ClubDetail = ({ user, onLogout }) => {
 
       {/* All Drives Modal */}
       {showAllDrivesModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-900 rounded-3xl p-8 max-w-lg w-full border border-zinc-800 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold">All Drives & Events</h2>
@@ -1020,7 +1020,7 @@ const ClubDetail = ({ user, onLogout }) => {
 
       {/* Members Modal */}
       {showMembersModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-900 rounded-3xl p-8 max-w-lg w-full border border-zinc-800 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold">All Members ({club.members?.length || 0})</h2>
@@ -1103,7 +1103,7 @@ const ClubDetail = ({ user, onLogout }) => {
 
       {/* Past Events Modal */}
       {showPastEventsModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-900 rounded-3xl p-8 max-w-lg w-full border border-zinc-800 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold">Past Events</h2>
@@ -1178,7 +1178,7 @@ const ClubDetail = ({ user, onLogout }) => {
 
       {/* Edit Drive Modal */}
       {showEditModal && selectedDrive && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold">Edit Drive</h2>
@@ -1271,7 +1271,7 @@ const ClubDetail = ({ user, onLogout }) => {
       )}
 
       {showDriveModal && selectedDrive && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold">{selectedDrive.name}</h2>
@@ -1336,7 +1336,7 @@ const ClubDetail = ({ user, onLogout }) => {
 
       {/* Club Edit Modal */}
       {showClubEditModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold">Edit Club</h2>
@@ -1502,7 +1502,7 @@ const ClubDetail = ({ user, onLogout }) => {
 
       {/* Schedule Drive Modal */}
       {showScheduleDriveModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-900 rounded-3xl p-6 max-w-lg w-full border border-zinc-800 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-3">
@@ -1716,7 +1716,7 @@ const ClubDetail = ({ user, onLogout }) => {
 
       {/* Leave Club Confirmation Modal */}
       {showLeaveConfirm && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold">Leave Club</h2>
@@ -1757,7 +1757,7 @@ const ClubDetail = ({ user, onLogout }) => {
 
       {/* Delete Club Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-red-600 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-red-400">Delete Club</h2>

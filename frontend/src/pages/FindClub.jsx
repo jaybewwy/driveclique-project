@@ -18,7 +18,8 @@ const FindClub = ({ user, onLogout }) => {
     const fetchClubs = async () => {
       try {
         const token = localStorage.getItem("token");
-        const response = await axios.get("http://localhost:5000/api/clubs", {
+        // Use the browse endpoint to get all public clubs
+        const response = await axios.get("http://localhost:5000/api/clubs/browse", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -47,6 +48,11 @@ const FindClub = ({ user, onLogout }) => {
 
   const handleJoinClub = async (clubId, e) => {
     e.stopPropagation();
+    
+    // Find the club in our local state to check its isPrivate status
+    const club = filteredClubs.find(c => c._id === clubId);
+    console.log('[Frontend] Joining club:', clubId, 'isPrivate:', club?.isPrivate);
+    
     try {
       const token = localStorage.getItem("token");
       const response = await axios.post(
@@ -58,12 +64,21 @@ const FindClub = ({ user, onLogout }) => {
           },
         }
       );
+      console.log('[Frontend] Join response:', response.data);
       if (response.data.success) {
-        alert("Join request sent!");
+        // Check if we received a clubId (public club - auto-joined)
+        if (response.data.clubId) {
+          // Navigate directly to the club page
+          navigate(`/club/${response.data.clubId}`);
+        } else {
+          // Private club - request sent, awaiting approval
+          alert("Join request sent! Awaiting leader approval.");
+        }
       }
     } catch (error) {
       console.error("Error joining club:", error);
-      alert("Failed to join club");
+      const errorMsg = error.response?.data?.message || "Failed to join club";
+      alert(errorMsg);
     }
   };
 
@@ -293,12 +308,26 @@ const FindClub = ({ user, onLogout }) => {
                       </div>
                     </div>
                     <div className="flex items-center gap-4 ml-4">
-                      <button
-                        onClick={(e) => handleJoinClub(club._id, e)}
-                        className="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-2xl font-medium whitespace-nowrap"
-                      >
-                        Join Club
-                      </button>
+                      {club.members.some((member) => 
+                        typeof member === 'string' ? member === user._id : member._id === user._id
+                      ) ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/club/${club._id}`);
+                          }}
+                          className="bg-zinc-700 hover:bg-zinc-600 px-6 py-3 rounded-2xl font-medium whitespace-nowrap"
+                        >
+                          View Club
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => handleJoinClub(club._id, e)}
+                          className="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-2xl font-medium whitespace-nowrap"
+                        >
+                          Join Club
+                        </button>
+                      )}
                       <div className="w-16 h-16 rounded-2xl flex-shrink-0 overflow-hidden">
                         {club.avatar ? (
                           <img src={club.avatar} alt={club.name} className="w-full h-full object-cover" />

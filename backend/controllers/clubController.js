@@ -93,7 +93,7 @@ const getClubByInviteCode = asyncHandler(async (req, res) => {
 });
 
 /**
- * Request to Join a Club
+ * Request to Join a Club (for private clubs) or Join Immediately (for public clubs)
  * @route POST /api/clubs/:clubId/join
  * @access Private
  */
@@ -110,7 +110,29 @@ const requestToJoinClub = asyncHandler(async (req, res) => {
     throw new AppError('Club not found', 404);
   }
 
-  // Check for existing pending request
+  // Debug logging
+  console.log(`[Join Club] Club: ${club.name}, isPrivate: ${club.isPrivate}, type: ${typeof club.isPrivate}`);
+
+  // Check if already a member
+  const isMember = club.members.some((m) => m.toString() === userId);
+  if (isMember) {
+    throw new AppError('Already a member', 400);
+  }
+
+  // For public clubs (isPrivate is false), add user directly without requiring approval
+  if (club.isPrivate === false) {
+    club.members.push(userId);
+    await club.save();
+
+    return res.json({ 
+      success: true, 
+      message: 'Joined club successfully',
+      clubId: club._id,
+      clubName: club.name
+    });
+  }
+
+  // For private clubs, check for existing pending request
   const existingRequest = club.joinRequests.find(
     (r) => r.user.toString() === userId && r.status === 'pending'
   );
@@ -119,16 +141,10 @@ const requestToJoinClub = asyncHandler(async (req, res) => {
     throw new AppError('Request already pending', 400);
   }
 
-  // Check if already a member
-  const isMember = club.members.some((m) => m.toString() === userId);
-  if (isMember) {
-    throw new AppError('Already a member', 400);
-  }
-
   club.joinRequests.push({ user: userId });
   await club.save();
 
-  res.json({ success: true, message: 'Join request sent' });
+  res.json({ success: true, message: 'Join request sent. Awaiting leader approval.' });
 });
 
 /**
