@@ -18,8 +18,6 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  Info,
-  AlertCircle,
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
