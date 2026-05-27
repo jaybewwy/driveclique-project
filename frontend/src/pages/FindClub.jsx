@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Car, Home, Bell, User, MapPin, Lock, Globe, Users, Calendar, X, Search, Sparkles, SlidersHorizontal } from "lucide-react";
+import { Car, Home, Bell, User, MapPin, Lock, Globe, Users, Calendar, X, Search, Sparkles } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 
 const FindClub = ({ user, onLogout }) => {
@@ -36,12 +36,17 @@ const FindClub = ({ user, onLogout }) => {
     fetchClubs();
   }, []);
 
-  const publicClubs = clubs.filter(club => !club.isPrivate);
+  // Filter out clubs where the user is already a member
+  const isUserMember = (club) => {
+    return club.members.some((member) => 
+      typeof member === 'string' ? member === user?._id : member._id === user?._id
+    );
+  };
+
+  const publicClubs = clubs.filter(club => !club.isPrivate && !isUserMember(club));
   const filteredClubs = searchQuery.trim()
     ? publicClubs.filter(club =>
-        club.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (club.description && club.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (club.location && club.location.toLowerCase().includes(searchQuery.toLowerCase()))
+        club.name.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : publicClubs;
 
@@ -278,15 +283,29 @@ const FindClub = ({ user, onLogout }) => {
             </div>
           </div>
 
-          {/* Results Count & Filter */}
-          <div className="flex items-center justify-between mb-6">
-            <p className="text-zinc-400">
+          {/* Search and Results Count */}
+          <div className="mb-6">
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search clubs by name..."
+                className="w-full bg-zinc-900 border border-zinc-700 rounded-2xl px-6 py-4 pl-12 focus:outline-none focus:border-red-500/50 transition-all"
+              />
+              <Search className="absolute left-4 top-4 text-zinc-500 w-5 h-5" />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-4 top-4 text-zinc-500 hover:text-white transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+            <p className="text-zinc-400 mt-3 text-sm">
               <span className="text-white font-semibold">{filteredClubs.length}</span> clubs found
             </p>
-            <button className="flex items-center gap-2 px-4 py-2 bg-zinc-900/50 hover:bg-zinc-800 rounded-xl text-sm text-zinc-400 hover:text-white transition border border-zinc-800/50">
-              <SlidersHorizontal className="w-4 h-4" />
-              Filters
-            </button>
           </div>
 
           {loading ? (
@@ -365,26 +384,12 @@ const FindClub = ({ user, onLogout }) => {
                       </div>
                     </div>
                     <div className="flex items-center gap-4 ml-4">
-                      {club.members.some((member) => 
-                        typeof member === 'string' ? member === user._id : member._id === user._id
-                      ) ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/club/${club._id}`);
-                          }}
-                          className="bg-zinc-800 hover:bg-zinc-700 px-6 py-3 rounded-2xl font-medium whitespace-nowrap transition-all duration-300"
-                        >
-                          View Club
-                        </button>
-                      ) : (
-                        <button
-                          onClick={(e) => handleJoinClub(club._id, e)}
-                          className="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 px-6 py-3 rounded-2xl font-medium whitespace-nowrap transition-all duration-300 shadow-lg shadow-red-500/25 hover:shadow-red-500/40"
-                        >
-                          Join Club
-                        </button>
-                      )}
+                      <button
+                        onClick={(e) => handleJoinClub(club._id, e)}
+                        className="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 px-6 py-3 rounded-2xl font-medium whitespace-nowrap transition-all duration-300 shadow-lg shadow-red-500/25 hover:shadow-red-500/40"
+                      >
+                        Join Club
+                      </button>
                     </div>
                   </div>
                 </div>

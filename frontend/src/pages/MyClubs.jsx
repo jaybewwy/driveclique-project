@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Users, Plus, Crown, Copy, Lock, X, Check } from "lucide-react";
+import { Users, Plus, Crown, Lock, X, TrendingUp } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 
@@ -13,7 +13,16 @@ const MyClubs = ({ user, onLogout }) => {
   const [inviteCode, setInviteCode] = useState("");
   const [joinError, setJoinError] = useState("");
   const [joinLoading, setJoinLoading] = useState(false);
-  const [copiedCode, setCopiedCode] = useState(null);
+
+  // Sort clubs to prioritize clubs where the user is the leader
+  const sortedClubs = [...clubs].sort((a, b) => {
+    const aIsLeader = a.leader._id === user?._id || a.leader === user?._id;
+    const bIsLeader = b.leader._id === user?._id || b.leader === user?._id;
+    
+    if (aIsLeader && !bIsLeader) return -1;
+    if (!aIsLeader && bIsLeader) return 1;
+    return 0;
+  });
 
   useEffect(() => {
     const fetchClubs = async () => {
@@ -35,12 +44,6 @@ const MyClubs = ({ user, onLogout }) => {
     };
     fetchClubs();
   }, []);
-
-  const copyInviteCode = (code) => {
-    navigator.clipboard.writeText(code);
-    setCopiedCode(code);
-    setTimeout(() => setCopiedCode(null), 2000);
-  };
 
   const submitJoinByCode = async () => {
     if (!inviteCode.trim()) {
@@ -184,9 +187,8 @@ const MyClubs = ({ user, onLogout }) => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {clubs.map((club) => {
-                const currentUser = JSON.parse(localStorage.getItem("driveclique_user") || "{}");
-                const isLeader = club.leader._id === currentUser._id;
+              {sortedClubs.map((club) => {
+                const isLeader = club.leader._id === user?._id || club.leader === user?._id;
                 return (
                   <div
                     key={club._id}
@@ -233,30 +235,6 @@ const MyClubs = ({ user, onLogout }) => {
                       {club.description}
                     </p>
 
-                    {isLeader && (
-                      <div className="bg-zinc-800 rounded-2xl p-3 mb-4">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-zinc-500">Invite Code</span>
-                          {copiedCode === club.inviteCode && (
-                            <span className="text-xs text-green-400 flex items-center gap-1">
-                              <Check size={12} /> Copied!
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between bg-black rounded-xl px-3 py-2 mt-1">
-                          <span className="font-mono text-sm tracking-widest">
-                            {club.inviteCode}
-                          </span>
-                          <button
-                            onClick={() => copyInviteCode(club.inviteCode)}
-                            className="text-red-500 hover:text-red-400 transition"
-                          >
-                            <Copy size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
                     <button
                       onClick={() => navigate(`/club/${club._id}`)}
                       className="w-full bg-red-600 hover:bg-red-700 py-3 rounded-2xl font-medium transition"
@@ -270,42 +248,73 @@ const MyClubs = ({ user, onLogout }) => {
           )}
         </div>
 
-        <div className="w-80 hidden lg:block p-6 sticky top-16 h-screen overflow-y-auto">
-          <h3 className="font-semibold mb-4">Your Clubs</h3>
-          {clubs.length === 0 ? (
-            <p className="text-zinc-500 text-sm">No clubs yet</p>
-          ) : (
-            <div className="space-y-4">
-              {clubs.map((club) => (
-                <div key={club._id} className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-zinc-800 overflow-hidden flex-shrink-0 border border-zinc-700">
-                    {club.avatar ? (
-                      <img
-                        src={club.avatar}
-                        alt={club.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.src = 'https://via.placeholder.com/40?text=Club';
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-red-600 to-orange-600">
-                        <span className="text-white text-xs font-bold">
-                          {club.name.charAt(0).toUpperCase()}
-                        </span>
+        <div className="w-80 hidden 2xl:block p-6 sticky top-16 h-[calc(100vh-4rem)] overflow-hidden flex flex-col">
+          {/* Your Clubs */}
+          <div className="mb-6">
+            <h3 className="font-semibold mb-4">Your Clubs</h3>
+            {clubs.length === 0 ? (
+              <p className="text-zinc-500 text-sm">No clubs yet</p>
+            ) : (
+              <div className="space-y-3">
+            {sortedClubs.map((club) => {
+                  const isLeader = club.leader._id === user?._id || club.leader === user?._id;
+                  return (
+                    <div 
+                      key={club._id} 
+                      className="flex items-center gap-3 p-2 rounded-xl hover:bg-zinc-900/50 transition cursor-pointer"
+                      onClick={() => navigate(`/club/${club._id}`)}
+                    >
+                      <div className="w-10 h-10 rounded-full bg-zinc-800 overflow-hidden flex-shrink-0 border border-zinc-700">
+                        {club.avatar ? (
+                          <img
+                            src={club.avatar}
+                            alt={club.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.src = 'https://via.placeholder.com/40?text=Club';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-red-600 to-orange-600">
+                            <span className="text-white text-xs font-bold">
+                              {club.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-medium">{club.name}</p>
-                    <p className="text-xs text-zinc-500">
-                      {club.members.length} members
-                    </p>
-                  </div>
-                </div>
-              ))}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1">
+                          <p className="font-medium truncate">{club.name}</p>
+                          {isLeader && <Crown size={12} className="text-amber-500 flex-shrink-0" />}
+                        </div>
+                        <p className="text-xs text-zinc-500">
+                          {club.members.length} members
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Quick Stats */}
+          <div className="p-4 bg-gradient-to-br from-zinc-900/50 to-zinc-900/20 rounded-2xl border border-zinc-800/30 mt-auto">
+            <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <TrendingUp className="w-3 h-3" />
+              Quick Stats
+            </h3>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="p-2 bg-zinc-800/30 rounded-lg">
+                <p className="text-lg font-bold text-white">{clubs.length}</p>
+                <p className="text-xs text-zinc-500">Clubs</p>
+              </div>
+              <div className="p-2 bg-zinc-800/30 rounded-lg">
+                <p className="text-lg font-bold text-white">12</p>
+                <p className="text-xs text-zinc-500">Events</p>
+              </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

@@ -111,15 +111,15 @@ const Profile = ({ onLogout, onUpdateUser }) => {
       });
 
       if (response.data.success) {
-        setMessage({ type: "success", text: "Profile updated successfully! Redirecting to dashboard..." });
+        setMessage({ type: "success", text: "Profile updated successfully!" });
         const updatedUser = response.data.user;
         if (onUpdateUser) {
           onUpdateUser(updatedUser);
         }
         setUser(updatedUser);
-        setTimeout(() => {
-          navigate("/dashboard");
-        }, 3000);
+        // Clear the avatar file name after successful save
+        setAvatarFileName("");
+        setPreviewAvatar("");
       }
     } catch (error) {
       setMessage({ type: "error", text: getErrorMessage(error) });
@@ -163,45 +163,54 @@ const Profile = ({ onLogout, onUpdateUser }) => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Profile Picture Section */}
+            {/* Profile Picture and Bio Section */}
             <div className="bg-zinc-900 rounded-3xl p-6">
-              <h2 className="text-xl font-semibold mb-6">Profile Picture</h2>
-              <div className="flex items-center gap-6">
-                <div className="w-24 h-24 rounded-full bg-zinc-700 overflow-hidden flex-shrink-0 relative">
-                  {(previewAvatar || formData.avatar) ? (
-                    <img src={previewAvatar || formData.avatar} alt="Profile" className="w-full h-full object-cover" />
-                  ) : (
-                    <User className="w-full h-full p-6 text-zinc-500" />
-                  )}
-                  <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition cursor-pointer rounded-full">
-                    <Camera className="w-8 h-8 text-white" />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleAvatarUpload}
-                      className="hidden"
-                    />
-                  </label>
+              <h2 className="text-xl font-semibold mb-6">Profile Picture & Bio</h2>
+              <div className="flex gap-6">
+                {/* Profile Picture */}
+                <div className="flex-shrink-0">
+                  <div className="w-32 h-32 rounded-full bg-zinc-700 overflow-hidden relative">
+                    {(previewAvatar || formData.avatar) ? (
+                      <img src={previewAvatar || formData.avatar} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-full h-full p-8 text-zinc-500" />
+                    )}
+                    <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition cursor-pointer rounded-full">
+                      <Camera className="w-8 h-8 text-white" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
                   {avatarFileName && (
-                    <p className="absolute -bottom-6 left-0 right-0 text-xs text-zinc-500 text-center">
+                    <p className="text-xs text-zinc-500 text-center mt-2 truncate max-w-[128px]">
                       {avatarFileName}
                     </p>
                   )}
+                  <p className="text-xs text-zinc-500 text-center mt-1">
+                    Upload a picture
+                  </p>
                 </div>
+
+                {/* Bio */}
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-zinc-300 mb-2">
-                    Avatar URL
+                    Bio
                   </label>
-                  <input
-                    type="url"
-                    name="avatar"
-                    value={formData.avatar}
+                  <textarea
+                    name="bio"
+                    value={formData.bio}
                     onChange={handleChange}
-                    placeholder="https://example.com/avatar.jpg"
-                    className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600"
+                    placeholder="Tell us about yourself..."
+                    rows="5"
+                    maxLength="500"
+                    className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 resize-none"
                   />
-                  <p className="text-xs text-zinc-500 mt-2">
-                    Enter a URL for your profile picture, or click the camera icon to upload.
+                  <p className="text-xs text-zinc-500 mt-1 text-right">
+                    {formData.bio.length}/500 characters
                   </p>
                 </div>
               </div>
@@ -283,23 +292,6 @@ const Profile = ({ onLogout, onUpdateUser }) => {
                   <p className="text-xs text-zinc-500 mt-1">Email cannot be changed.</p>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-zinc-300 mb-2">
-                    Bio
-                  </label>
-                  <textarea
-                    name="bio"
-                    value={formData.bio}
-                    onChange={handleChange}
-                    placeholder="Tell us about yourself..."
-                    rows="3"
-                    maxLength="500"
-                    className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 resize-none"
-                  />
-                  <p className="text-xs text-zinc-500 mt-1 text-right">
-                    {formData.bio.length}/500 characters
-                  </p>
-                </div>
               </div>
             </div>
 

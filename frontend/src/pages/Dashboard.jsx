@@ -7,20 +7,20 @@ import axios from "axios";
 
 const Dashboard = ({ user, onLogout }) => {
   const navigate = useNavigate();
-  const [userClubs, setUserClubs] = useState([]);
   const [upcomingDrives, setUpcomingDrives] = useState([]);
+  const [trendingClub, setTrendingClub] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const token = localStorage.getItem("token");
         
-        // Fetch user's clubs
-        const clubsResponse = await axios.get("http://localhost:5000/api/clubs", {
+        // Fetch trending club (club with most members)
+        const trendingResponse = await axios.get("http://localhost:5000/api/clubs/trending", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (clubsResponse.data.success) {
-          setUserClubs(clubsResponse.data.clubs);
+        if (trendingResponse.data.success) {
+          setTrendingClub(trendingResponse.data.club);
         }
 
         // Fetch upcoming drives (you'll need to implement this endpoint)
@@ -219,101 +219,54 @@ const Dashboard = ({ user, onLogout }) => {
             </div>
           </div>
 
-          {/* Your Clubs Preview */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold flex items-center gap-2">
-                <Users className="w-5 h-5 text-orange-500" />
-                Your Clubs
-              </h3>
-              <button 
-                onClick={() => navigate("/my-clubs")}
-                className="text-sm text-zinc-400 hover:text-white flex items-center gap-1 transition-colors"
-              >
-                View All <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              {userClubs.slice(0, 4).map((club) => (
-                <div
-                  key={club._id}
-                  onClick={() => navigate(`/club/${club._id}`)}
-                  className="bg-zinc-900/50 backdrop-blur-sm rounded-2xl p-4 border border-zinc-800/50 hover:border-orange-500/30 transition-all duration-300 cursor-pointer group"
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-xl overflow-hidden ring-1 ring-zinc-700/30">
-                      {club.avatar ? (
-                        <img src={club.avatar} alt={club.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
-                          <span className="text-white font-bold text-sm">
-                            {club.name.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-sm truncate group-hover:text-orange-400 transition-colors">
-                        {club.name}
-                      </h4>
-                      <p className="text-xs text-zinc-500">
-                        {club.members.length} members
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {userClubs.length === 0 && (
-                <div className="col-span-2 text-center py-12 bg-zinc-900/30 rounded-2xl border border-zinc-800/30">
-                  <Users className="w-12 h-12 text-zinc-700 mx-auto mb-3" />
-                  <p className="text-zinc-500">Not in any clubs yet</p>
-                  <button 
-                    onClick={() => navigate("/find-club")}
-                    className="mt-3 text-sm text-red-400 hover:text-red-300 transition-colors"
-                  >
-                    Find a club to join →
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* Right Sidebar */}
-        <div className="w-80 hidden xl:block p-6 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
-          {/* Trending Clubs */}
+        <div className="w-80 hidden 2xl:block p-6 sticky top-16 h-[calc(100vh-4rem)] overflow-hidden flex flex-col">
+          {/* Trending Club */}
           <div className="mb-6">
             <h3 className="font-semibold mb-4 flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-red-500" />
-              Trending Clubs
+              Trending Club
             </h3>
-            <div className="space-y-3">
-              {[
-                { name: "Speed Demons", members: 234, gradient: "from-red-500 to-orange-500" },
-                { name: "Classic Cars", members: 189, gradient: "from-blue-500 to-cyan-500" },
-                { name: "EV Enthusiasts", members: 156, gradient: "from-green-500 to-emerald-500" },
-              ].map((club, index) => (
-                <div
-                  key={index}
-                  onClick={() => navigate("/find-club")}
-                  className="flex items-center gap-3 p-3 bg-zinc-900/30 rounded-xl hover:bg-zinc-900/50 transition cursor-pointer group"
-                >
-                  <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${club.gradient} flex items-center justify-center`}>
-                    <span className="text-white font-bold text-sm">{index + 1}</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-sm group-hover:text-white transition-colors">{club.name}</p>
-                    <p className="text-xs text-zinc-500">{club.members} members</p>
+            {trendingClub ? (
+              <div
+                onClick={() => navigate(`/club/${trendingClub._id}`)}
+                className="flex items-center gap-3 p-3 bg-zinc-900/30 rounded-xl hover:bg-zinc-900/50 transition cursor-pointer group"
+              >
+                <div className="w-10 h-10 rounded-lg overflow-hidden ring-1 ring-zinc-700/30 flex-shrink-0">
+                  {trendingClub.avatar ? (
+                    <img src={trendingClub.avatar} alt={trendingClub.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center">
+                      <span className="text-white font-bold text-sm">
+                        {trendingClub.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm group-hover:text-white transition-colors truncate">
+                    {trendingClub.name}
+                  </p>
+                  <div className="flex items-center gap-2 text-xs text-zinc-500">
+                    <span>{trendingClub.memberCount} members</span>
+                    <span>•</span>
+                    <span>{trendingClub.completedDrivesCount} drives</span>
                   </div>
                 </div>
-              ))}
-            </div>
+                <ArrowRight className="w-4 h-4 text-zinc-600 group-hover:text-red-500 transition-colors" />
+              </div>
+            ) : (
+              <div className="text-center py-6 bg-zinc-900/30 rounded-xl border border-zinc-800/30">
+                <TrendingUp className="w-8 h-8 text-zinc-700 mx-auto mb-2" />
+                <p className="text-sm text-zinc-500">No trending clubs yet</p>
+              </div>
+            )}
           </div>
 
           {/* Pro Tip */}
-          <div className="relative overflow-hidden p-4 bg-gradient-to-br from-red-500/10 to-orange-500/10 rounded-2xl border border-red-500/20">
+          <div className="relative overflow-hidden p-4 bg-gradient-to-br from-red-500/10 to-orange-500/10 rounded-2xl border border-red-500/20 mt-auto">
             <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-red-500/20 to-orange-500/20 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
             <div className="relative">
               <div className="flex items-center gap-2 mb-2">

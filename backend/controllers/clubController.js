@@ -381,6 +381,64 @@ const deleteClub = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Get Top Club by Member Count and Completed Drives
+ * @route GET /api/clubs/trending
+ * @access Private
+ */
+const getTopClub = asyncHandler(async (req, res) => {
+  const Drive = require('../models/Drive');
+  
+  // Find all public clubs
+  const clubs = await Club.find({ isPrivate: false })
+    .populate('leader', 'username email avatar name')
+    .limit(100);
+
+  if (!clubs || clubs.length === 0) {
+    return res.json({ success: true, club: null });
+  }
+
+  // Count completed drives for each club and calculate trending score
+  const clubScores = await Promise.all(
+    clubs.map(async (club) => {
+      const completedDrivesCount = await Drive.countDocuments({
+        club: club._id,
+        isCompleted: true
+      });
+      
+      // Trending score: combination of members and completed drives
+      // Weight: members count + (completed drives * 5) to give importance to activity
+      const trendingScore = club.members.length + (completedDrivesCount * 5);
+      
+      return {
+        club,
+        memberCount: club.members.length,
+        completedDrivesCount,
+        trendingScore
+      };
+    })
+  );
+
+  // Sort by trending score (descending) and get the top club
+  clubScores.sort((a, b) => b.trendingScore - a.trendingScore);
+  const topClubData = clubScores[0];
+  const topClub = topClubData.club;
+
+  res.json({ 
+    success: true, 
+    club: {
+      _id: topClub._id,
+      name: topClub.name,
+      description: topClub.description,
+      location: topClub.location,
+      avatar: topClub.avatar,
+      memberCount: topClubData.memberCount,
+      completedDrivesCount: topClubData.completedDrivesCount,
+      leader: topClub.leader
+    }
+  });
+});
+
+/**
  * Leave a Club
  * @route PUT /api/clubs/:clubId/leave
  * @access Private
@@ -428,5 +486,6 @@ module.exports = {
   joinClubByInviteCode,
   updateClub,
   deleteClub,
+  getTopClub,
   leaveClub
 };

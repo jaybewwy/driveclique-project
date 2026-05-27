@@ -14,6 +14,7 @@ const {
   joinClubByInviteCode,
   updateClub,
   deleteClub,
+  getTopClub,
   leaveClub
 } = require('../controllers/clubController');
 
@@ -49,6 +50,13 @@ router.get('/', getUserClubs);
  * @access  Private
  */
 router.get('/browse', searchClubs);
+
+/**
+ * @route   GET /api/clubs/trending
+ * @desc    Get the top club by member count
+ * @access  Private
+ */
+router.get('/trending', getTopClub);
 
 /**
  * @route   POST /api/clubs/join-by-code/:inviteCode

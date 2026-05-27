@@ -299,13 +299,6 @@ const ClubDetail = ({ user, onLogout }) => {
     }
   };
 
-  const handleAvatarChange = (e) => {
-    const url = e.target.value;
-    setClubEditFormData({ ...clubEditFormData, avatar: url });
-    setClubAvatarPreview(url);
-    setAvatarFileName('');
-  };
-
   const handleAvatarUpload = async (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -1391,16 +1384,6 @@ const ClubDetail = ({ user, onLogout }) => {
                   {avatarFileName && (
                     <p className="text-xs text-zinc-500">Selected: {avatarFileName}</p>
                   )}
-                </div>
-                <div className="mt-3">
-                  <label className="block text-sm text-zinc-400 mb-2">Or enter URL</label>
-                  <input
-                    type="url"
-                    value={clubEditFormData.avatar || ''}
-                    onChange={handleAvatarChange}
-                    placeholder="https://example.com/avatar.jpg"
-                    className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-600"
-                  />
                 </div>
               </div>
 

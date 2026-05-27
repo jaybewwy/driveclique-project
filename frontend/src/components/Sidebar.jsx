@@ -12,6 +12,16 @@ const Sidebar = ({ user }) => {
   // Get the display name or fall back to username
   const displayName = user?.useDisplayName && user?.name ? user.name : user?.username;
 
+  // Sort clubs to prioritize clubs where the user is the leader
+  const sortedClubs = [...userClubs].sort((a, b) => {
+    const aIsLeader = a.leader === user?._id || a.leader?._id === user?._id;
+    const bIsLeader = b.leader === user?._id || b.leader?._id === user?._id;
+    
+    if (aIsLeader && !bIsLeader) return -1;
+    if (!aIsLeader && bIsLeader) return 1;
+    return 0;
+  });
+
   // Fetch user's clubs
   useEffect(() => {
     const fetchClubs = async () => {
@@ -75,7 +85,7 @@ const Sidebar = ({ user }) => {
   };
 
   return (
-    <div className="w-72 hidden lg:block border-r border-zinc-800/50 p-4 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto bg-black/20">
+    <div className="w-72 hidden xl:block border-r border-zinc-800/50 p-4 sticky top-16 h-[calc(100vh-4rem)] overflow-hidden bg-black/20 flex flex-col">
       {/* User Info Section */}
       {displayName && (
         <div className="relative group mb-6">
@@ -150,33 +160,43 @@ const Sidebar = ({ user }) => {
         })}
       </div>
 
-      {/* Quick Stats */}
-      <div className="mb-6 p-4 bg-gradient-to-br from-zinc-900/50 to-zinc-900/20 rounded-2xl border border-zinc-800/30">
-        <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-          <TrendingUp className="w-3 h-3" />
-          Quick Stats
-        </h3>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="p-2 bg-zinc-800/30 rounded-lg">
-            <p className="text-lg font-bold text-white">{userClubs.length}</p>
-            <p className="text-xs text-zinc-500">Clubs</p>
-          </div>
-          <div className="p-2 bg-zinc-800/30 rounded-lg">
-            <p className="text-lg font-bold text-white">12</p>
-            <p className="text-xs text-zinc-500">Events</p>
+      {/* Quick Stats - Hidden on My Clubs page */}
+      {location.pathname !== "/my-clubs" && (
+        <div className="mb-6 p-4 bg-gradient-to-br from-zinc-900/50 to-zinc-900/20 rounded-2xl border border-zinc-800/30">
+          <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <TrendingUp className="w-3 h-3" />
+            Quick Stats
+          </h3>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="p-2 bg-zinc-800/30 rounded-lg">
+              <p className="text-lg font-bold text-white">{userClubs.length}</p>
+              <p className="text-xs text-zinc-500">Clubs</p>
+            </div>
+            <div className="p-2 bg-zinc-800/30 rounded-lg">
+              <p className="text-lg font-bold text-white">12</p>
+              <p className="text-xs text-zinc-500">Events</p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Your Clubs Section */}
-      {userClubs.length > 0 && (
+      {/* Your Clubs Section - Hidden on My Clubs page */}
+      {userClubs.length > 0 && location.pathname !== "/my-clubs" && (
         <div className="mb-6">
-          <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider px-4 mb-3 flex items-center gap-2">
-            <Sparkles className="w-3 h-3" />
-            Your Clubs
-          </h3>
+          <div className="flex items-center justify-between px-4 mb-3">
+            <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
+              <Sparkles className="w-3 h-3" />
+              Your Clubs
+            </h3>
+            <button 
+              onClick={() => navigate("/my-clubs")}
+              className="text-xs text-zinc-500 hover:text-white transition-colors"
+            >
+              View All
+            </button>
+          </div>
           <div className="space-y-1">
-            {userClubs.slice(0, 5).map((club, index) => (
+            {sortedClubs.slice(0, sortedClubs.length > 3 ? 3 : 5).map((club, index) => (
               <div
                 key={club._id}
                 onClick={() => navigate(`/club/${club._id}`)}
@@ -212,7 +232,7 @@ const Sidebar = ({ user }) => {
       )}
 
       {/* Upgrade Card */}
-      <div className="relative overflow-hidden p-4 bg-gradient-to-br from-red-500/10 to-orange-500/10 rounded-2xl border border-red-500/20">
+      <div className="relative overflow-hidden p-4 bg-gradient-to-br from-red-500/10 to-orange-500/10 rounded-2xl border border-red-500/20 mt-auto">
         <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-red-500/20 to-orange-500/20 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
         <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2">
           <Calendar className="w-4 h-4 text-red-400" />
