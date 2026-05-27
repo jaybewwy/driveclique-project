@@ -1659,8 +1659,9 @@ const ClubDetail = ({ user, onLogout }) => {
               </div>
 
               <div>
-                <label className="block text-sm text-zinc-400 mb-2">Club Name</label>
+                <label htmlFor="club-edit-name" className="block text-sm text-zinc-400 mb-2">Club Name</label>
                 <input
+                  id="club-edit-name"
                   type="text"
                   value={clubEditFormData.name || ''}
                   onChange={(e) => setClubEditFormData({ ...clubEditFormData, name: e.target.value })}
@@ -1669,8 +1670,9 @@ const ClubDetail = ({ user, onLogout }) => {
               </div>
 
               <div>
-                <label className="block text-sm text-zinc-400 mb-2">Description</label>
+                <label htmlFor="club-edit-description" className="block text-sm text-zinc-400 mb-2">Description</label>
                 <textarea
+                  id="club-edit-description"
                   value={clubEditFormData.description || ''}
                   onChange={(e) => setClubEditFormData({ ...clubEditFormData, description: e.target.value })}
                   rows={3}
@@ -1679,8 +1681,9 @@ const ClubDetail = ({ user, onLogout }) => {
               </div>
 
               <div>
-                <label className="block text-sm text-zinc-400 mb-2">Location</label>
+                <label htmlFor="club-edit-location" className="block text-sm text-zinc-400 mb-2">Location</label>
                 <input
+                  id="club-edit-location"
                   type="text"
                   value={clubEditFormData.location || ''}
                   onChange={(e) => setClubEditFormData({ ...clubEditFormData, location: e.target.value })}
