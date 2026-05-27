@@ -112,6 +112,7 @@ const requestToJoinClub = asyncHandler(async (req, res) => {
 
   // Debug logging
   console.log(`[Join Club] Club: ${club.name}, isPrivate: ${club.isPrivate}, type: ${typeof club.isPrivate}`);
+  console.log(`[Join Club] Comparison: club.isPrivate === false: ${club.isPrivate === false}`);
 
   // Check if already a member
   const isMember = club.members.some((m) => m.toString() === userId);
@@ -121,6 +122,7 @@ const requestToJoinClub = asyncHandler(async (req, res) => {
 
   // For public clubs (isPrivate is false), add user directly without requiring approval
   if (club.isPrivate === false) {
+    console.log(`[Join Club] ${club.name} is PUBLIC - auto-joining user`);
     club.members.push(userId);
     await club.save();
 
