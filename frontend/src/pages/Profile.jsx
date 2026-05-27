@@ -166,37 +166,39 @@ const Profile = ({ onLogout, onUpdateUser }) => {
             {/* Profile Picture and Bio Section */}
             <div className="bg-zinc-900 rounded-3xl p-6">
               <h2 className="text-xl font-semibold mb-6">Profile Picture & Bio</h2>
-              <div className="flex gap-6">
+              <div className="space-y-6">
                 {/* Profile Picture */}
-                <div className="flex-shrink-0">
-                  <div className="w-32 h-32 rounded-full bg-zinc-700 overflow-hidden relative">
-                    {(previewAvatar || formData.avatar) ? (
-                      <img src={previewAvatar || formData.avatar} alt="Profile" className="w-full h-full object-cover" />
-                    ) : (
-                      <User className="w-full h-full p-8 text-zinc-500" />
+                <div className="flex justify-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-32 h-32 rounded-full bg-zinc-700 overflow-hidden relative">
+                      {(previewAvatar || formData.avatar) ? (
+                        <img src={previewAvatar || formData.avatar} alt="Profile" className="w-full h-full object-cover" />
+                      ) : (
+                        <User className="w-full h-full p-8 text-zinc-500" />
+                      )}
+                      <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition cursor-pointer rounded-full">
+                        <Camera className="w-8 h-8 text-white" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleAvatarUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                    {avatarFileName && (
+                      <p className="text-xs text-zinc-500 text-center mt-2 truncate max-w-[128px]">
+                        {avatarFileName}
+                      </p>
                     )}
-                    <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition cursor-pointer rounded-full">
-                      <Camera className="w-8 h-8 text-white" />
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleAvatarUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                  {avatarFileName && (
-                    <p className="text-xs text-zinc-500 text-center mt-2 truncate max-w-[128px]">
-                      {avatarFileName}
+                    <p className="text-xs text-zinc-500 text-center mt-1">
+                      Upload a picture
                     </p>
-                  )}
-                  <p className="text-xs text-zinc-500 text-center mt-1">
-                    Upload a picture
-                  </p>
+                  </div>
                 </div>
 
                 {/* Bio */}
-                <div className="flex-1">
+                <div>
                   <label className="block text-sm font-medium text-zinc-300 mb-2">
                     Bio
                   </label>

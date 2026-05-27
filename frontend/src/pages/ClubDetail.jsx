@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Crown,
+  Users,
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
@@ -54,6 +55,12 @@ const ClubDetail = ({ user, onLogout }) => {
   const [deleteEmail, setDeleteEmail] = useState('');
   const [deleteReason, setDeleteReason] = useState('');
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+
+  // RSVP state
+  const [userRSVP, setUserRSVP] = useState(null); // 'going', 'maybe', 'not-going', or null
+  const [rsvpCounts, setRsvpCounts] = useState({ going: 0, maybe: 0, notGoing: 0 });
+  const [isRSVPLoading, setIsRSVPLoading] = useState(false);
+  const [rsvpMessage, setRsvpMessage] = useState('');
 
   // Schedule Drive modal state
   const [showScheduleDriveModal, setShowScheduleDriveModal] = useState(false);
@@ -124,14 +131,132 @@ const ClubDetail = ({ user, onLogout }) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDriveClick = (drive) => {
+  const handleDriveClick = async (drive) => {
     setSelectedDrive(drive);
+    // Fetch RSVP data for this drive
+    await fetchDriveRSVPData(drive._id);
     setShowDriveModal(true);
   };
 
   const closeDriveModal = () => {
     setShowDriveModal(false);
     setSelectedDrive(null);
+    setUserRSVP(null);
+    setRsvpCounts({ going: 0, maybe: 0, notGoing: 0 });
+    setRsvpMessage('');
+  };
+
+  // Fetch RSVP data for a drive
+  const fetchDriveRSVPData = async (driveId) => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Fetch attendees data (for leader) or just get counts
+      if (isLeader) {
+        const response = await axios.get(
+          `http://localhost:5000/api/drives/${driveId}/attendees`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (response.data?.success) {
+          setRsvpCounts({
+            going: response.data.stats.going,
+            maybe: response.data.stats.maybe,
+            notGoing: response.data.stats.notGoing
+          });
+        }
+      } else {
+        // For non-leaders, we'll just show their own RSVP status
+        // In a real app, you might have a separate endpoint for this
+        const response = await axios.get(
+          `http://localhost:5000/api/drives/${driveId}/attendees`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (response.data?.success) {
+          setRsvpCounts({
+            going: response.data.stats.going,
+            maybe: response.data.stats.maybe,
+            notGoing: response.data.stats.notGoing
+          });
+          // Check if current user has an RSVP
+          const userRSVPData = response.data.rsvps.find(
+            r => r.user._id === userId || r.user === userId
+          );
+          if (userRSVPData) {
+            setUserRSVP(userRSVPData.status);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching RSVP data:', error);
+    }
+  };
+
+  // Handle RSVP submission (for modal)
+  const handleRSVP = async (status) => {
+    if (isRSVPLoading) return;
+    
+    setIsRSVPLoading(true);
+    setRsvpMessage('');
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `http://localhost:5000/api/drives/${selectedDrive._id}/rsvp`,
+        { status },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (response.data?.success) {
+        setUserRSVP(status);
+        setRsvpMessage(response.data.message);
+        
+        // Refresh RSVP counts
+        await fetchDriveRSVPData(selectedDrive._id);
+        
+        // Clear message after 3 seconds
+        setTimeout(() => setRsvpMessage(''), 3000);
+      }
+    } catch (error) {
+      console.error('Error submitting RSVP:', error);
+      setRsvpMessage(error.response?.data?.message || 'Failed to submit RSVP');
+      setTimeout(() => setRsvpMessage(''), 3000);
+    } finally {
+      setIsRSVPLoading(false);
+    }
+  };
+
+  // Handle inline RSVP submission (for center page)
+  const handleInlineRSVP = async (driveId, status) => {
+    if (isRSVPLoading) return;
+    
+    setIsRSVPLoading(true);
+    setRsvpMessage('');
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `http://localhost:5000/api/drives/${driveId}/rsvp`,
+        { status },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (response.data?.success) {
+        setUserRSVP(status);
+        setRsvpMessage(response.data.message);
+        
+        // Refresh RSVP counts
+        await fetchDriveRSVPData(driveId);
+        
+        // Clear message after 3 seconds
+        setTimeout(() => setRsvpMessage(''), 3000);
+      }
+    } catch (error) {
+      console.error('Error submitting RSVP:', error);
+      setRsvpMessage(error.response?.data?.message || 'Failed to submit RSVP');
+      setTimeout(() => setRsvpMessage(''), 3000);
+    } finally {
+      setIsRSVPLoading(false);
+    }
   };
 
   const closeAllDrivesModal = () => {
@@ -690,13 +815,174 @@ const ClubDetail = ({ user, onLogout }) => {
             </div>
           </div>
 
-          <div className="bg-zinc-900 rounded-3xl p-6">
-            <div className="flex justify-center items-center">
-              <p className="text-zinc-500 text-sm">
-                View members and manage club settings from the right sidebar.
-              </p>
+          {/* Next Upcoming Drive - Displayed prominently in center */}
+          {upcomingDrives.length > 0 ? (
+            <div className="mb-8">
+              {/* Section Header */}
+              <div className="relative mb-5">
+                <div className="absolute inset-0 bg-gradient-to-r from-red-600/10 to-orange-600/10 rounded-full blur-xl" />
+                <div className="relative flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-500/20">
+                      <CalendarDays className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Next Scheduled Drive</h3>
+                      <p className="text-xs text-zinc-500">Don't miss out on the upcoming event</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Drive Card - Modern Glassmorphism Design */}
+              <div
+                className="relative overflow-hidden bg-gradient-to-br from-zinc-900/80 to-zinc-900/40 backdrop-blur-xl rounded-3xl p-5 border border-zinc-800/50 hover:border-red-500/30 transition-all duration-300 cursor-pointer group shadow-xl shadow-black/20"
+                onClick={() => handleDriveClick(upcomingDrives[0])}
+              >
+                {/* Subtle gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl" />
+                
+                <div className="relative">
+                  {/* Drive Name */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <h4 className="text-xl font-bold mb-1 group-hover:text-red-400 transition-colors">
+                        {upcomingDrives[0].name}
+                      </h4>
+                    </div>
+                    <div className="flex items-center gap-2 bg-zinc-800/50 px-3 py-1.5 rounded-full">
+                      <span className="text-xs font-medium text-zinc-400">Click for details</span>
+                      <ArrowLeft className="w-3 h-3 text-zinc-500 rotate-180" />
+                    </div>
+                  </div>
+
+                  {/* Drive Info - Grouped together */}
+                  <div className="flex flex-wrap items-center gap-2 mb-4">
+                    <div className="flex items-center gap-1.5 bg-zinc-800/60 backdrop-blur-sm px-3 py-2 rounded-xl border border-zinc-700/30">
+                      <div className="w-7 h-7 bg-red-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Calendar className="w-3.5 h-3.5 text-red-400" />
+                      </div>
+                      <span className="text-sm text-zinc-300">
+                        {new Date(upcomingDrives[0].date).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                    </div>
+
+                    {upcomingDrives[0].time && (
+                      <div className="flex items-center gap-1.5 bg-zinc-800/60 backdrop-blur-sm px-3 py-2 rounded-xl border border-zinc-700/30">
+                        <div className="w-7 h-7 bg-orange-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Clock className="w-3.5 h-3.5 text-orange-400" />
+                        </div>
+                        <span className="text-sm text-zinc-300">{upcomingDrives[0].time}</span>
+                      </div>
+                    )}
+
+                    {upcomingDrives[0].location && (
+                      <div className="flex items-center gap-1.5 bg-zinc-800/60 backdrop-blur-sm px-3 py-2 rounded-xl border border-zinc-700/30">
+                        <div className="w-7 h-7 bg-blue-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <MapPin className="w-3.5 h-3.5 text-blue-400" />
+                        </div>
+                        <span className="text-sm text-zinc-300 truncate max-w-[120px]">{upcomingDrives[0].location}</span>
+                      </div>
+                    )}
+
+                    {/* RSVP Count */}
+                    <div className="flex items-center gap-1.5 bg-zinc-800/60 backdrop-blur-sm px-3 py-2 rounded-xl border border-zinc-700/30">
+                      <div className="w-7 h-7 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Users className="w-3.5 h-3.5 text-green-400" />
+                      </div>
+                      <span className="text-sm text-zinc-300">{rsvpCounts.going} going</span>
+                    </div>
+                  </div>
+
+                  {/* RSVP Buttons - inside the card, under Date/Time/Location */}
+                  {!isLeader && new Date(upcomingDrives[0].date) >= new Date() && !upcomingDrives[0].isCompleted && (
+                    <div className="border-t border-zinc-700/50 pt-4 mt-4">
+                      <p className="text-xs text-zinc-500 mb-3">RSVP for this drive</p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleInlineRSVP(upcomingDrives[0]._id, 'going'); }}
+                          disabled={isRSVPLoading}
+                          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                            userRSVP === 'going'
+                              ? 'bg-gradient-to-r from-green-600 to-green-500 text-white shadow-lg shadow-green-500/20'
+                              : 'bg-zinc-800/60 hover:bg-green-900/30 text-zinc-300 hover:text-green-400 border border-zinc-700/50 hover:border-green-500/50'
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          Going
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleInlineRSVP(upcomingDrives[0]._id, 'maybe'); }}
+                          disabled={isRSVPLoading}
+                          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                            userRSVP === 'maybe'
+                              ? 'bg-gradient-to-r from-yellow-600 to-yellow-500 text-white shadow-lg shadow-yellow-500/20'
+                              : 'bg-zinc-800/60 hover:bg-yellow-900/30 text-zinc-300 hover:text-yellow-400 border border-zinc-700/50 hover:border-yellow-500/50'
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          Maybe
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleInlineRSVP(upcomingDrives[0]._id, 'not-going'); }}
+                          disabled={isRSVPLoading}
+                          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                            userRSVP === 'not-going'
+                              ? 'bg-gradient-to-r from-red-600 to-red-500 text-white shadow-lg shadow-red-500/20'
+                              : 'bg-zinc-800/60 hover:bg-red-900/30 text-zinc-300 hover:text-red-400 border border-zinc-700/50 hover:border-red-500/50'
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          Not Going
+                        </button>
+                      </div>
+                      {rsvpMessage && (
+                        <div className="mt-3 p-2 bg-green-500/10 border border-green-500/30 rounded-xl">
+                          <p className="text-green-400 text-xs text-center">{rsvpMessage}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {upcomingDrives.length > 1 && (
+                <div className="mt-4 flex items-center justify-center">
+                  <div className="bg-zinc-800/50 backdrop-blur-sm px-4 py-2 rounded-full border border-zinc-700/30">
+                    <p className="text-zinc-500 text-sm">
+                      +{upcomingDrives.length - 1} more upcoming drive{upcomingDrives.length > 2 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
+          ) : (
+            <div className="bg-zinc-900 rounded-3xl p-8 border border-zinc-800">
+              <div className="flex flex-col items-center justify-center text-center py-8">
+                <div className="w-16 h-16 bg-zinc-800 rounded-2xl flex items-center justify-center mb-4">
+                  <CalendarDays className="w-8 h-8 text-zinc-500" />
+                </div>
+                <h2 className="text-xl font-bold mb-2">No Upcoming Drives</h2>
+                <p className="text-zinc-500 text-sm mb-4">
+                  {isLeader 
+                    ? "Schedule your first drive to get started!" 
+                    : "Check back later for upcoming events."}
+                </p>
+                {isLeader && (
+                  <button
+                    onClick={openScheduleDriveModal}
+                    className="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-2xl font-medium flex items-center gap-2 transition"
+                  >
+                    <Plus size={18} />
+                    Schedule a Drive
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="w-80 hidden lg:block p-6 sticky top-16 self-start h-[calc(100vh-4rem)] overflow-y-auto">
@@ -1265,7 +1551,7 @@ const ClubDetail = ({ user, onLogout }) => {
 
       {showDriveModal && selectedDrive && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl">
+          <div className="bg-zinc-900 rounded-3xl p-8 max-w-lg w-full border border-zinc-800 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold">{selectedDrive.name}</h2>
               <button
@@ -1277,7 +1563,8 @@ const ClubDetail = ({ user, onLogout }) => {
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Drive Details */}
               <div className="space-y-3">
                 <div className="flex items-center gap-3 text-zinc-300">
                   <Calendar size={18} className="text-red-500" />
@@ -1307,9 +1594,89 @@ const ClubDetail = ({ user, onLogout }) => {
               </div>
 
               {selectedDrive.description && (
-                <div className="bg-black rounded-xl p-4 mt-4">
+                <div className="bg-black rounded-xl p-4">
                   <h3 className="text-sm font-medium text-zinc-400 mb-2">Description</h3>
                   <p className="text-zinc-300 text-sm whitespace-pre-wrap">{selectedDrive.description}</p>
+                </div>
+              )}
+
+              {/* RSVP Section - Show for all users (members and leaders) for upcoming drives */}
+              {new Date(selectedDrive.date) >= new Date() && !selectedDrive.isCompleted && (
+                <div className="border-t border-zinc-700 pt-6">
+                  {/* RSVP Buttons - Show for everyone */}
+                  <h3 className="text-lg font-semibold mb-4">
+                    {isLeader ? 'Mark your attendance' : 'Are you going?'}
+                  </h3>
+                  
+                  <div className="flex gap-3 mb-4">
+                    <button
+                      type="button"
+                      onClick={() => handleRSVP('going')}
+                      disabled={isRSVPLoading}
+                      className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
+                        userRSVP === 'going'
+                          ? 'bg-green-600 text-white'
+                          : 'bg-zinc-800 hover:bg-green-900/30 text-white hover:text-green-400 border border-zinc-700 hover:border-green-600'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      <CheckCircle size={18} />
+                      Going
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRSVP('maybe')}
+                      disabled={isRSVPLoading}
+                      className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
+                        userRSVP === 'maybe'
+                          ? 'bg-yellow-600 text-white'
+                          : 'bg-zinc-800 hover:bg-yellow-900/30 text-white hover:text-yellow-400 border border-zinc-700 hover:border-yellow-600'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      <CalendarDays size={18} />
+                      Maybe
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRSVP('not-going')}
+                      disabled={isRSVPLoading}
+                      className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
+                        userRSVP === 'not-going'
+                          ? 'bg-red-600 text-white'
+                          : 'bg-zinc-800 hover:bg-red-900/30 text-white hover:text-red-400 border border-zinc-700 hover:border-red-600'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      <X size={18} />
+                      Not Going
+                    </button>
+                  </div>
+
+                  {/* RSVP Message */}
+                  {rsvpMessage && (
+                    <div className="mb-4 p-3 bg-green-900/30 border border-green-600 rounded-xl">
+                      <p className="text-green-400 text-sm text-center">{rsvpMessage}</p>
+                    </div>
+                  )}
+
+                  {/* RSVP Counts */}
+                  <div className="border-t border-zinc-700/50 pt-4">
+                    <h4 className="text-sm font-semibold mb-3 text-zinc-400">
+                      {isLeader ? 'RSVP Summary' : 'Current RSVPs'}
+                    </h4>
+                    <div className="flex gap-4">
+                      <div className="flex-1 bg-black rounded-xl p-3 text-center">
+                        <p className="text-2xl font-bold text-green-400">{rsvpCounts.going}</p>
+                        <p className="text-xs text-zinc-500">Going</p>
+                      </div>
+                      <div className="flex-1 bg-black rounded-xl p-3 text-center">
+                        <p className="text-2xl font-bold text-yellow-400">{rsvpCounts.maybe}</p>
+                        <p className="text-xs text-zinc-500">Maybe</p>
+                      </div>
+                      <div className="flex-1 bg-black rounded-xl p-3 text-center">
+                        <p className="text-2xl font-bold text-red-400">{rsvpCounts.notGoing}</p>
+                        <p className="text-xs text-zinc-500">Not Going</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
