@@ -23,26 +23,65 @@ const Dashboard = ({ user, onLogout }) => {
           setTrendingClub(trendingResponse.data.club);
         }
 
-        // Fetch upcoming drives (you'll need to implement this endpoint)
-        // For now, we'll show mock data
-        setUpcomingDrives([
-          {
-            _id: "1",
-            name: "Sunset Canyon Drive",
-            date: new Date(Date.now() + 86400000 * 2).toISOString(),
-            location: "Malibu Canyon Rd",
-            clubName: "Speed Demons",
-            attendees: 12,
-          },
-          {
-            _id: "2",
-            name: "Coffee Meet",
-            date: new Date(Date.now() + 86400000 * 5).toISOString(),
-            location: "Downtown Plaza",
-            clubName: "Classic Cars",
-            attendees: 8,
-          },
-        ]);
+        // Fetch user's clubs
+        const clubsResponse = await axios.get("http://localhost:5000/api/clubs", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        if (clubsResponse.data.success) {
+          const clubs = clubsResponse.data.clubs || [];
+          
+          // Fetch drives from all clubs the user is a member of
+          const drivesPromises = clubs.map(club => 
+            axios.get(`http://localhost:5000/api/drives/club/${club._id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+          );
+          
+          const drivesResults = await Promise.all(drivesPromises);
+          let allDrives = [];
+          
+          drivesResults.forEach(response => {
+            if (response.data.success && response.data.drives) {
+              response.data.drives.forEach(drive => {
+                allDrives.push({
+                  ...drive,
+                  clubName: drive.club?.name || 'Unknown Club',
+                  clubId: drive.club?._id || null,
+                });
+              });
+            }
+          });
+          
+          // Filter for upcoming drives only and sort by date
+          const upcoming = allDrives
+            .filter(drive => !drive.isCancelled && !drive.isCompleted && new Date(drive.date) >= new Date())
+            .sort((a, b) => new Date(a.date) - new Date(b.date))
+            .slice(0, 10); // Limit to 10 drives
+          
+          // Fetch RSVP counts for each upcoming drive
+          const drivesWithRSVPs = await Promise.all(
+            upcoming.map(async (drive) => {
+              try {
+                const rsvpResponse = await axios.get(
+                  `http://localhost:5000/api/drives/${drive._id}/attendees`,
+                  { headers: { Authorization: `Bearer ${token}` } }
+                );
+                if (rsvpResponse.data.success) {
+                  return {
+                    ...drive,
+                    attendees: rsvpResponse.data.stats.going || 0,
+                  };
+                }
+              } catch {
+                // If we can't fetch RSVPs, default to 0
+              }
+              return { ...drive, attendees: 0 };
+            })
+          );
+          
+          setUpcomingDrives(drivesWithRSVPs);
+        }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       }
@@ -192,6 +231,15 @@ const Dashboard = ({ user, onLogout }) => {
                           <Calendar className="w-4 h-4" />
                           {formatDate(drive.date)}
                         </span>
+                        {drive.time && (
+                          <span className="flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <circle cx="12" cy="12" r="10" strokeWidth="2" />
+                              <path strokeLinecap="round" strokeWidth="2" d="M12 6v6l4 2" />
+                            </svg>
+                            {drive.time}
+                          </span>
+                        )}
                         <span className="flex items-center gap-1">
                           <MapPin className="w-4 h-4" />
                           {drive.location}

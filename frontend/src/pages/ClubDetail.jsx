@@ -7,6 +7,7 @@ import {
   Check,
   X,
   ArrowLeft,
+  ArrowRight,
   Calendar,
   Clock,
   MapPin,
@@ -212,40 +213,6 @@ const ClubDetail = ({ user, onLogout }) => {
         
         // Refresh RSVP counts
         await fetchDriveRSVPData(selectedDrive._id);
-        
-        // Clear message after 3 seconds
-        setTimeout(() => setRsvpMessage(''), 3000);
-      }
-    } catch (error) {
-      console.error('Error submitting RSVP:', error);
-      setRsvpMessage(error.response?.data?.message || 'Failed to submit RSVP');
-      setTimeout(() => setRsvpMessage(''), 3000);
-    } finally {
-      setIsRSVPLoading(false);
-    }
-  };
-
-  // Handle inline RSVP submission (for center page)
-  const handleInlineRSVP = async (driveId, status) => {
-    if (isRSVPLoading) return;
-    
-    setIsRSVPLoading(true);
-    setRsvpMessage('');
-    
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `http://localhost:5000/api/drives/${driveId}/rsvp`,
-        { status },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      if (response.data?.success) {
-        setUserRSVP(status);
-        setRsvpMessage(response.data.message);
-        
-        // Refresh RSVP counts
-        await fetchDriveRSVPData(driveId);
         
         // Clear message after 3 seconds
         setTimeout(() => setRsvpMessage(''), 3000);
@@ -757,7 +724,7 @@ const ClubDetail = ({ user, onLogout }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <div className="bg-zinc-950 flex items-center justify-center">
         <p className="text-zinc-400">Loading club...</p>
       </div>
     );
@@ -834,118 +801,46 @@ const ClubDetail = ({ user, onLogout }) => {
                 </div>
               </div>
 
-              {/* Main Drive Card - Modern Glassmorphism Design */}
+              {/* Main Drive Card - New Design */}
               <div
-                className="relative overflow-hidden bg-gradient-to-br from-zinc-900/80 to-zinc-900/40 backdrop-blur-xl rounded-3xl p-5 border border-zinc-800/50 hover:border-red-500/30 transition-all duration-300 cursor-pointer group shadow-xl shadow-black/20"
+                className="bg-zinc-900/50 backdrop-blur-sm rounded-2xl p-4 border border-zinc-800/50 hover:border-zinc-700/50 transition-all duration-300 cursor-pointer group"
                 onClick={() => handleDriveClick(upcomingDrives[0])}
               >
-                {/* Subtle gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl" />
-                
-                <div className="relative">
-                  {/* Drive Name */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <h4 className="text-xl font-bold mb-1 group-hover:text-red-400 transition-colors">
-                        {upcomingDrives[0].name}
-                      </h4>
-                    </div>
-                    <div className="flex items-center gap-2 bg-zinc-800/50 px-3 py-1.5 rounded-full">
-                      <span className="text-xs font-medium text-zinc-400">Click for details</span>
-                      <ArrowLeft className="w-3 h-3 text-zinc-500 rotate-180" />
-                    </div>
-                  </div>
-
-                  {/* Drive Info - Grouped together */}
-                  <div className="flex flex-wrap items-center gap-2 mb-4">
-                    <div className="flex items-center gap-1.5 bg-zinc-800/60 backdrop-blur-sm px-3 py-2 rounded-xl border border-zinc-700/30">
-                      <div className="w-7 h-7 bg-red-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Calendar className="w-3.5 h-3.5 text-red-400" />
-                      </div>
-                      <span className="text-sm text-zinc-300">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h4 className="font-semibold mb-2 group-hover:text-red-400 transition-colors">
+                      {upcomingDrives[0].name}
+                    </h4>
+                    <div className="flex items-center gap-4 text-sm text-zinc-400">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
                         {new Date(upcomingDrives[0].date).toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
+                          year: "numeric",
                         })}
                       </span>
-                    </div>
-
-                    {upcomingDrives[0].time && (
-                      <div className="flex items-center gap-1.5 bg-zinc-800/60 backdrop-blur-sm px-3 py-2 rounded-xl border border-zinc-700/30">
-                        <div className="w-7 h-7 bg-orange-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <Clock className="w-3.5 h-3.5 text-orange-400" />
-                        </div>
-                        <span className="text-sm text-zinc-300">{upcomingDrives[0].time}</span>
-                      </div>
-                    )}
-
-                    {upcomingDrives[0].location && (
-                      <div className="flex items-center gap-1.5 bg-zinc-800/60 backdrop-blur-sm px-3 py-2 rounded-xl border border-zinc-700/30">
-                        <div className="w-7 h-7 bg-blue-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <MapPin className="w-3.5 h-3.5 text-blue-400" />
-                        </div>
-                        <span className="text-sm text-zinc-300 truncate max-w-[120px]">{upcomingDrives[0].location}</span>
-                      </div>
-                    )}
-
-                    {/* RSVP Count */}
-                    <div className="flex items-center gap-1.5 bg-zinc-800/60 backdrop-blur-sm px-3 py-2 rounded-xl border border-zinc-700/30">
-                      <div className="w-7 h-7 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Users className="w-3.5 h-3.5 text-green-400" />
-                      </div>
-                      <span className="text-sm text-zinc-300">{rsvpCounts.going} going</span>
+                      {upcomingDrives[0].time && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-4 h-4" />
+                          {upcomingDrives[0].time}
+                        </span>
+                      )}
+                      {upcomingDrives[0].location && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-4 h-4" />
+                          {upcomingDrives[0].location}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1">
+                        <Users className="w-4 h-4" />
+                        {rsvpCounts.going} going
+                      </span>
                     </div>
                   </div>
-
-                  {/* RSVP Buttons - inside the card, under Date/Time/Location */}
-                  {!isLeader && new Date(upcomingDrives[0].date) >= new Date() && !upcomingDrives[0].isCompleted && (
-                    <div className="border-t border-zinc-700/50 pt-4 mt-4">
-                      <p className="text-xs text-zinc-500 mb-3">RSVP for this drive</p>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); handleInlineRSVP(upcomingDrives[0]._id, 'going'); }}
-                          disabled={isRSVPLoading}
-                          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                            userRSVP === 'going'
-                              ? 'bg-gradient-to-r from-green-600 to-green-500 text-white shadow-lg shadow-green-500/20'
-                              : 'bg-zinc-800/60 hover:bg-green-900/30 text-zinc-300 hover:text-green-400 border border-zinc-700/50 hover:border-green-500/50'
-                          } disabled:opacity-50 disabled:cursor-not-allowed`}
-                        >
-                          Going
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); handleInlineRSVP(upcomingDrives[0]._id, 'maybe'); }}
-                          disabled={isRSVPLoading}
-                          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                            userRSVP === 'maybe'
-                              ? 'bg-gradient-to-r from-yellow-600 to-yellow-500 text-white shadow-lg shadow-yellow-500/20'
-                              : 'bg-zinc-800/60 hover:bg-yellow-900/30 text-zinc-300 hover:text-yellow-400 border border-zinc-700/50 hover:border-yellow-500/50'
-                          } disabled:opacity-50 disabled:cursor-not-allowed`}
-                        >
-                          Maybe
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); handleInlineRSVP(upcomingDrives[0]._id, 'not-going'); }}
-                          disabled={isRSVPLoading}
-                          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                            userRSVP === 'not-going'
-                              ? 'bg-gradient-to-r from-red-600 to-red-500 text-white shadow-lg shadow-red-500/20'
-                              : 'bg-zinc-800/60 hover:bg-red-900/30 text-zinc-300 hover:text-red-400 border border-zinc-700/50 hover:border-red-500/50'
-                          } disabled:opacity-50 disabled:cursor-not-allowed`}
-                        >
-                          Not Going
-                        </button>
-                      </div>
-                      {rsvpMessage && (
-                        <div className="mt-3 p-2 bg-green-500/10 border border-green-500/30 rounded-xl">
-                          <p className="text-green-400 text-xs text-center">{rsvpMessage}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <div className="w-12 h-12 bg-gradient-to-br from-red-500/20 to-orange-500/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <ArrowRight className="w-5 h-5 text-red-500" />
+                  </div>
                 </div>
               </div>
 
@@ -985,7 +880,7 @@ const ClubDetail = ({ user, onLogout }) => {
           )}
         </div>
 
-        <div className="w-80 hidden lg:block p-6 sticky top-16 self-start h-[calc(100vh-4rem)] overflow-y-auto">
+        <div className="w-80 hidden lg:block p-6 sticky top-16 self-start h-[calc(100vh-4rem)] overflow-hidden">
           <h3 className="font-semibold mb-4">Club Info</h3>
 
           <div className="bg-zinc-900 rounded-2xl p-4 space-y-4">
@@ -1012,40 +907,43 @@ const ClubDetail = ({ user, onLogout }) => {
                   {filteredAndSortedDrives.slice(0, 3).map((drive) => (
                     <div
                       key={drive._id}
-                      className="bg-zinc-900 rounded-2xl p-4 hover:bg-zinc-800 transition relative"
+                      className="bg-zinc-900/50 backdrop-blur-sm rounded-2xl p-4 border border-zinc-800/50 hover:border-zinc-700/50 transition-all duration-300 cursor-pointer group relative overflow-visible"
                     >
-                      <div className="flex justify-between items-start">
+                      <div className="flex items-start justify-between">
                         <div 
                           className="flex-1 cursor-pointer"
                           onClick={() => handleDriveClick(drive)}
                         >
-                          <p className="font-medium text-sm mb-2">{drive.name}</p>
-                          <div className="space-y-1 text-xs text-zinc-400">
-                            <div className="flex items-center gap-2">
-                              <Calendar size={12} />
-                              <span>
-                                {new Date(drive.date).toLocaleDateString("en-US", {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                })}
-                              </span>
-                            </div>
+                          <h4 className="font-semibold mb-2 group-hover:text-red-400 transition-colors">
+                            {drive.name}
+                          </h4>
+                          <div className="flex items-center gap-4 text-sm text-zinc-400">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-4 h-4" />
+                              {new Date(drive.date).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })}
+                            </span>
                             {drive.time && (
-                              <div className="flex items-center gap-2">
-                                <Clock size={12} />
-                                <span>{drive.time}</span>
-                              </div>
+                              <span className="flex items-center gap-1">
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <circle cx="12" cy="12" r="10" strokeWidth="2" />
+                                  <path strokeLinecap="round" strokeWidth="2" d="M12 6v6l4 2" />
+                                </svg>
+                                {drive.time}
+                              </span>
                             )}
                             {drive.location && (
-                              <div className="flex items-center gap-2">
-                                <MapPin size={12} />
-                                <span className="truncate">{drive.location}</span>
-                              </div>
+                              <span className="flex items-center gap-1">
+                                <MapPin className="w-4 h-4" />
+                                <span className="truncate max-w-[100px]">{drive.location}</span>
+                              </span>
                             )}
                           </div>
                         </div>
-                        {isLeader && (
+                        {isLeader ? (
                           <div className="relative">
                             <button
                               onClick={(e) => {
@@ -1057,7 +955,7 @@ const ClubDetail = ({ user, onLogout }) => {
                               <MoreVertical size={14} className="text-zinc-400" />
                             </button>
                             {showActionMenu === drive._id && (
-                              <div className="absolute right-0 top-8 bg-zinc-800 rounded-xl shadow-lg border border-zinc-700 z-10 min-w-[140px]">
+                              <div className="absolute right-0 top-8 bg-zinc-800 rounded-xl shadow-lg border border-zinc-700 z-50 min-w-[140px]">
                                 <button
                                   onClick={() => handleEditDrive(drive)}
                                   className="w-full px-3 py-2 text-left text-sm hover:bg-zinc-700 flex items-center gap-2 rounded-t-xl transition"
@@ -1082,26 +980,32 @@ const ClubDetail = ({ user, onLogout }) => {
                               </div>
                             )}
                           </div>
+                        ) : (
+                          <div className="w-12 h-12 bg-gradient-to-br from-red-500/20 to-orange-500/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="flex flex-col gap-2 mt-3">
+                <div className="flex gap-2 mt-3">
                   {filteredAndSortedDrives.length > 3 && (
                     <button
                       onClick={() => setShowAllDrivesModal(true)}
-                      className="w-full text-red-500 hover:text-red-400 text-sm font-medium transition py-2"
+                      className="flex-1 text-red-500 hover:text-red-400 text-sm font-medium transition py-2 bg-zinc-800/30 hover:bg-zinc-800/50 rounded-xl border border-zinc-700/30"
                     >
-                      View All Upcoming ({filteredAndSortedDrives.length})
+                      View All ({filteredAndSortedDrives.length})
                     </button>
                   )}
                   {pastDrives.length > 0 && (
                     <button
                       onClick={() => setShowPastEventsModal(true)}
-                      className="w-full text-zinc-500 hover:text-zinc-400 text-sm font-medium transition py-2"
+                      className="flex-1 text-zinc-500 hover:text-zinc-400 text-sm font-medium transition py-2 bg-zinc-800/30 hover:bg-zinc-800/50 rounded-xl border border-zinc-700/30"
                     >
-                      View Past Events ({pastDrives.length})
+                      Past Events ({pastDrives.length})
                     </button>
                   )}
                 </div>

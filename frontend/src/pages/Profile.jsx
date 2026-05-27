@@ -386,7 +386,7 @@ const Profile = ({ onLogout, onUpdateUser }) => {
         </div>
 
         {/* Right Sidebar - Profile Preview */}
-        <div className="w-80 hidden xl:block p-6 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
+        <div className="w-80 hidden xl:block p-6 sticky top-16 h-[calc(100vh-4rem)] overflow-hidden">
           <h3 className="font-semibold mb-4">Profile Preview</h3>
           <div className="bg-zinc-900 rounded-2xl p-6 text-center">
             <div className="w-20 h-20 rounded-full bg-zinc-700 mx-auto mb-4 overflow-hidden">

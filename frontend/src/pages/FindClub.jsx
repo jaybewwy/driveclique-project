@@ -398,7 +398,7 @@ const FindClub = ({ user, onLogout }) => {
           )}
         </div>
 
-        <div className="w-80 hidden xl:block p-6 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
+        <div className="w-80 hidden xl:block p-6 sticky top-16 h-[calc(100vh-4rem)] overflow-hidden">
           <h3 className="font-semibold mb-4 flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-red-500" />
             Popular Clubs
