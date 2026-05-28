@@ -49,3 +49,5 @@ tests/
 *.md
 *.bak
 *.tmp   
+APA7_DriveClique_Paper_Draft.txt
+backend/test-api.js
