@@ -93,12 +93,15 @@ const updateProfile = asyncHandler(async (req, res) => {
 const searchUsers = asyncHandler(async (req, res) => {
   const { query } = req.query;
   
-  if (!query) {
+  if (!query || !query.trim()) {
     return res.json({ success: true, users: [] });
   }
 
+  // Escape user input to prevent ReDoS attacks
+  const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
   const users = await User.find({
-    username: { $regex: query, $options: 'i' }
+    username: { $regex: escapeRegex(query.trim()), $options: 'i' }
   })
   .select('-password')
   .limit(10);

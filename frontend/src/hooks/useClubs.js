@@ -1,5 +1,5 @@
-import { useState, useEffect, createContext, useContext, useCallback } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect, createContext, useContext, useCallback, useRef } from 'react';
+import { clubsAPI } from '../services/api';
 
 const ClubsContext = createContext(null);
 
@@ -10,30 +10,34 @@ export const ClubsProvider = ({ children }) => {
   const [clubs, setClubs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const isMountedRef = useRef(true);
 
   const loadClubs = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/clubs', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await clubsAPI.getAll();
       
-      if (response.data.success) {
+      if (response.data.success && isMountedRef.current) {
         setClubs(response.data.clubs);
         setError(null);
       }
     } catch (err) {
       console.error('Error fetching clubs:', err);
-      setError(err.message);
+      if (isMountedRef.current) {
+        setError(err.message);
+      }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
+    isMountedRef.current = true;
     loadClubs();
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [loadClubs]);
 
   const addClub = (club) => {
@@ -82,7 +86,7 @@ export const ClubsProvider = ({ children }) => {
     isUserLeader,
   };
 
-  return <ClubsContext.Provider value={value}>{children}</ClubsContext.Provider>;
+  return React.createElement(ClubsContext.Provider, { value }, children);
 };
 
 /**

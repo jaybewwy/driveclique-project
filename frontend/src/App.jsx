@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useState } from 'react';
 
+import { ClubsProvider } from './hooks/useClubs';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -51,20 +52,22 @@ function App() {
 
   return (
     <Router>
-      <Routes>
-        <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login onLogin={login} />} />
-        <Route path="/register" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Register onRegister={login} />} />
+      <ClubsProvider>
+        <Routes>
+          <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login onLogin={login} />} />
+          <Route path="/register" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Register onRegister={login} />} />
 
-        <Route path="/dashboard" element={isAuthenticated ? <Dashboard user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
-        <Route path="/my-clubs" element={isAuthenticated ? <MyClubs user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
-        <Route path="/club/:clubId" element={isAuthenticated ? <ClubDetail user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
-        <Route path="/create-club" element={isAuthenticated ? <CreateClub user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
-        <Route path="/find-club" element={isAuthenticated ? <FindClub user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
-        <Route path="/profile" element={isAuthenticated ? <Profile user={user} onLogout={logout} onUpdateUser={updateUser} /> : <Navigate to="/login" replace />} />
+          <Route path="/dashboard" element={isAuthenticated ? <Dashboard user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
+          <Route path="/my-clubs" element={isAuthenticated ? <MyClubs user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
+          <Route path="/club/:clubId" element={isAuthenticated ? <ClubDetail user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
+          <Route path="/create-club" element={isAuthenticated ? <CreateClub user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
+          <Route path="/find-club" element={isAuthenticated ? <FindClub user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
+          <Route path="/profile" element={isAuthenticated ? <Profile user={user} onLogout={logout} onUpdateUser={updateUser} /> : <Navigate to="/login" replace />} />
 
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </ClubsProvider>
     </Router>
   );
 }

@@ -32,13 +32,32 @@ const Login = ({ onLogin }) => {
         if (response.data.token) {
           localStorage.setItem('token', response.data.token);
         }
-        // Store user data with consistent key
-        localStorage.setItem('driveclique_user', JSON.stringify(response.data.user));
-        onLogin(response.data.user);
+        
+        // Fetch full profile to get avatar, car, bio, etc.
+        try {
+          const profileResponse = await authAPI.getProfile();
+          if (profileResponse.data.success) {
+            const fullUser = profileResponse.data.user;
+            // Store complete user data
+            localStorage.setItem('driveclique_user', JSON.stringify(fullUser));
+            onLogin(fullUser);
+          } else {
+            // Fallback to login response user
+            localStorage.setItem('driveclique_user', JSON.stringify(response.data.user));
+            onLogin(response.data.user);
+          }
+        } catch (profileError) {
+          console.warn('Failed to fetch full profile, using basic user data:', profileError);
+          // Fallback to login response user
+          localStorage.setItem('driveclique_user', JSON.stringify(response.data.user));
+          onLogin(response.data.user);
+        }
+        
         navigate('/dashboard');
       }
-    } catch {
-      setError('Login failed.');
+    } catch (error) {
+      console.error('Login error:', error);
+      setError(error.response?.data?.message || error.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }

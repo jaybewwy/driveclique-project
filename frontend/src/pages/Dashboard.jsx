@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Car, Calendar, MapPin, Users, TrendingUp, ArrowRight, Sparkles, Zap, Shield, Globe } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
-import axios from "axios";
+import { clubsAPI, drivesAPI } from "../services/api";
 
 const Dashboard = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -13,29 +13,21 @@ const Dashboard = ({ user, onLogout }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const token = localStorage.getItem("token");
-        
         // Fetch trending club (club with most members)
-        const trendingResponse = await axios.get("http://localhost:5000/api/clubs/trending", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const trendingResponse = await clubsAPI.getTopClub();
         if (trendingResponse.data.success) {
           setTrendingClub(trendingResponse.data.club);
         }
 
         // Fetch user's clubs
-        const clubsResponse = await axios.get("http://localhost:5000/api/clubs", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const clubsResponse = await clubsAPI.getAll();
         
         if (clubsResponse.data.success) {
           const clubs = clubsResponse.data.clubs || [];
           
           // Fetch drives from all clubs the user is a member of
           const drivesPromises = clubs.map(club => 
-            axios.get(`http://localhost:5000/api/drives/club/${club._id}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            })
+            drivesAPI.getClubDrives(club._id)
           );
           
           const drivesResults = await Promise.all(drivesPromises);
@@ -63,10 +55,7 @@ const Dashboard = ({ user, onLogout }) => {
           const drivesWithRSVPs = await Promise.all(
             upcoming.map(async (drive) => {
               try {
-                const rsvpResponse = await axios.get(
-                  `http://localhost:5000/api/drives/${drive._id}/attendees`,
-                  { headers: { Authorization: `Bearer ${token}` } }
-                );
+                const rsvpResponse = await drivesAPI.getAttendees(drive._id);
                 if (rsvpResponse.data.success) {
                   return {
                     ...drive,
@@ -184,7 +173,7 @@ const Dashboard = ({ user, onLogout }) => {
 
               <div className="flex gap-3">
                 <button 
-                  onClick={() => navigate("/create-drive")}
+                  onClick={() => navigate("/my-clubs")}
                   className="flex-1 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 py-3 rounded-2xl font-medium transition-all duration-300 shadow-lg shadow-red-500/25 hover:shadow-red-500/40 hover:scale-[1.02]"
                 >
                   Create Drive
@@ -207,7 +196,7 @@ const Dashboard = ({ user, onLogout }) => {
                 Upcoming Drives
               </h3>
               <button 
-                onClick={() => navigate("/drives")}
+                onClick={() => navigate("/my-clubs")}
                 className="text-sm text-zinc-400 hover:text-white flex items-center gap-1 transition-colors"
               >
                 View All <ArrowRight className="w-4 h-4" />
@@ -218,7 +207,7 @@ const Dashboard = ({ user, onLogout }) => {
               {upcomingDrives.map((drive) => (
                 <div
                   key={drive._id}
-                  onClick={() => navigate(`/drive/${drive._id}`)}
+                  onClick={() => drive.clubId ? navigate(`/club/${drive.clubId}`) : null}
                   className="bg-zinc-900/50 backdrop-blur-sm rounded-2xl p-4 border border-zinc-800/50 hover:border-zinc-700/50 transition-all duration-300 cursor-pointer group"
                 >
                   <div className="flex items-start justify-between">

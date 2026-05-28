@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Home, User, Users, Search, Sparkles, TrendingUp, Calendar } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { clubsAPI } from "../services/api";
 
 const Sidebar = ({ user }) => {
   const location = useLocation();
@@ -26,12 +26,7 @@ const Sidebar = ({ user }) => {
   useEffect(() => {
     const fetchClubs = async () => {
       try {
-        const token = localStorage.getItem("token");
-        const response = await axios.get("http://localhost:5000/api/clubs", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const response = await clubsAPI.getAll();
         if (response.data.success) {
           setUserClubs(response.data.clubs);
         }

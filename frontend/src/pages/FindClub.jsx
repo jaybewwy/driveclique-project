@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { clubsAPI } from "../services/api";
 import { Car, Home, Bell, User, MapPin, Lock, Globe, Users, Calendar, X, Search, Sparkles } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 
@@ -14,16 +14,13 @@ const FindClub = ({ user, onLogout }) => {
   const [joinError, setJoinError] = useState("");
   const [joinLoading, setJoinLoading] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [actionSuccess, setActionSuccess] = useState("");
 
   useEffect(() => {
     const fetchClubs = async () => {
       try {
-        const token = localStorage.getItem("token");
-        const response = await axios.get("http://localhost:5000/api/clubs/browse", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const response = await clubsAPI.search();
         if (response.data.success) {
           setClubs(response.data.clubs);
         }
@@ -52,33 +49,21 @@ const FindClub = ({ user, onLogout }) => {
 
   const handleJoinClub = async (clubId, e) => {
     e.stopPropagation();
-    
-    const club = filteredClubs.find(c => c._id === clubId);
-    console.log('[Frontend] Joining club:', clubId, 'isPrivate:', club?.isPrivate);
+    setActionError('');
+    setActionSuccess('');
     
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.post(
-        `http://localhost:5000/api/clubs/${clubId}/join`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      console.log('[Frontend] Join response:', response.data);
+      const response = await clubsAPI.requestToJoin(clubId);
       if (response.data.success) {
         if (response.data.clubId) {
           navigate(`/club/${response.data.clubId}`);
         } else {
-          alert("Join request sent! Awaiting leader approval.");
+          setActionSuccess("Join request sent! Awaiting leader approval.");
         }
       }
     } catch (error) {
       console.error("Error joining club:", error);
-      const errorMsg = error.response?.data?.message || "Failed to join club";
-      alert(errorMsg);
+      setActionError(error.response?.data?.message || "Failed to join club");
     }
   };
 
@@ -96,26 +81,18 @@ const FindClub = ({ user, onLogout }) => {
     setJoinLoading(true);
     setJoinError("");
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.post(
-        `http://localhost:5000/api/clubs/join-by-code/${inviteCode.trim()}`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await clubsAPI.joinByInviteCode(inviteCode.trim());
       if (response.data.success) {
         const clubId = response.data.clubId || response.data.club?._id;
         if (clubId) {
           navigate(`/club/${clubId}`);
         } else {
           setShowJoinModal(false);
-          alert("Joined club successfully!");
+          setActionSuccess("Joined club successfully!");
         }
       }
-    } catch {
+    } catch (error) {
+      console.error("Join by code error:", error);
       setJoinError("Invite code incorrect.");
     } finally {
       setJoinLoading(false);
@@ -268,6 +245,24 @@ const FindClub = ({ user, onLogout }) => {
             <h1 className="text-4xl font-bold mb-2">Find Clubs</h1>
             <p className="text-zinc-400">Discover and join car clubs in your area</p>
           </div>
+
+          {/* Action feedback banners */}
+          {actionError && (
+            <div className="bg-red-900/30 border border-red-600 rounded-xl p-3 mb-4 flex items-center justify-between">
+              <p className="text-red-400 text-sm">{actionError}</p>
+              <button onClick={() => setActionError('')} className="text-red-400 hover:text-red-300 ml-3">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+          {actionSuccess && (
+            <div className="bg-green-900/30 border border-green-600 rounded-xl p-3 mb-4 flex items-center justify-between">
+              <p className="text-green-400 text-sm">{actionSuccess}</p>
+              <button onClick={() => setActionSuccess('')} className="text-green-400 hover:text-green-300 ml-3">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
           {/* Mobile Search */}
           <div className="md:hidden mb-6">

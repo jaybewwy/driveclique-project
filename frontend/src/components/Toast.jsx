@@ -1,4 +1,4 @@
-import { useState, createContext, useContext, useCallback, useRef, useEffect } from 'react';
+import { useState, createContext, useCallback, useRef, useEffect } from 'react';
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 
 const ToastContext = createContext(null);
@@ -49,8 +49,9 @@ export const ToastProvider = ({ children }) => {
 
   // Cleanup timeouts on unmount
   useEffect(() => {
+    const timeouts = toastTimeouts.current;
     return () => {
-      toastTimeouts.current.forEach((timeout) => clearTimeout(timeout));
+      timeouts.forEach((timeout) => clearTimeout(timeout));
     };
   }, []);
 
@@ -102,15 +103,4 @@ const ToastContainer = ({ toasts, removeToast }) => {
   );
 };
 
-/**
- * Custom hook to access toast context
- */
-export const useToast = () => {
-  const context = useContext(ToastContext);
-  if (!context) {
-    throw new Error('useToast must be used within a ToastProvider');
-  }
-  return context;
-};
-
-export default ToastContext;
+export default ToastProvider;

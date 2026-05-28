@@ -123,12 +123,14 @@ export const clubsAPI = {
   search: (params) => api.get('/clubs/browse', { params }),
   requestToJoin: (clubId) => api.post(`/clubs/${clubId}/join`),
   handleJoinRequest: (clubId, requestId, status) => 
-    api.post(`/clubs/${clubId}/handle-request`, { clubId, requestId, status }),
+    api.post(`/clubs/${clubId}/handle-request`, { requestId, status }),
   togglePrivacy: (clubId, isPrivate) => 
     api.post(`/clubs/${clubId}/toggle-privacy`, { isPrivate }),
   joinByInviteCode: (inviteCode) => api.post(`/clubs/join-by-code/${inviteCode}`),
   delete: (clubId, deletionReason, leaderEmail) => 
     api.delete(`/clubs/${clubId}`, { data: { deletionReason, leaderEmail } }),
+  getTopClub: () => api.get('/clubs/trending'),
+  leave: (clubId) => api.put(`/clubs/${clubId}/leave`),
 };
 
 /**

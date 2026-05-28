@@ -47,7 +47,7 @@ const Register = ({ onRegister }) => {
       }
     } catch (err) {
       console.error('Register error:', err);
-      setError('Registration failed.');
+      setError(err.response?.data?.message || err.message || 'Registration failed. Please try again.');
       setSuccess('');
     } finally {
       setLoading(false);

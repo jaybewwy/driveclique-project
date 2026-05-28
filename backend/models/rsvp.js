@@ -17,4 +17,7 @@ const RSVPSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
+// Unique constraint: one RSVP per user per drive
+RSVPSchema.index({ drive: 1, user: 1 }, { unique: true });
+
 module.exports = mongoose.model('RSVP', RSVPSchema);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { clubsAPI } from "../services/api";
 import { Users, Plus, Crown, Lock, X, TrendingUp } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
@@ -27,12 +27,7 @@ const MyClubs = ({ user, onLogout }) => {
   useEffect(() => {
     const fetchClubs = async () => {
       try {
-        const token = localStorage.getItem("token");
-        const response = await axios.get("http://localhost:5000/api/clubs", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const response = await clubsAPI.getAll();
         if (response.data.success) {
           setClubs(response.data.clubs);
         }
@@ -53,22 +48,18 @@ const MyClubs = ({ user, onLogout }) => {
     setJoinLoading(true);
     setJoinError("");
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.post(
-        `http://localhost:5000/api/clubs/join-by-code/${inviteCode.trim()}`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await clubsAPI.joinByInviteCode(inviteCode.trim());
       if (response.data.success) {
+        // Refresh clubs list without full page reload
+        const refreshed = await clubsAPI.getAll();
+        if (refreshed.data.success) {
+          setClubs(refreshed.data.clubs);
+        }
         setShowJoinModal(false);
-        alert("Joined club successfully!");
-        window.location.reload();
+        setInviteCode("");
       }
     } catch (error) {
+      console.error("Join by code error:", error);
       setJoinError(error.response?.data?.message || "Invalid invite code");
     } finally {
       setJoinLoading(false);
@@ -197,14 +188,12 @@ const MyClubs = ({ user, onLogout }) => {
                     <div className="flex justify-between items-start mb-4">
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-full bg-zinc-800 overflow-hidden flex-shrink-0 border-2 border-zinc-700">
-                          {club.avatar ? (
+                        {club.avatar ? (
                             <img
                               src={club.avatar}
                               alt={club.name}
                               className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.src = 'https://via.placeholder.com/48?text=Club';
-                              }}
+                              onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-red-600 to-orange-600">
@@ -270,17 +259,14 @@ const MyClubs = ({ user, onLogout }) => {
                             src={club.avatar}
                             alt={club.name}
                             className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.src = 'https://via.placeholder.com/40?text=Club';
-                            }}
+                            onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
                           />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-red-600 to-orange-600">
-                            <span className="text-white text-xs font-bold">
-                              {club.name.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                        )}
+                        ) : null}
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-red-600 to-orange-600" style={{ display: club.avatar ? 'none' : 'flex' }}>
+                          <span className="text-white text-xs font-bold">
+                            {club.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1">
@@ -304,14 +290,16 @@ const MyClubs = ({ user, onLogout }) => {
               <TrendingUp className="w-3 h-3" />
               Quick Stats
             </h3>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2">
               <div className="p-2 bg-zinc-800/30 rounded-lg">
                 <p className="text-lg font-bold text-white">{clubs.length}</p>
-                <p className="text-xs text-zinc-500">Clubs</p>
+                <p className="text-xs text-zinc-500">Clubs Joined</p>
               </div>
               <div className="p-2 bg-zinc-800/30 rounded-lg">
-                <p className="text-lg font-bold text-white">12</p>
-                <p className="text-xs text-zinc-500">Events</p>
+                <p className="text-lg font-bold text-white">
+                  {clubs.reduce((sum, c) => sum + (c.members?.length || 0), 0)}
+                </p>
+                <p className="text-xs text-zinc-500">Total Members</p>
               </div>
             </div>
           </div>

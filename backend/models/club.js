@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 
 const ClubSchema = new mongoose.Schema({
   name: { 
@@ -34,7 +35,8 @@ const ClubSchema = new mongoose.Schema({
     type: String, 
     unique: true,
     default: function() {
-      return Math.random().toString(36).substring(2, 8).toUpperCase();
+      // Use cryptographically secure random bytes instead of Math.random()
+      return crypto.randomBytes(3).toString('hex').toUpperCase();
     }
   },
   isPrivate: { 

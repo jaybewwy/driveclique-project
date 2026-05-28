@@ -2,6 +2,13 @@ const Club = require('../models/club');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 
 /**
+ * Escape special regex characters in a string to prevent ReDoS
+ * @param {string} str
+ * @returns {string}
+ */
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
  * Create a new Club
  * @route POST /api/clubs
  * @access Private
@@ -110,10 +117,6 @@ const requestToJoinClub = asyncHandler(async (req, res) => {
     throw new AppError('Club not found', 404);
   }
 
-  // Debug logging
-  console.log(`[Join Club] Club: ${club.name}, isPrivate: ${club.isPrivate}, type: ${typeof club.isPrivate}`);
-  console.log(`[Join Club] Comparison: club.isPrivate === false: ${club.isPrivate === false}`);
-
   // Check if already a member
   const isMember = club.members.some((m) => m.toString() === userId);
   if (isMember) {
@@ -122,7 +125,6 @@ const requestToJoinClub = asyncHandler(async (req, res) => {
 
   // For public clubs (isPrivate is false), add user directly without requiring approval
   if (club.isPrivate === false) {
-    console.log(`[Join Club] ${club.name} is PUBLIC - auto-joining user`);
     club.members.push(userId);
     await club.save();
 
@@ -155,7 +157,9 @@ const requestToJoinClub = asyncHandler(async (req, res) => {
  * @access Private (Club Leaders only)
  */
 const handleJoinRequest = asyncHandler(async (req, res) => {
-  const { clubId, requestId, status } = req.body;
+  // Use clubId from URL params (not body) to prevent parameter tampering
+  const { clubId } = req.params;
+  const { requestId, status } = req.body;
   const userId = req.user?.id;
 
   if (!userId) {
@@ -206,7 +210,8 @@ const searchClubs = asyncHandler(async (req, res) => {
   const searchQuery = { isPrivate: false };
   
   if (query) {
-    searchQuery.name = { $regex: query, $options: 'i' };
+    // Escape user input to prevent ReDoS attacks
+    searchQuery.name = { $regex: escapeRegex(query.trim()), $options: 'i' };
   }
 
   const clubs = await Club.find(searchQuery)
@@ -374,6 +379,10 @@ const deleteClub = asyncHandler(async (req, res) => {
   // Log deletion for audit purposes
   console.log(`[Club Deletion] "${club.name}" (ID: ${clubId}) - Reason: ${deletionReason || 'Not provided'}`);
 
+  // Delete all drives associated with the club
+  const Drive = require('../models/Drive');
+  await Drive.deleteMany({ club: clubId });
+
   // Delete the club
   await Club.findByIdAndDelete(clubId);
 
@@ -384,45 +393,55 @@ const deleteClub = asyncHandler(async (req, res) => {
  * Get Top Club by Member Count and Completed Drives
  * @route GET /api/clubs/trending
  * @access Private
+ *
+ * OPTIMIZED: Uses a single aggregation pipeline instead of N+1 Drive.countDocuments calls
  */
 const getTopClub = asyncHandler(async (req, res) => {
   const Drive = require('../models/Drive');
-  
-  // Find all public clubs
+
+  // Get all public club IDs first
+  const publicClubs = await Club.find({ isPrivate: false })
+    .select('_id')
+    .lean();
+
+  if (!publicClubs.length) {
+    return res.json({ success: true, club: null });
+  }
+
+  const publicClubIds = publicClubs.map(c => c._id);
+
+  // Single aggregation: count completed drives per public club
+  const driveCounts = await Drive.aggregate([
+    { $match: { club: { $in: publicClubIds }, isCompleted: true } },
+    { $group: { _id: '$club', completedDrivesCount: { $sum: 1 } } }
+  ]);
+
+  // Build a Map for O(1) lookup
+  const driveCountMap = new Map(
+    driveCounts.map(d => [d._id.toString(), d.completedDrivesCount])
+  );
+
+  // Fetch full club docs with leader populated (only public clubs)
   const clubs = await Club.find({ isPrivate: false })
     .populate('leader', 'username email avatar name')
     .limit(100);
 
-  if (!clubs || clubs.length === 0) {
+  // Calculate trending score using the pre-fetched drive counts
+  let topClubData = null;
+  for (const club of clubs) {
+    const completedDrivesCount = driveCountMap.get(club._id.toString()) || 0;
+    const trendingScore = club.members.length + (completedDrivesCount * 5);
+
+    if (!topClubData || trendingScore > topClubData.trendingScore) {
+      topClubData = { club, memberCount: club.members.length, completedDrivesCount, trendingScore };
+    }
+  }
+
+  if (!topClubData) {
     return res.json({ success: true, club: null });
   }
 
-  // Count completed drives for each club and calculate trending score
-  const clubScores = await Promise.all(
-    clubs.map(async (club) => {
-      const completedDrivesCount = await Drive.countDocuments({
-        club: club._id,
-        isCompleted: true
-      });
-      
-      // Trending score: combination of members and completed drives
-      // Weight: members count + (completed drives * 5) to give importance to activity
-      const trendingScore = club.members.length + (completedDrivesCount * 5);
-      
-      return {
-        club,
-        memberCount: club.members.length,
-        completedDrivesCount,
-        trendingScore
-      };
-    })
-  );
-
-  // Sort by trending score (descending) and get the top club
-  clubScores.sort((a, b) => b.trendingScore - a.trendingScore);
-  const topClubData = clubScores[0];
   const topClub = topClubData.club;
-
   res.json({ 
     success: true, 
     club: {

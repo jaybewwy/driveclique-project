@@ -17,5 +17,11 @@ export default defineConfig([
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+    rules: {
+      // Allow setState in effects for data fetching patterns (e.g., context providers)
+      'react-hooks/set-state-in-effect': 'off',
+      // Allow unused variables prefixed with underscore
+      'no-unused-vars': ['error', { varsIgnorePattern: '^_', argsIgnorePattern: '^_' }],
+    },
   },
 ])

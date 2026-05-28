@@ -1,6 +1,6 @@
 const Drive = require('../models/Drive');
 const Club = require('../models/club');
-const RSVP = require('../models/RSVP');
+const RSVP = require('../models/rsvp');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 
 /**
@@ -304,7 +304,7 @@ const getLeaderDashboard = asyncHandler(async (req, res) => {
 
   // Find all clubs where user is the leader
   const clubs = await Club.find({ leader: userId })
-    .select('name description inviteCode members bannedMembers createdAt')
+    .select('name description inviteCode members createdAt')
     .lean(); // Use lean() for better performance (read-only objects)
 
   if (clubs.length === 0) {
