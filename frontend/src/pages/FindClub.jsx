@@ -9,6 +9,7 @@ const FindClub = ({ user, onLogout }) => {
   const navigate = useNavigate();
   const [clubs, setClubs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [popularClubs, setPopularClubs] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState(null);
@@ -19,6 +20,20 @@ const FindClub = ({ user, onLogout }) => {
   const [searchFocused, setSearchFocused] = useState(false);
   const [actionError, setActionError] = useState("");
   const [actionSuccess, setActionSuccess] = useState("");
+
+  // Fetch top clubs by member count once on mount — never changes with search
+  useEffect(() => {
+    clubsAPI.searchPage(undefined, 1, 50)
+      .then(res => {
+        if (res.data.success) {
+          const sorted = [...res.data.clubs]
+            .sort((a, b) => b.members.length - a.members.length)
+            .slice(0, 5);
+          setPopularClubs(sorted);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setPage(1);
@@ -432,10 +447,7 @@ const FindClub = ({ user, onLogout }) => {
             Popular Clubs
           </h3>
           <div className="space-y-3">
-            {filteredClubs
-              .sort((a, b) => b.members.length - a.members.length)
-              .slice(0, 5)
-              .map((club) => (
+            {popularClubs.map((club) => (
                 <div
                   key={club._id}
                   onClick={() => navigate(`/club/${club._id}`)}
