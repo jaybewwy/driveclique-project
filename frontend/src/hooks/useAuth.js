@@ -1,4 +1,5 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
+import { authAPI } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -33,20 +34,18 @@ export const AuthProvider = ({ children }) => {
     initializeAuth();
   }, []);
 
-  const login = (userData, token) => {
+  const login = (userData, token, refreshToken) => {
     setUser(userData);
     setIsAuthenticated(true);
-    if (token) {
-      localStorage.setItem('token', token);
-    }
+    if (token) localStorage.setItem('token', token);
+    if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('driveclique_user', JSON.stringify(userData));
   };
 
-  const logout = () => {
+  const logout = async () => {
     setUser(null);
     setIsAuthenticated(false);
-    localStorage.removeItem('driveclique_user');
-    localStorage.removeItem('token');
+    await authAPI.logout();
   };
 
   const updateUser = (updatedUserData) => {

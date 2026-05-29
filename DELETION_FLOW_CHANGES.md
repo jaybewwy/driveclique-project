@@ -102,6 +102,36 @@ No changes to the deletion flow were made in this session. Security hardening wo
 
 ---
 
+## Session 2026-05-29 — Delete Club Error Handling Improved
+
+`handleDeleteClubConfirm` in `ClubDetail.jsx` now uses `clubsAPI.delete()` instead of raw axios, and field-validation errors display as an inline banner (`memberActionError`) instead of `alert()`. The deletion flow logic itself is unchanged.
+
+---
+
+## Session 2026-05-29 — Responsive Sidebar Layout (No Deletion Flow Impact)
+
+Responsive width and spacing applied to both sidebars. No deletion flow impact.
+
+---
+
+## Session 2026-05-29 — Location Hidden from Drive Cards (No Deletion Flow Impact)
+
+Removed location display from right sidebar drive cards. No deletion flow impact.
+
+---
+
+## Session 2026-05-29 — Drive Card Action Button Leader-Only (No Deletion Flow Impact)
+
+Removed the arrow icon shown to non-leaders on drive cards. No deletion flow impact.
+
+---
+
+## Session 2026-05-29 — RSVP Membership Enforcement (No Deletion Flow Impact)
+
+Added membership checks to RSVP endpoints and drive card interactions. No deletion flow impact.
+
+---
+
 ## Session 2026-05-29 — ClubDetail Join/Leave Fix (No Deletion Flow Impact)
 
 Added `isMember` guard to sidebar; non-members now see "Join Club" instead of "Leave Club." No impact on deletion flow.

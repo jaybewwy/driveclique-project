@@ -49,6 +49,11 @@ const DriveSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
   },
+  // Optional route image (base64 or URL)
+  image: {
+    type: String,
+    default: ''
+  },
   // Completion field
   isCompleted: {
       type: Boolean,

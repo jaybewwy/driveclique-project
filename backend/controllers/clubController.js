@@ -1,5 +1,7 @@
 const Club = require('../models/club');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
+const { notify } = require('../services/notificationEmitter');
+const { sendEmail, emailTemplates } = require('../services/emailService');
 
 /**
  * Escape special regex characters in a string to prevent ReDoS
@@ -149,6 +151,13 @@ const requestToJoinClub = asyncHandler(async (req, res) => {
   club.joinRequests.push({ user: userId });
   await club.save();
 
+  // Notify the club leader of the new join request
+  notify(club.leader.toString(), {
+    type: 'JOIN_REQUEST',
+    message: `Someone requested to join "${club.name}"`,
+    data: { clubId: club._id }
+  });
+
   res.json({ success: true, message: 'Join request sent. Awaiting leader approval.' });
 });
 
@@ -196,6 +205,15 @@ const handleJoinRequest = asyncHandler(async (req, res) => {
 
   await club.save();
 
+  // Notify the requesting user of the decision
+  notify(request.user.toString(), {
+    type: status === 'accepted' ? 'JOIN_ACCEPTED' : 'JOIN_REJECTED',
+    message: status === 'accepted'
+      ? `Your request to join "${club.name}" was accepted!`
+      : `Your request to join "${club.name}" was declined.`,
+    data: { clubId: club._id }
+  });
+
   res.json({ success: true, message: `Request ${status}` });
 });
 
@@ -205,22 +223,37 @@ const handleJoinRequest = asyncHandler(async (req, res) => {
  * @access Private
  */
 const searchClubs = asyncHandler(async (req, res) => {
-  const { query, filter } = req.query;
-  
-  // Build search query - only show public clubs
+  const { query, page = 1, limit = 20 } = req.query;
+
+  const pageNum = Math.max(1, parseInt(page, 10) || 1);
+  const limitNum = Math.min(50, Math.max(1, parseInt(limit, 10) || 20));
+  const skip = (pageNum - 1) * limitNum;
+
   const searchQuery = { isPrivate: false };
-  
   if (query) {
-    // Escape user input to prevent ReDoS attacks
     searchQuery.name = { $regex: escapeRegex(query.trim()), $options: 'i' };
   }
 
-  const clubs = await Club.find(searchQuery)
-    .populate('leader', 'username email')
-    .sort({ createdAt: -1 })
-    .limit(50);
+  const [clubs, total] = await Promise.all([
+    Club.find(searchQuery)
+      .populate('leader', 'username email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum),
+    Club.countDocuments(searchQuery),
+  ]);
 
-  res.json({ success: true, clubs });
+  res.json({
+    success: true,
+    clubs,
+    pagination: {
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum),
+      hasMore: skip + clubs.length < total,
+    },
+  });
 });
 
 /**
@@ -495,10 +528,86 @@ const leaveClub = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'You have left the club' });
 });
 
-module.exports = { 
-  createClub, 
-  getUserClubs, 
-  getClubById, 
+/**
+ * Transfer Club Ownership to Another Member
+ * @route PUT /api/clubs/:clubId/transfer
+ * @access Private (Club Leaders only)
+ */
+const transferOwnership = asyncHandler(async (req, res) => {
+  const { clubId } = req.params;
+  const { newLeaderId } = req.body;
+  const userId = req.user?.id;
+
+  if (!userId) throw new AppError('Authentication required', 401);
+  if (!newLeaderId) throw new AppError('newLeaderId is required', 400);
+
+  const club = await Club.findById(clubId);
+  if (!club) throw new AppError('Club not found', 404);
+
+  if (club.leader.toString() !== userId) {
+    throw new AppError('Only the current leader can transfer ownership', 403);
+  }
+
+  if (newLeaderId === userId) {
+    throw new AppError('You are already the leader', 400);
+  }
+
+  const isMember = club.members.some(m => m.toString() === newLeaderId);
+  if (!isMember) {
+    throw new AppError('The new leader must already be a member of the club', 400);
+  }
+
+  club.leader = newLeaderId;
+  await club.save();
+
+  const updated = await Club.findById(clubId)
+    .populate('leader', 'username email avatar name useDisplayName')
+    .populate('members', 'username email avatar name useDisplayName car');
+
+  res.json({ success: true, message: 'Ownership transferred successfully', club: updated });
+});
+
+/**
+ * Remove a Member from a Club
+ * @route DELETE /api/clubs/:clubId/members/:memberId
+ * @access Private (Club Leaders only)
+ */
+const removeMember = asyncHandler(async (req, res) => {
+  const { clubId, memberId } = req.params;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    throw new AppError('Authentication required', 401);
+  }
+
+  const club = await Club.findById(clubId);
+  if (!club) {
+    throw new AppError('Club not found', 404);
+  }
+
+  if (club.leader.toString() !== userId) {
+    throw new AppError('Only the club leader can remove members', 403);
+  }
+
+  if (club.leader.toString() === memberId) {
+    throw new AppError('Cannot remove the club leader', 400);
+  }
+
+  const isMember = club.members.some((m) => m.toString() === memberId);
+  if (!isMember) {
+    throw new AppError('User is not a member of this club', 400);
+  }
+
+  club.members = club.members.filter((m) => m.toString() !== memberId);
+  await club.save();
+
+  res.json({ success: true, message: 'Member removed successfully' });
+});
+
+module.exports = {
+  createClub,
+  getUserClubs,
+  getClubById,
   getClubByInviteCode,
   requestToJoinClub,
   handleJoinRequest,
@@ -508,5 +617,7 @@ module.exports = {
   updateClub,
   deleteClub,
   getTopClub,
-  leaveClub
+  leaveClub,
+  removeMember,
+  transferOwnership
 };

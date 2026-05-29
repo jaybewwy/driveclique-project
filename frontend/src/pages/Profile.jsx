@@ -79,7 +79,7 @@ const Profile = ({ onLogout, onUpdateUser }) => {
         setAvatarFileName(fileName);
       } catch (error) {
         console.error('Error compressing image:', error);
-        alert('Failed to process image. Please try again.');
+        setMessage({ type: 'error', text: 'Failed to process image. Please try again.' });
       }
     }
   };

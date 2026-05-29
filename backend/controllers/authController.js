@@ -1,17 +1,54 @@
+const crypto = require('crypto');
 const User = require('../models/user');
+const RefreshToken = require('../models/refreshToken');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { validateInput, isValidEmail, isValidUsername } = require('../middleware/validation');
 
-/**
- * Generate JWT token for authenticated user
- * @param {string} userId - User ID to encode in token
- * @returns {string} JWT token
- */
-const generateToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '30d' });
+const ACCESS_TOKEN_TTL = '15m';
+const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+/** Short-lived access token (15 min) */
+const generateAccessToken = (userId) =>
+  jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
+
+/** Opaque refresh token stored in DB */
+const createRefreshToken = async (userId) => {
+  const token = crypto.randomBytes(40).toString('hex');
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
+  await RefreshToken.create({ token, user: userId, expiresAt });
+  return token;
 };
+
+/**
+ * POST /api/auth/refresh — Exchange a valid refresh token for a new access token
+ * @access Public
+ */
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) throw new AppError('Refresh token required', 400);
+
+  const stored = await RefreshToken.findOne({ token: refreshToken });
+  if (!stored || stored.revoked || stored.expiresAt < new Date()) {
+    throw new AppError('Invalid or expired refresh token', 401);
+  }
+
+  const accessToken = generateAccessToken(stored.user.toString());
+  res.json({ success: true, token: accessToken });
+});
+
+/**
+ * POST /api/auth/logout — Revoke the supplied refresh token
+ * @access Public
+ */
+const logoutUser = asyncHandler(async (req, res) => {
+  const { refreshToken } = req.body;
+  if (refreshToken) {
+    await RefreshToken.findOneAndUpdate({ token: refreshToken }, { revoked: true });
+  }
+  res.json({ success: true, message: 'Logged out successfully' });
+});
 
 /**
  * Get User Profile
@@ -131,6 +168,11 @@ const registerUser = asyncHandler(async (req, res) => {
     name: name || username
   });
 
+  const [token, refreshToken] = await Promise.all([
+    Promise.resolve(generateAccessToken(user._id)),
+    createRefreshToken(user._id),
+  ]);
+
   res.status(201).json({
     success: true,
     message: 'Account created successfully!',
@@ -142,7 +184,8 @@ const registerUser = asyncHandler(async (req, res) => {
       role: user.role,
       useDisplayName: user.useDisplayName
     },
-    token: generateToken(user._id)
+    token,
+    refreshToken,
   });
 });
 
@@ -154,12 +197,15 @@ const registerUser = asyncHandler(async (req, res) => {
 const loginUser = asyncHandler(async (req, res) => {
   const { username, password } = req.body;
 
-  // Find user by username
   const user = await User.findOne({ username });
-
   if (!user || !(await bcrypt.compare(password, user.password))) {
     throw new AppError('Invalid username or password', 401);
   }
+
+  const [token, refreshToken] = await Promise.all([
+    Promise.resolve(generateAccessToken(user._id)),
+    createRefreshToken(user._id),
+  ]);
 
   res.json({
     success: true,
@@ -171,14 +217,17 @@ const loginUser = asyncHandler(async (req, res) => {
       role: user.role,
       useDisplayName: user.useDisplayName
     },
-    token: generateToken(user._id)
+    token,
+    refreshToken,
   });
 });
 
-module.exports = { 
-  registerUser, 
-  loginUser, 
-  getProfile, 
-  updateProfile, 
-  searchUsers 
+module.exports = {
+  registerUser,
+  loginUser,
+  getProfile,
+  updateProfile,
+  searchUsers,
+  refreshAccessToken,
+  logoutUser,
 };

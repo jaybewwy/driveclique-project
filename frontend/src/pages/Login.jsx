@@ -28,31 +28,26 @@ const Login = ({ onLogin }) => {
       const response = await authAPI.login(formData);
       
       if (response.data.success && onLogin) {
-        // Store token in localStorage
-        if (response.data.token) {
-          localStorage.setItem('token', response.data.token);
-        }
-        
-        // Fetch full profile to get avatar, car, bio, etc.
+        const { token, refreshToken } = response.data;
+        if (token) localStorage.setItem('token', token);
+        if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+
         try {
           const profileResponse = await authAPI.getProfile();
           if (profileResponse.data.success) {
             const fullUser = profileResponse.data.user;
-            // Store complete user data
             localStorage.setItem('driveclique_user', JSON.stringify(fullUser));
-            onLogin(fullUser);
+            onLogin(fullUser, token, refreshToken);
           } else {
-            // Fallback to login response user
             localStorage.setItem('driveclique_user', JSON.stringify(response.data.user));
-            onLogin(response.data.user);
+            onLogin(response.data.user, token, refreshToken);
           }
         } catch (profileError) {
           console.warn('Failed to fetch full profile, using basic user data:', profileError);
-          // Fallback to login response user
           localStorage.setItem('driveclique_user', JSON.stringify(response.data.user));
-          onLogin(response.data.user);
+          onLogin(response.data.user, token, refreshToken);
         }
-        
+
         navigate('/dashboard');
       }
     } catch (error) {

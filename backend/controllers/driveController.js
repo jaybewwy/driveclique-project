@@ -2,6 +2,8 @@ const Drive = require('../models/Drive');
 const Club = require('../models/club');
 const RSVP = require('../models/rsvp');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
+const { notify } = require('../services/notificationEmitter');
+const { sendEmail, emailTemplates } = require('../services/emailService');
 
 /**
  * Create a new Drive/Event
@@ -9,7 +11,7 @@ const { asyncHandler, AppError } = require('../middleware/errorHandler');
  * @access Private (Club Leaders only)
  */
 const createDrive = asyncHandler(async (req, res) => {
-  const { clubId, name, date, time, location, description, difficulty, maxAttendees } = req.body;
+  const { clubId, name, date, time, location, description, difficulty, maxAttendees, image } = req.body;
 
   // Validate clubId is provided
   if (!clubId) {
@@ -37,10 +39,27 @@ const createDrive = asyncHandler(async (req, res) => {
     description,
     difficulty: difficulty || 'Medium',
     maxAttendees: maxAttendees || 100,
+    image: image || '',
     createdBy: req.user.id
   });
 
   await newDrive.save();
+
+  // Notify all club members about the new drive (SSE + email)
+  const driveClub = await Club.findById(clubId).select('members');
+  if (driveClub) {
+    const User = require('../models/user');
+    const members = await User.find({ _id: { $in: driveClub.members } }).select('email');
+    const dateStr = new Date(date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    const tpl = emailTemplates.driveScheduled({ driveName: name, clubName: club.name, date: dateStr, location });
+
+    driveClub.members.forEach((memberId, idx) => {
+      if (memberId.toString() !== req.user.id) {
+        notify(memberId.toString(), { type: 'NEW_DRIVE', message: `New drive scheduled: "${name}"`, data: { driveId: newDrive._id, clubId } });
+        if (members[idx]?.email) sendEmail({ to: members[idx].email, ...tpl });
+      }
+    });
+  }
 
   res.status(201).json({
     success: true,
@@ -56,7 +75,36 @@ const createDrive = asyncHandler(async (req, res) => {
  */
 const getClubDrives = asyncHandler(async (req, res) => {
   const { clubId } = req.params;
-  
+  const { page, limit } = req.query;
+
+  // If page/limit are provided, paginate; otherwise return all (backwards-compatible)
+  if (page !== undefined || limit !== undefined) {
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit, 10) || 20));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [drives, total] = await Promise.all([
+      Drive.find({ club: clubId })
+        .sort({ date: 1 })
+        .skip(skip)
+        .limit(limitNum)
+        .populate('createdBy', 'username name'),
+      Drive.countDocuments({ club: clubId }),
+    ]);
+
+    return res.json({
+      success: true,
+      drives,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+        hasMore: skip + drives.length < total,
+      },
+    });
+  }
+
   const drives = await Drive.find({ club: clubId })
     .sort({ date: 1 })
     .populate('createdBy', 'username name');
@@ -95,34 +143,42 @@ const rsvpToDrive = asyncHandler(async (req, res) => {
     throw new AppError('You must be a member of this club to RSVP', 403);
   }
 
+  // Enforce capacity — only check when trying to RSVP as 'going'
+  if (status === 'going' && drive.maxAttendees) {
+    const goingCount = await RSVP.countDocuments({ drive: driveId, status: 'going' });
+    const existingRSVP = await RSVP.findOne({ drive: driveId, user: userId });
+    const alreadyGoing = existingRSVP?.status === 'going';
+    if (!alreadyGoing && goingCount >= drive.maxAttendees) {
+      throw new AppError(`This drive is full (${drive.maxAttendees} spots taken)`, 400);
+    }
+  }
+
   // Find existing RSVP or create new one
   let rsvp = await RSVP.findOne({ drive: driveId, user: userId });
 
   if (rsvp) {
-    // Update existing RSVP
     rsvp.status = status;
     await rsvp.save();
-    
-    return res.json({
-      success: true,
-      message: `RSVP updated to ${status}`,
-      rsvp
+
+    notify(drive.createdBy.toString(), {
+      type: 'RSVP_UPDATED',
+      message: `A member updated their RSVP to "${status}" for "${drive.name}"`,
+      data: { driveId, status }
     });
+
+    return res.json({ success: true, message: `RSVP updated to ${status}`, rsvp });
   }
 
-  // Create new RSVP
-  rsvp = new RSVP({
-    drive: driveId,
-    user: userId,
-    status
-  });
+  rsvp = new RSVP({ drive: driveId, user: userId, status });
   await rsvp.save();
 
-  res.json({
-    success: true,
-    message: `You are now marked as ${status}`,
-    rsvp
+  notify(drive.createdBy.toString(), {
+    type: 'RSVP_NEW',
+    message: `A member RSVPed "${status}" to "${drive.name}"`,
+    data: { driveId, status }
   });
+
+  res.json({ success: true, message: `You are now marked as ${status}`, rsvp });
 });
 
 /**
@@ -277,7 +333,7 @@ const getDriveAttendees = asyncHandler(async (req, res) => {
  */
 const updateDrive = asyncHandler(async (req, res) => {
   const { driveId } = req.params;
-  const { name, date, time, location, description, difficulty, maxAttendees, isCompleted } = req.body;
+  const { name, date, time, location, description, difficulty, maxAttendees, isCompleted, image } = req.body;
   const leaderId = req.user.id;
 
   // Find drive with club info
@@ -299,7 +355,8 @@ const updateDrive = asyncHandler(async (req, res) => {
   if (description !== undefined) drive.description = description;
   if (difficulty !== undefined) drive.difficulty = difficulty;
   if (maxAttendees !== undefined) drive.maxAttendees = maxAttendees;
-  
+  if (image !== undefined) drive.image = image;
+
   // Handle completion status
   if (isCompleted !== undefined) {
     if (isCompleted) {

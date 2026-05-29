@@ -1,0 +1,82 @@
+const nodemailer = require('nodemailer');
+
+/**
+ * Returns a configured transporter, or null if SMTP env vars are missing.
+ * Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS in your .env to enable emails.
+ */
+const getTransporter = () => {
+  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) return null;
+
+  return nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: parseInt(SMTP_PORT || '587', 10),
+    secure: parseInt(SMTP_PORT || '587', 10) === 465,
+    auth: { user: SMTP_USER, pass: SMTP_PASS },
+  });
+};
+
+const FROM = process.env.EMAIL_FROM || 'DriveClique <noreply@driveclique.app>';
+
+/**
+ * Send an email. Silently no-ops if SMTP is not configured.
+ * @param {{ to: string, subject: string, html: string }} options
+ */
+const sendEmail = async ({ to, subject, html }) => {
+  const transporter = getTransporter();
+  if (!transporter) return; // Email not configured — skip gracefully
+
+  try {
+    await transporter.sendMail({ from: FROM, to, subject, html });
+  } catch (err) {
+    console.error('[Email] Failed to send:', err.message);
+  }
+};
+
+// ─── Template helpers ────────────────────────────────────────────────────────
+
+const wrap = (body) => `
+  <div style="font-family:sans-serif;max-width:560px;margin:auto;padding:24px;background:#1a1a1a;color:#e5e5e5;border-radius:12px">
+    <h2 style="color:#e53e3e;margin-bottom:16px">DriveClique 🚗</h2>
+    ${body}
+    <hr style="border-color:#333;margin:24px 0"/>
+    <p style="font-size:12px;color:#666">You're receiving this because you're a DriveClique member.</p>
+  </div>`;
+
+const emailTemplates = {
+  driveScheduled: ({ driveName, clubName, date, location }) => ({
+    subject: `New drive scheduled in ${clubName}`,
+    html: wrap(`
+      <p>A new drive has been scheduled in <strong>${clubName}</strong>:</p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0">
+        <tr><td style="padding:8px;color:#aaa">Drive</td><td style="padding:8px"><strong>${driveName}</strong></td></tr>
+        <tr><td style="padding:8px;color:#aaa">Date</td><td style="padding:8px">${date}</td></tr>
+        <tr><td style="padding:8px;color:#aaa">Location</td><td style="padding:8px">${location}</td></tr>
+      </table>
+      <p style="color:#aaa">Log in to RSVP!</p>`),
+  }),
+
+  driveCancelled: ({ driveName, clubName, reason }) => ({
+    subject: `Drive cancelled in ${clubName}`,
+    html: wrap(`
+      <p>The drive <strong>${driveName}</strong> in <strong>${clubName}</strong> has been cancelled.</p>
+      ${reason ? `<p style="color:#aaa">Reason: ${reason}</p>` : ''}`),
+  }),
+
+  joinRequestAccepted: ({ clubName }) => ({
+    subject: `You've been accepted into ${clubName}!`,
+    html: wrap(`<p>Your request to join <strong>${clubName}</strong> has been <span style="color:#48bb78">accepted</span>. Welcome!</p>`),
+  }),
+
+  joinRequestRejected: ({ clubName }) => ({
+    subject: `Update on your request to join ${clubName}`,
+    html: wrap(`<p>Your request to join <strong>${clubName}</strong> was not approved at this time.</p>`),
+  }),
+
+  joinRequestReceived: ({ username, clubName }) => ({
+    subject: `New join request for ${clubName}`,
+    html: wrap(`<p><strong>${username}</strong> has requested to join <strong>${clubName}</strong>. Log in to review the request.</p>`),
+  }),
+};
+
+module.exports = { sendEmail, emailTemplates };

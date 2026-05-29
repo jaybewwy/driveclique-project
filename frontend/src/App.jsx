@@ -1,7 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useState } from 'react';
 
+import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ClubsProvider } from './hooks/useClubs';
+import ToastProvider from './components/Toast';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -11,63 +12,45 @@ import CreateClub from './pages/CreateClub';
 import FindClub from './pages/FindClub';
 import Profile from './pages/Profile';
 
-function getInitialAuth() {
-  try {
-    const savedUser = localStorage.getItem('driveclique_user');
-    const token = localStorage.getItem('token');
-    
-    if (savedUser && token) {
-      const parsedUser = JSON.parse(savedUser);
-      return { isAuthenticated: true, user: parsedUser };
-    }
-  } catch {
-    localStorage.removeItem('driveclique_user');
-    localStorage.removeItem('token');
+function AppRoutes() {
+  const { isAuthenticated, isLoading, user, login, logout, updateUser } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-zinc-800 border-t-red-500 rounded-full animate-spin" />
+      </div>
+    );
   }
-  return { isAuthenticated: false, user: null };
+
+  return (
+    <Routes>
+      <Route path="/login"    element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login onLogin={login} />} />
+      <Route path="/register" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Register onRegister={login} />} />
+
+      <Route path="/dashboard"  element={isAuthenticated ? <Dashboard   user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
+      <Route path="/my-clubs"   element={isAuthenticated ? <MyClubs     user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
+      <Route path="/club/:clubId" element={isAuthenticated ? <ClubDetail user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
+      <Route path="/create-club"  element={isAuthenticated ? <CreateClub user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
+      <Route path="/find-club"    element={isAuthenticated ? <FindClub   user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
+      <Route path="/profile"      element={isAuthenticated ? <Profile    user={user} onLogout={logout} onUpdateUser={updateUser} /> : <Navigate to="/login" replace />} />
+
+      <Route path="/"  element={<Navigate to="/login" replace />} />
+      <Route path="*"  element={<Navigate to="/login" replace />} />
+    </Routes>
+  );
 }
 
 function App() {
-  const initialAuth = getInitialAuth();
-  const [isAuthenticated, setIsAuthenticated] = useState(initialAuth.isAuthenticated);
-  const [user, setUser] = useState(initialAuth.user);
-
-  const login = (userData) => {
-    setIsAuthenticated(true);
-    setUser(userData);
-    localStorage.setItem('driveclique_user', JSON.stringify(userData));
-  };
-
-  const logout = () => {
-    setIsAuthenticated(false);
-    setUser(null);
-    localStorage.removeItem('driveclique_user');
-    localStorage.removeItem('token');
-  };
-
-  const updateUser = (updatedUserData) => {
-    setUser(updatedUserData);
-    localStorage.setItem('driveclique_user', JSON.stringify(updatedUserData));
-  };
-
   return (
     <Router>
-      <ClubsProvider>
-        <Routes>
-          <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login onLogin={login} />} />
-          <Route path="/register" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Register onRegister={login} />} />
-
-          <Route path="/dashboard" element={isAuthenticated ? <Dashboard user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
-          <Route path="/my-clubs" element={isAuthenticated ? <MyClubs user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
-          <Route path="/club/:clubId" element={isAuthenticated ? <ClubDetail user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
-          <Route path="/create-club" element={isAuthenticated ? <CreateClub user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
-          <Route path="/find-club" element={isAuthenticated ? <FindClub user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
-          <Route path="/profile" element={isAuthenticated ? <Profile user={user} onLogout={logout} onUpdateUser={updateUser} /> : <Navigate to="/login" replace />} />
-
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </ClubsProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <ClubsProvider>
+            <AppRoutes />
+          </ClubsProvider>
+        </AuthProvider>
+      </ToastProvider>
     </Router>
   );
 }

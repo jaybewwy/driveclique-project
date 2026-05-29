@@ -1,62 +1,44 @@
 import { useState, useEffect } from "react";
 import { Home, User, Users, Search, Sparkles, TrendingUp, Calendar } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { clubsAPI, drivesAPI } from "../services/api";
+import { drivesAPI } from "../services/api";
+import { useClubs } from "../hooks/useClubs";
 
 const Sidebar = ({ user }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [userClubs, setUserClubs] = useState([]);
+  const { clubs: userClubs } = useClubs();
   const [scheduledDrivesCount, setScheduledDrivesCount] = useState(0);
   const [hoveredItem, setHoveredItem] = useState(null);
 
-  // Get the display name or fall back to username
   const displayName = user?.useDisplayName && user?.name ? user.name : user?.username;
 
-  // Sort clubs to prioritize clubs where the user is the leader
   const sortedClubs = [...userClubs].sort((a, b) => {
     const aIsLeader = a.leader === user?._id || a.leader?._id === user?._id;
     const bIsLeader = b.leader === user?._id || b.leader?._id === user?._id;
-    
     if (aIsLeader && !bIsLeader) return -1;
     if (!aIsLeader && bIsLeader) return 1;
     return 0;
   });
 
-  // Fetch user's clubs then count scheduled drives across all of them
+  // Count scheduled drives whenever the shared clubs list changes
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await clubsAPI.getAll();
-        if (!response.data.success) return;
-
-        const clubs = response.data.clubs || [];
-        setUserClubs(clubs);
-
-        if (clubs.length === 0) {
-          setScheduledDrivesCount(0);
-          return;
-        }
-
-        const now = new Date();
-        const results = await Promise.all(clubs.map(c => drivesAPI.getClubDrives(c._id)));
+    if (userClubs.length === 0) { setScheduledDrivesCount(0); return; }
+    const now = new Date();
+    Promise.all(userClubs.map(c => drivesAPI.getClubDrives(c._id)))
+      .then(results => {
         let count = 0;
         results.forEach(res => {
           if (res.data.success && res.data.drives) {
             res.data.drives.forEach(drive => {
-              if (!drive.isCancelled && !drive.isCompleted && new Date(drive.date) >= now) {
-                count++;
-              }
+              if (!drive.isCancelled && !drive.isCompleted && new Date(drive.date) >= now) count++;
             });
           }
         });
         setScheduledDrivesCount(count);
-      } catch (error) {
-        console.error("Error fetching sidebar data:", error);
-      }
-    };
-    fetchData();
-  }, []);
+      })
+      .catch(() => {});
+  }, [userClubs]);
 
   const sidebarItems = [
     {
@@ -101,7 +83,7 @@ const Sidebar = ({ user }) => {
   };
 
   return (
-    <div className="w-72 hidden xl:block border-r border-zinc-800/50 p-4 sticky top-16 h-[calc(100vh-4rem)] overflow-hidden bg-black/20 flex flex-col">
+    <div className="w-60 xl:w-64 2xl:w-72 flex-none hidden xl:flex flex-col border-r border-zinc-800/50 p-3 xl:p-4 sticky top-16 h-[calc(100vh-4rem)] overflow-hidden bg-black/20">
       {/* User Info Section */}
       {displayName && (
         <div className="relative group mb-6">
@@ -225,9 +207,7 @@ const Sidebar = ({ user }) => {
                       src={club.avatar}
                       alt={club.name}
                       className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.src = `https://via.placeholder.com/32?text=${club.name.charAt(0).toUpperCase()}`;
-                      }}
+                      onError={(e) => { e.target.style.display = 'none'; }}
                     />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center">

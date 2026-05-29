@@ -8,7 +8,9 @@ const {
   loginUser,
   getProfile,
   updateProfile,
-  searchUsers
+  searchUsers,
+  refreshAccessToken,
+  logoutUser,
 } = require('../controllers/authController');
 
 const loginLimiter = rateLimit({
@@ -114,5 +116,23 @@ router.get(
   validateQuery({ query: { maxLength: 100 } }),
   searchUsers
 );
+
+/**
+ * @route   POST /api/auth/refresh
+ * @desc    Exchange a refresh token for a new access token
+ * @access  Public
+ */
+router.post(
+  '/refresh',
+  validateInput({ refreshToken: { required: true, type: 'string' } }),
+  refreshAccessToken
+);
+
+/**
+ * @route   POST /api/auth/logout
+ * @desc    Revoke a refresh token
+ * @access  Public
+ */
+router.post('/logout', logoutUser);
 
 module.exports = router;

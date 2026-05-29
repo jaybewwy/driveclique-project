@@ -1,44 +1,27 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { clubsAPI } from "../services/api";
+import { useClubs } from "../hooks/useClubs";
 import { Users, Plus, Crown, Lock, X, TrendingUp } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
+import { SkeletonClubCard } from "../components/Skeleton";
 
 const MyClubs = ({ user, onLogout }) => {
   const navigate = useNavigate();
-  const [clubs, setClubs] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { clubs, isLoading: loading, refreshClubs } = useClubs();
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [joinError, setJoinError] = useState("");
   const [joinLoading, setJoinLoading] = useState(false);
 
-  // Sort clubs to prioritize clubs where the user is the leader
   const sortedClubs = [...clubs].sort((a, b) => {
     const aIsLeader = a.leader?._id === user?._id || a.leader === user?._id;
     const bIsLeader = b.leader?._id === user?._id || b.leader === user?._id;
-    
     if (aIsLeader && !bIsLeader) return -1;
     if (!aIsLeader && bIsLeader) return 1;
     return 0;
   });
-
-  useEffect(() => {
-    const fetchClubs = async () => {
-      try {
-        const response = await clubsAPI.getAll();
-        if (response.data.success) {
-          setClubs(response.data.clubs);
-        }
-      } catch (error) {
-        console.error("Error fetching clubs:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchClubs();
-  }, []);
 
   const submitJoinByCode = async () => {
     if (!inviteCode.trim()) {
@@ -50,11 +33,7 @@ const MyClubs = ({ user, onLogout }) => {
     try {
       const response = await clubsAPI.joinByInviteCode(inviteCode.trim());
       if (response.data.success) {
-        // Refresh clubs list without full page reload
-        const refreshed = await clubsAPI.getAll();
-        if (refreshed.data.success) {
-          setClubs(refreshed.data.clubs);
-        }
+        await refreshClubs();
         setShowJoinModal(false);
         setInviteCode("");
       }
@@ -74,8 +53,17 @@ const MyClubs = ({ user, onLogout }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <p className="text-zinc-400">Loading clubs...</p>
+      <div className="min-h-screen bg-zinc-950 text-white">
+        <NavBar user={user} onLogout={onLogout} />
+        <div className="flex max-w-7xl mx-auto">
+          <Sidebar user={user} />
+          <div className="flex-1 min-w-0 p-8">
+            <h1 className="text-4xl font-bold mb-8">My Clubs</h1>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {Array.from({ length: 4 }).map((_, i) => <SkeletonClubCard key={i} />)}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

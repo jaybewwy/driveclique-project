@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { SkeletonCard } from "../components/Skeleton";
 import { clubsAPI } from "../services/api";
 import { Car, Home, Bell, User, MapPin, Lock, Globe, Users, Calendar, X, Search, Sparkles } from "lucide-react";
 import Sidebar from "../components/Sidebar";
@@ -9,6 +10,8 @@ const FindClub = ({ user, onLogout }) => {
   const [clubs, setClubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [joinError, setJoinError] = useState("");
@@ -18,11 +21,17 @@ const FindClub = ({ user, onLogout }) => {
   const [actionSuccess, setActionSuccess] = useState("");
 
   useEffect(() => {
+    setPage(1);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setLoading(true);
     const fetchClubs = async () => {
       try {
-        const response = await clubsAPI.search();
+        const response = await clubsAPI.searchPage(searchQuery.trim() || undefined, page, 20);
         if (response.data.success) {
           setClubs(response.data.clubs);
+          setPagination(response.data.pagination);
         }
       } catch (error) {
         console.error("Error fetching clubs:", error);
@@ -30,8 +39,9 @@ const FindClub = ({ user, onLogout }) => {
         setLoading(false);
       }
     };
-    fetchClubs();
-  }, []);
+    const timer = setTimeout(fetchClubs, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, page]);
 
   const isUserMember = (club) => {
     return club.members.some((member) =>
@@ -39,12 +49,7 @@ const FindClub = ({ user, onLogout }) => {
     );
   };
 
-  const publicClubs = clubs.filter(club => !club.isPrivate);
-  const filteredClubs = searchQuery.trim()
-    ? publicClubs.filter(club =>
-        club.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : publicClubs;
+  const filteredClubs = clubs.filter(club => !club.isPrivate);
 
   const handleJoinClub = async (clubId, e) => {
     e.stopPropagation();
@@ -298,16 +303,13 @@ const FindClub = ({ user, onLogout }) => {
               )}
             </div>
             <p className="text-zinc-400 mt-3 text-sm">
-              <span className="text-white font-semibold">{filteredClubs.length}</span> clubs found
+              <span className="text-white font-semibold">{pagination?.total ?? filteredClubs.length}</span> clubs found
             </p>
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="text-center">
-                <div className="w-16 h-16 border-4 border-zinc-800 border-t-red-500 rounded-full animate-spin mx-auto mb-4" />
-                <p className="text-zinc-400">Loading clubs...</p>
-              </div>
+            <div className="space-y-4">
+              {Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)}
             </div>
           ) : filteredClubs.length === 0 ? (
             <div className="text-center py-20 bg-zinc-900/30 rounded-3xl border border-zinc-800/30">
@@ -399,6 +401,29 @@ const FindClub = ({ user, onLogout }) => {
               ))}
             </div>
           )}
+
+          {/* Pagination controls */}
+          {pagination && pagination.totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3 mt-8">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                ← Previous
+              </button>
+              <span className="text-sm text-zinc-400">
+                Page <span className="text-white font-semibold">{page}</span> of <span className="text-white font-semibold">{pagination.totalPages}</span>
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                disabled={!pagination.hasMore}
+                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Next →
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="w-80 hidden xl:block p-6 sticky top-16 h-[calc(100vh-4rem)] overflow-hidden">
@@ -407,7 +432,7 @@ const FindClub = ({ user, onLogout }) => {
             Popular Clubs
           </h3>
           <div className="space-y-3">
-            {publicClubs
+            {filteredClubs
               .sort((a, b) => b.members.length - a.members.length)
               .slice(0, 5)
               .map((club) => (

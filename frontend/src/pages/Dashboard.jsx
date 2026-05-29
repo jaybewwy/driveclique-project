@@ -4,35 +4,34 @@ import { Car, Calendar, MapPin, Users, TrendingUp, ArrowRight, Sparkles, Zap, Sh
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 import { clubsAPI, drivesAPI } from "../services/api";
+import { SkeletonCard } from "../components/Skeleton";
 
 const Dashboard = ({ user, onLogout }) => {
   const navigate = useNavigate();
   const [upcomingDrives, setUpcomingDrives] = useState([]);
   const [trendingClub, setTrendingClub] = useState(null);
+  const [drivesLoading, setDrivesLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch trending club (club with most members)
-        const trendingResponse = await clubsAPI.getTopClub();
+        const [trendingResponse, clubsResponse] = await Promise.all([
+          clubsAPI.getTopClub(),
+          clubsAPI.getAll(),
+        ]);
+
         if (trendingResponse.data.success) {
           setTrendingClub(trendingResponse.data.club);
         }
 
-        // Fetch user's clubs
-        const clubsResponse = await clubsAPI.getAll();
-        
         if (clubsResponse.data.success) {
           const clubs = clubsResponse.data.clubs || [];
-          
-          // Fetch drives from all clubs the user is a member of
-          const drivesPromises = clubs.map(club => 
-            drivesAPI.getClubDrives(club._id)
+
+          const drivesResults = await Promise.all(
+            clubs.map(club => drivesAPI.getClubDrives(club._id))
           );
-          
-          const drivesResults = await Promise.all(drivesPromises);
+
           let allDrives = [];
-          
           drivesResults.forEach(response => {
             if (response.data.success && response.data.drives) {
               response.data.drives.forEach(drive => {
@@ -44,35 +43,32 @@ const Dashboard = ({ user, onLogout }) => {
               });
             }
           });
-          
-          // Filter for upcoming drives only and sort by date
+
           const upcoming = allDrives
             .filter(drive => !drive.isCancelled && !drive.isCompleted && new Date(drive.date) >= new Date())
             .sort((a, b) => new Date(a.date) - new Date(b.date))
-            .slice(0, 10); // Limit to 10 drives
-          
-          // Fetch RSVP counts for each upcoming drive
+            .slice(0, 10);
+
           const drivesWithRSVPs = await Promise.all(
             upcoming.map(async (drive) => {
               try {
                 const rsvpResponse = await drivesAPI.getAttendees(drive._id);
                 if (rsvpResponse.data.success) {
-                  return {
-                    ...drive,
-                    attendees: rsvpResponse.data.stats.going || 0,
-                  };
+                  return { ...drive, attendees: rsvpResponse.data.stats.going || 0 };
                 }
               } catch {
-                // If we can't fetch RSVPs, default to 0
+                // default to 0 if unavailable
               }
               return { ...drive, attendees: 0 };
             })
           );
-          
+
           setUpcomingDrives(drivesWithRSVPs);
         }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
+      } finally {
+        setDrivesLoading(false);
       }
     };
 
@@ -204,7 +200,8 @@ const Dashboard = ({ user, onLogout }) => {
             </div>
 
             <div className="space-y-3">
-              {upcomingDrives.map((drive) => (
+              {drivesLoading && Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
+              {!drivesLoading && upcomingDrives.map((drive) => (
                 <div
                   key={drive._id}
                   onClick={() => drive.clubId ? navigate(`/club/${drive.clubId}`) : null}
@@ -246,7 +243,7 @@ const Dashboard = ({ user, onLogout }) => {
                 </div>
               ))}
 
-              {upcomingDrives.length === 0 && (
+              {!drivesLoading && upcomingDrives.length === 0 && (
                 <div className="text-center py-12 bg-zinc-900/30 rounded-2xl border border-zinc-800/30">
                   <Calendar className="w-12 h-12 text-zinc-700 mx-auto mb-3" />
                   <p className="text-zinc-500">No upcoming drives</p>

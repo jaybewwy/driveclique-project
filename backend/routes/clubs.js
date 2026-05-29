@@ -2,10 +2,10 @@ const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authentication');
 const { validateParams, validateInput, validateQuery } = require('../middleware/validation');
-const { 
-  createClub, 
-  getUserClubs, 
-  getClubById, 
+const {
+  createClub,
+  getUserClubs,
+  getClubById,
   getClubByInviteCode,
   requestToJoinClub,
   handleJoinRequest,
@@ -15,7 +15,9 @@ const {
   updateClub,
   deleteClub,
   getTopClub,
-  leaveClub
+  leaveClub,
+  removeMember,
+  transferOwnership
 } = require('../controllers/clubController');
 
 // All routes require authentication
@@ -52,7 +54,7 @@ router.get('/', getUserClubs);
  */
 router.get(
   '/browse',
-  validateQuery({ query: { maxLength: 100 } }),
+  validateQuery({ query: { maxLength: 100 }, page: { type: 'number', min: 1 }, limit: { type: 'number', min: 1, max: 50 } }),
   searchClubs
 );
 
@@ -196,6 +198,32 @@ router.put(
     clubId: { required: true, objectId: true }
   }),
   leaveClub
+);
+
+/**
+ * @route   PUT /api/clubs/:clubId/transfer
+ * @desc    Transfer club ownership to another member
+ * @access  Private (Club Leaders only)
+ */
+router.put(
+  '/:clubId/transfer',
+  validateParams({ clubId: { required: true, objectId: true } }),
+  validateInput({ newLeaderId: { required: true, type: 'string' } }),
+  transferOwnership
+);
+
+/**
+ * @route   DELETE /api/clubs/:clubId/members/:memberId
+ * @desc    Remove a member from a club (leader only)
+ * @access  Private (Club Leaders only)
+ */
+router.delete(
+  '/:clubId/members/:memberId',
+  validateParams({
+    clubId: { required: true, objectId: true },
+    memberId: { required: true, objectId: true }
+  }),
+  removeMember
 );
 
 module.exports = router;

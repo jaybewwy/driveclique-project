@@ -37,12 +37,11 @@ const Register = ({ onRegister }) => {
       });
 
       if (response.data.success) {
-        const userData = response.data.user;
-        if (onRegister) {
-          onRegister(userData);
-        }
-        localStorage.setItem('token', response.data.token);
+        const { user: userData, token, refreshToken } = response.data;
+        if (token) localStorage.setItem('token', token);
+        if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
         localStorage.setItem('driveclique_user', JSON.stringify(userData));
+        if (onRegister) onRegister(userData, token, refreshToken);
         navigate('/dashboard');
       }
     } catch (err) {

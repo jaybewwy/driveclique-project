@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
 import {
   Search,
   Copy,
@@ -25,7 +24,7 @@ import {
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 import { compressImage } from "../utils/imageCompressor";
-import { clubsAPI } from "../services/api";
+import { clubsAPI, drivesAPI, authAPI } from "../services/api";
 
 const ClubDetail = ({ user, onLogout }) => {
   const { clubId } = useParams();
@@ -74,8 +73,10 @@ const ClubDetail = ({ user, onLogout }) => {
     date: '',
     time: '',
     location: '',
-    description: ''
+    description: '',
+    image: ''
   });
+  const [driveImagePreview, setDriveImagePreview] = useState('');
   const [timePeriod, setTimePeriod] = useState('AM');
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
@@ -84,40 +85,26 @@ const ClubDetail = ({ user, onLogout }) => {
   const [validationError, setValidationError] = useState(null);
   const [joinLoading, setJoinLoading] = useState(false);
   const [joinFeedback, setJoinFeedback] = useState('');
+  const [clubEditError, setClubEditError] = useState('');
+  const [memberActionError, setMemberActionError] = useState('');
+  const [driveToDelete, setDriveToDelete] = useState(null);
+  const [memberToRemove, setMemberToRemove] = useState(null);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferTarget, setTransferTarget] = useState(null);
+  const [transferError, setTransferError] = useState('');
 
   // Fetch club details and drives
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const token = localStorage.getItem("token");
-
-        const clubResponse = await axios.get(
-          `http://localhost:5000/api/clubs/${clubId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (clubResponse.data?.success) {
-          setClub(clubResponse.data.club);
-        }
-
-        const drivesResponse = await axios.get(
-          `http://localhost:5000/api/drives/club/${clubId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (drivesResponse.data?.success) {
-          setDrives(drivesResponse.data.drives || []);
-        }
+        const [clubResponse, drivesResponse] = await Promise.all([
+          clubsAPI.getClubById(clubId),
+          drivesAPI.getClubDrives(clubId),
+        ]);
+        if (clubResponse.data?.success) setClub(clubResponse.data.club);
+        if (drivesResponse.data?.success) setDrives(drivesResponse.data.drives || []);
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching club data:", error);
       } finally {
         setLoading(false);
       }
@@ -145,12 +132,8 @@ const ClubDetail = ({ user, onLogout }) => {
       .filter(d => !d.isCancelled && !d.isCompleted && new Date(d.date) >= new Date())
       .map(d => d._id);
 
-    const token = localStorage.getItem('token');
     upcomingIds.forEach(driveId => {
-      axios
-        .get(`http://localhost:5000/api/drives/${driveId}/rsvp-status`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+      drivesAPI.getRSVPStatus(driveId)
         .then(res => {
           if (res.data?.success) {
             setDriveRSVPCounts(prev => ({
@@ -163,7 +146,7 @@ const ClubDetail = ({ user, onLogout }) => {
             }));
           }
         })
-        .catch(() => {}); // silently ignore — counts just won't pre-populate
+        .catch(() => {});
     });
   }, [drives]);
 
@@ -195,11 +178,7 @@ const ClubDetail = ({ user, onLogout }) => {
   // so that drive cards reflect live counts even after the modal is closed.
   const fetchDriveRSVPData = async (driveId) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(
-        `http://localhost:5000/api/drives/${driveId}/rsvp-status`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await drivesAPI.getRSVPStatus(driveId);
       if (response.data?.success) {
         const counts = {
           going: response.data.counts.going,
@@ -226,12 +205,7 @@ const ClubDetail = ({ user, onLogout }) => {
     setRsvpMessage('');
     
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `http://localhost:5000/api/drives/${selectedDrive._id}/rsvp`,
-        { status },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await drivesAPI.rsvp(selectedDrive._id, status);
       
       if (response.data?.success) {
         setUserRSVP(status);
@@ -259,16 +233,8 @@ const ClubDetail = ({ user, onLogout }) => {
   // Handler functions for drive actions
   const handleMarkComplete = async (drive) => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.put(
-        `http://localhost:5000/api/drives/${drive._id}`,
-        { isCompleted: true },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await drivesAPI.update(drive._id, { isCompleted: true });
       if (response.data?.success) {
-        // Update local state
         setDrives(drives.map(d => d._id === drive._id ? response.data.drive : d));
         setShowActionMenu(null);
       }
@@ -278,22 +244,21 @@ const ClubDetail = ({ user, onLogout }) => {
   };
 
   const handleDeleteDrive = async (drive) => {
-    if (!window.confirm("Are you sure you want to delete this drive?")) return;
+    setDriveToDelete(drive);
+    setShowActionMenu(null);
+  };
+
+  const confirmDeleteDrive = async () => {
+    if (!driveToDelete) return;
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.delete(
-        `http://localhost:5000/api/drives/${drive._id}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await drivesAPI.delete(driveToDelete._id);
       if (response.data?.success) {
-        // Remove from local state
-        setDrives(drives.filter(d => d._id !== drive._id));
-        setShowActionMenu(null);
+        setDrives(drives.filter(d => d._id !== driveToDelete._id));
       }
     } catch (error) {
       console.error("Error deleting drive:", error);
+    } finally {
+      setDriveToDelete(null);
     }
   };
 
@@ -312,41 +277,17 @@ const ClubDetail = ({ user, onLogout }) => {
 
   const handleUpdateDrive = async () => {
     try {
-      const token = localStorage.getItem("token");
-      // Ensure date is sent as a proper date string
       const updateData = { ...editFormData };
-      if (updateData.date) {
-        updateData.date = new Date(updateData.date).toISOString();
-      }
-      
-      console.log("Updating drive:", selectedDrive._id, "with data:", updateData);
-      
-      const response = await axios.put(
-        `http://localhost:5000/api/drives/${selectedDrive._id}`,
-        updateData,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      
-      console.log("Response:", response.data);
-      
+      if (updateData.date) updateData.date = new Date(updateData.date).toISOString();
+      const response = await drivesAPI.update(selectedDrive._id, updateData);
       if (response.data?.success) {
-        // Update local state with the returned drive
-        const updatedDrive = response.data.drive;
-        setDrives(drives.map(d => d._id === selectedDrive._id ? updatedDrive : d));
+        setDrives(drives.map(d => d._id === selectedDrive._id ? response.data.drive : d));
         setShowEditModal(false);
         setSelectedDrive(null);
         setEditFormData({});
-      } else {
-        console.error("Update failed:", response.data);
       }
     } catch (error) {
       console.error("Error updating drive:", error);
-      if (error.response) {
-        console.error("Response data:", error.response.data);
-        console.error("Response status:", error.response.status);
-      }
     }
   };
 
@@ -371,49 +312,19 @@ const ClubDetail = ({ user, onLogout }) => {
   };
 
   const handleUpdateClub = async () => {
-    // Validate description length before sending
+    setClubEditError('');
     if (clubEditFormData.description && clubEditFormData.description.length < 10) {
-      alert("Description must be at least 10 characters long");
+      setClubEditError('Description must be at least 10 characters long');
       return;
     }
-    
     try {
-      const token = localStorage.getItem("token");
-      const url = `http://localhost:5000/api/clubs/${clubId}`;
-      
-      console.log("Updating club:", clubId);
-      console.log("URL:", url);
-      console.log("Token exists:", !!token);
-      console.log("Form data:", clubEditFormData);
-      
-      const response = await axios.put(
-        url,
-        clubEditFormData,
-        {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-        }
-      );
-      
-      console.log("Response:", response.data);
-      
+      const response = await clubsAPI.update(clubId, clubEditFormData);
       if (response.data?.success) {
         setClub(response.data.club);
         closeClubEditModal();
       }
     } catch (error) {
-      console.error("Error updating club:", error);
-      console.error("Response status:", error.response?.status);
-      console.error("Response data:", error.response?.data);
-      if (error.response?.status === 404) {
-        alert("Club not found. Please refresh the page and try again.");
-      } else if (error.response?.data?.message) {
-        alert(error.response.data.message);
-      } else {
-        alert("Failed to update club. Please check your connection and try again.");
-      }
+      setClubEditError(error.response?.data?.message || 'Failed to update club. Please try again.');
     }
   };
 
@@ -427,56 +338,59 @@ const ClubDetail = ({ user, onLogout }) => {
         setAvatarFileName(fileName);
       } catch (error) {
         console.error('Error compressing image:', error);
-        alert('Failed to process image. Please try again.');
+        setClubEditError('Failed to process image. Please try again.');
       }
     }
   };
 
-  const handleRemoveMember = async (memberId, memberUsername) => {
-    if (!window.confirm(`Are you sure you want to remove ${memberUsername} from the club?`)) return;
+  const handleRemoveMember = (memberId, memberUsername) => {
+    setMemberToRemove({ id: memberId, username: memberUsername });
+    setMemberActionError('');
+  };
+
+  const confirmRemoveMember = async () => {
+    if (!memberToRemove) return;
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.put(
-        `http://localhost:5000/api/clubs/${clubId}/remove-member`,
-        { memberId },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await clubsAPI.removeMember(clubId, memberToRemove.id);
       if (response.data?.success) {
-        // Update local state to remove the member
         setClub(prevClub => ({
           ...prevClub,
-          members: prevClub.members.filter(m => m._id !== memberId)
+          members: prevClub.members.filter(m => m._id !== memberToRemove.id)
         }));
+        setMemberToRemove(null);
       }
     } catch (error) {
-      console.error("Error removing member:", error);
-      alert(error.response?.data?.message || "Failed to remove member");
+      setMemberActionError(error.response?.data?.message || 'Failed to remove member');
     }
   };
 
-  const handleLeaveClub = async () => {
+  const handleTransferOwnership = async () => {
+    if (!transferTarget) return;
+    setTransferError('');
+    try {
+      const response = await clubsAPI.transfer(clubId, transferTarget._id);
+      if (response.data?.success) {
+        setClub(response.data.club);
+        setShowTransferModal(false);
+        setTransferTarget(null);
+      }
+    } catch (err) {
+      setTransferError(err.response?.data?.message || 'Failed to transfer ownership');
+    }
+  };
+
+  const handleLeaveClub = () => {
     setShowLeaveConfirm(true);
   };
 
   const confirmLeaveClub = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.put(
-        `http://localhost:5000/api/clubs/${clubId}/leave`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await clubsAPI.leave(clubId);
       if (response.data?.success) {
-        alert("You have left the club.");
-        navigate("/my-clubs");
+        navigate('/my-clubs');
       }
     } catch (error) {
-      console.error("Error leaving club:", error);
-      alert(error.response?.data?.message || "Failed to leave club");
+      console.error('Error leaving club:', error);
     } finally {
       setShowLeaveConfirm(false);
     }
@@ -494,11 +408,7 @@ const ClubDetail = ({ user, onLogout }) => {
       if (response.data.success) {
         if (response.data.clubId) {
           // Public club — joined immediately; refresh club data so isMember updates
-          const token = localStorage.getItem('token');
-          const refreshed = await axios.get(
-            `http://localhost:5000/api/clubs/${clubId}`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
+          const refreshed = await clubsAPI.getClubById(clubId);
           if (refreshed.data?.success) setClub(refreshed.data.club);
         } else {
           setJoinFeedback('Join request sent! Awaiting leader approval.');
@@ -513,32 +423,23 @@ const ClubDetail = ({ user, onLogout }) => {
 
   const handleDeleteClubConfirm = async () => {
     if (!deleteEmail || !deleteReason) {
-      alert("Please fill in all fields");
+      setMemberActionError('Please fill in all fields');
       return;
     }
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.delete(
-        `http://localhost:5000/api/clubs/${clubId}`,
-        {
-          data: { deletionReason: deleteReason, leaderEmail: deleteEmail },
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await clubsAPI.delete(clubId, deleteReason, deleteEmail);
       if (response.data?.success) {
-        navigate("/my-clubs");
+        navigate('/my-clubs');
       }
     } catch (error) {
-      console.error("Error deleting club:", error);
-      if (error.response?.data?.message) {
-        alert(error.response.data.message);
-      }
+      setMemberActionError(error.response?.data?.message || 'Failed to delete club');
     }
   };
 
   // Schedule Drive handlers
   const openScheduleDriveModal = () => {
-    setScheduleForm({ name: '', date: '', time: '', location: '', description: '' });
+    setScheduleForm({ name: '', date: '', time: '', location: '', description: '', image: '' });
+    setDriveImagePreview('');
     setTimePeriod('AM');
     setSelectedDate(null);
     setCalendarMonth(new Date().getMonth());
@@ -549,8 +450,21 @@ const ClubDetail = ({ user, onLogout }) => {
 
   const closeScheduleDriveModal = () => {
     setShowScheduleDriveModal(false);
-    setScheduleForm({ name: '', date: '', time: '', location: '', description: '' });
+    setScheduleForm({ name: '', date: '', time: '', location: '', description: '', image: '' });
+    setDriveImagePreview('');
     setValidationError(null);
+  };
+
+  const handleDriveImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const { compressedData } = await compressImage(file);
+      setScheduleForm(prev => ({ ...prev, image: compressedData }));
+      setDriveImagePreview(compressedData);
+    } catch {
+      setValidationError('Failed to process image. Please try again.');
+    }
   };
 
   const handleScheduleFormChange = (e) => {
@@ -692,31 +606,17 @@ const ClubDetail = ({ user, onLogout }) => {
     if (!validateScheduleForm()) return;
     setIsScheduling(true);
     try {
-      const token = localStorage.getItem('token');
-      const formattedDate = getFormattedDate();
-      const response = await axios.post(
-        'http://localhost:5000/api/drives',
-        {
-          clubId: clubId,
-          name: scheduleForm.name,
-          date: formattedDate,
-          time: scheduleForm.time,
-          location: scheduleForm.location,
-          description: scheduleForm.description || ''
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      const response = await drivesAPI.create({
+        clubId,
+        name: scheduleForm.name,
+        date: getFormattedDate(),
+        time: scheduleForm.time,
+        location: scheduleForm.location,
+        description: scheduleForm.description || ''
+      });
       if (response.data?.success) {
-        // Refresh drives list
-        const drivesResponse = await axios.get(
-          `http://localhost:5000/api/drives/club/${clubId}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (drivesResponse.data?.success) {
-          setDrives(drivesResponse.data.drives || []);
-        }
+        const drivesResponse = await drivesAPI.getClubDrives(clubId);
+        if (drivesResponse.data?.success) setDrives(drivesResponse.data.drives || []);
         closeScheduleDriveModal();
       }
     } catch (err) {
@@ -746,18 +646,8 @@ const ClubDetail = ({ user, onLogout }) => {
       return;
     }
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.get(
-        `http://localhost:5000/api/auth/users/search?query=${searchQuery}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      if (response.data?.success) {
-        setSearchResults(response.data.users);
-      }
+      const response = await authAPI.searchUsers(searchQuery);
+      if (response.data?.success) setSearchResults(response.data.users);
     } catch (error) {
       console.error("Error searching users:", error);
     }
@@ -795,7 +685,7 @@ const ClubDetail = ({ user, onLogout }) => {
       <div className="flex max-w-7xl mx-auto">
         <Sidebar user={user} />
 
-        <div className="flex-1 max-w-4xl min-h-screen p-8">
+        <div className="flex-1 min-w-0 max-w-4xl min-h-screen p-4 lg:p-6 xl:p-8">
           <button
             onClick={() => navigate("/my-clubs")}
             className="flex items-center gap-2 text-zinc-400 hover:text-white mb-6 transition"
@@ -812,9 +702,7 @@ const ClubDetail = ({ user, onLogout }) => {
                     src={club.avatar}
                     alt={club.name}
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.src = 'https://via.placeholder.com/96?text=Club';
-                    }}
+                    onError={(e) => { e.target.style.display = 'none'; }}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-red-600 to-orange-600">
@@ -930,10 +818,10 @@ const ClubDetail = ({ user, onLogout }) => {
           )}
         </div>
 
-        <div className="w-80 hidden lg:block p-6 sticky top-16 self-start h-[calc(100vh-4rem)] overflow-hidden">
-          <h3 className="font-semibold mb-4">Club Info</h3>
+        <div className="w-56 lg:w-64 xl:w-72 2xl:w-80 flex-none hidden lg:flex flex-col p-3 xl:p-5 2xl:p-6 sticky top-16 h-[calc(100vh-4rem)] overflow-hidden">
+          <h3 className="font-semibold mb-2 xl:mb-4 text-sm xl:text-base">Club Info</h3>
 
-          <div className="bg-zinc-900 rounded-2xl p-4 space-y-4">
+          <div className="bg-zinc-900 rounded-xl xl:rounded-2xl p-3 xl:p-4 space-y-2 xl:space-y-4">
             <div>
               <p className="text-sm text-zinc-500">Leader</p>
               <p className="font-medium">
@@ -944,8 +832,8 @@ const ClubDetail = ({ user, onLogout }) => {
             </div>
           </div>
 
-          <div className="border-t border-zinc-800 pt-6 mt-6">
-            <h3 className="font-semibold mb-4">Drive and Events</h3>
+          <div className="border-t border-zinc-800 pt-3 xl:pt-5 mt-3 xl:mt-5">
+            <h3 className="font-semibold mb-2 xl:mb-4 text-sm xl:text-base">Drive and Events</h3>
 
             {filteredAndSortedDrives.length === 0 ? (
               <div className="bg-zinc-900 rounded-2xl p-4">
@@ -953,11 +841,11 @@ const ClubDetail = ({ user, onLogout }) => {
               </div>
             ) : (
               <>
-                <div className="space-y-3">
-                  {filteredAndSortedDrives.slice(0, 3).map((drive) => (
+                <div className="space-y-2 xl:space-y-3">
+                  {filteredAndSortedDrives.slice(0, 2).map((drive) => (
                     <div
                       key={drive._id}
-                      className="bg-zinc-900/50 backdrop-blur-sm rounded-2xl p-4 border border-zinc-800/50 hover:border-zinc-700/50 transition-all duration-300 cursor-pointer group relative overflow-visible"
+                      className="bg-zinc-900/50 backdrop-blur-sm rounded-xl xl:rounded-2xl p-3 xl:p-4 border border-zinc-800/50 hover:border-zinc-700/50 transition-all duration-300 group relative overflow-visible"
                     >
                       <div className="flex items-start justify-between">
                         <div
@@ -985,15 +873,9 @@ const ClubDetail = ({ user, onLogout }) => {
                                 {drive.time}
                               </span>
                             )}
-                            {drive.location && (
-                              <span className="flex items-center gap-1">
-                                <MapPin className="w-4 h-4" />
-                                <span className="truncate max-w-[100px]">{drive.location}</span>
-                              </span>
-                            )}
                           </div>
                         </div>
-                        {isLeader ? (
+                        {isLeader && (
                           <div className="relative">
                             <button
                               onClick={(e) => {
@@ -1030,12 +912,6 @@ const ClubDetail = ({ user, onLogout }) => {
                               </div>
                             )}
                           </div>
-                        ) : (
-                          <div className="w-12 h-12 bg-gradient-to-br from-red-500/20 to-orange-500/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                            </svg>
-                          </div>
                         )}
                       </div>
                     </div>
@@ -1064,38 +940,48 @@ const ClubDetail = ({ user, onLogout }) => {
           </div>
 
           {/* Members section - visible to all members */}
-          <div className="mt-4">
+          <div className="mt-3 xl:mt-4">
             {isLeader && (
               <button
                 onClick={openScheduleDriveModal}
-                className="w-full bg-red-600 hover:bg-red-700 py-3 rounded-2xl font-medium flex items-center justify-center gap-2 transition mb-4"
+                className="w-full bg-red-600 hover:bg-red-700 py-2 xl:py-3 rounded-xl xl:rounded-2xl text-sm xl:text-base font-medium flex items-center justify-center gap-2 transition mb-3 xl:mb-4"
               >
                 <Plus size={18} />
                 Schedule a Drive
               </button>
             )}
 
-            <div className="border-t border-zinc-800 pt-6">
-              <h3 className="font-semibold mb-4">
+            <div className="border-t border-zinc-800 pt-3 xl:pt-5">
+              <h3 className="font-semibold mb-2 xl:mb-4 text-sm xl:text-base">
                 {isLeader ? "Club Settings" : "Members"}
               </h3>
 
               {isLeader && (
-                <button
-                  type="button"
-                  onClick={openClubEditModal}
-                  className="w-full bg-zinc-800 hover:bg-zinc-700 py-3 rounded-2xl font-medium flex items-center justify-center gap-2 transition mb-4"
-                >
-                  <Edit3 size={18} />
-                  Edit Club Details
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={openClubEditModal}
+                    className="w-full bg-zinc-800 hover:bg-zinc-700 py-2 xl:py-3 rounded-xl xl:rounded-2xl text-sm xl:text-base font-medium flex items-center justify-center gap-2 transition mb-2"
+                  >
+                    <Edit3 size={18} />
+                    Edit Club Details
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowTransferModal(true); setTransferTarget(null); setTransferError(''); }}
+                    className="w-full bg-zinc-800 hover:bg-zinc-700 py-2 xl:py-3 rounded-xl xl:rounded-2xl text-sm xl:text-base font-medium flex items-center justify-center gap-2 transition mb-3 xl:mb-4 text-amber-400 hover:text-amber-300"
+                  >
+                    <Crown size={18} />
+                    Transfer Ownership
+                  </button>
+                </>
               )}
 
-              <div className="bg-zinc-900 rounded-2xl p-4">
+              <div className="bg-zinc-900 rounded-xl xl:rounded-2xl p-3 xl:p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-zinc-500">Members</p>
-                    <p className="text-2xl font-bold text-red-500">{club.members?.length || 0}</p>
+                    <p className="text-xs xl:text-sm text-zinc-500">Members</p>
+                    <p className="text-xl xl:text-2xl font-bold text-red-500">{club.members?.length || 0}</p>
                   </div>
                   <button
                     onClick={() => setShowMembersModal(true)}
@@ -1108,7 +994,7 @@ const ClubDetail = ({ user, onLogout }) => {
             </div>
 
             {!isLeader && isMember && (
-              <div className="mt-8 pt-6 border-t border-zinc-800">
+              <div className="mt-3 xl:mt-6 pt-3 xl:pt-5 border-t border-zinc-800">
                 <button
                   onClick={handleLeaveClub}
                   className="w-full bg-zinc-800 hover:bg-red-900/30 text-zinc-400 hover:text-red-400 border border-zinc-700 hover:border-red-600 py-3 rounded-2xl font-medium flex items-center justify-center gap-2 transition"
@@ -1120,7 +1006,7 @@ const ClubDetail = ({ user, onLogout }) => {
             )}
 
             {!isLeader && !isMember && (
-              <div className="mt-8 pt-6 border-t border-zinc-800">
+              <div className="mt-3 xl:mt-6 pt-3 xl:pt-5 border-t border-zinc-800">
                 {joinFeedback && (
                   <p className="text-sm text-center mb-3 text-zinc-400">{joinFeedback}</p>
                 )}
@@ -1571,6 +1457,14 @@ const ClubDetail = ({ user, onLogout }) => {
                 )}
               </div>
 
+              {selectedDrive.image && (
+                <img
+                  src={selectedDrive.image}
+                  alt="Drive route"
+                  className="w-full h-40 object-cover rounded-xl border border-zinc-800"
+                />
+              )}
+
               {selectedDrive.description && (
                 <div className="bg-black rounded-xl p-4">
                   <h3 className="text-sm font-medium text-zinc-400 mb-2">Description</h3>
@@ -1694,6 +1588,12 @@ const ClubDetail = ({ user, onLogout }) => {
               </button>
             </div>
 
+            {clubEditError && (
+              <div className="mb-4 p-3 bg-red-900/30 border border-red-600 rounded-xl">
+                <p className="text-red-400 text-sm">{clubEditError}</p>
+              </div>
+            )}
+
             <div className="space-y-4">
               {/* Club Avatar */}
               <div>
@@ -1705,18 +1605,14 @@ const ClubDetail = ({ user, onLogout }) => {
                         src={clubAvatarPreview}
                         alt="Club avatar preview"
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.src = 'https://via.placeholder.com/80?text=Club';
-                        }}
+                        onError={(e) => { e.target.style.display = 'none'; }}
                       />
                     ) : club.avatar ? (
                       <img
                         src={club.avatar}
                         alt="Club avatar"
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.src = 'https://via.placeholder.com/80?text=Club';
-                        }}
+                        onError={(e) => { e.target.style.display = 'none'; }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
@@ -2016,6 +1912,31 @@ const ClubDetail = ({ user, onLogout }) => {
                 />
               </div>
 
+              {/* Route Image (Optional) */}
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-3">
+                  Route Image <span className="text-zinc-500 text-xs">(Optional)</span>
+                </label>
+                {driveImagePreview ? (
+                  <div className="relative">
+                    <img src={driveImagePreview} alt="Drive route" className="w-full h-32 object-cover rounded-xl border border-zinc-700" />
+                    <button
+                      type="button"
+                      onClick={() => { setDriveImagePreview(''); setScheduleForm(prev => ({ ...prev, image: '' })); }}
+                      className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 p-1 rounded-lg transition"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-zinc-700 rounded-xl cursor-pointer hover:border-zinc-500 transition">
+                    <MapPin size={20} className="text-zinc-500 mb-1" />
+                    <span className="text-xs text-zinc-500">Upload route map or photo</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleDriveImageUpload} />
+                  </label>
+                )}
+              </div>
+
               {/* Action Buttons */}
               <div className="flex gap-3 pt-4">
                 <button
@@ -2094,6 +2015,133 @@ const ClubDetail = ({ user, onLogout }) => {
       )}
 
       {/* Delete Club Confirmation Modal */}
+      {/* Transfer Ownership Modal */}
+      {showTransferModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-900 rounded-2xl p-6 max-w-md w-full border border-amber-500/30 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <Crown size={18} className="text-amber-400" />
+                Transfer Ownership
+              </h3>
+              <button type="button" onClick={() => setShowTransferModal(false)} className="text-zinc-500 hover:text-white transition">
+                <X size={20} />
+              </button>
+            </div>
+            <p className="text-zinc-400 text-sm mb-4">
+              Select a member to become the new club leader. You will become a regular member.
+            </p>
+            <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
+              {(club.members || [])
+                .filter(m => m._id !== userId)
+                .map(member => (
+                  <button
+                    key={member._id}
+                    type="button"
+                    onClick={() => setTransferTarget(member)}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl transition text-left ${
+                      transferTarget?._id === member._id
+                        ? 'bg-amber-500/20 border border-amber-500/50'
+                        : 'bg-zinc-800 hover:bg-zinc-700 border border-transparent'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-zinc-600 to-zinc-700 flex items-center justify-center flex-shrink-0">
+                      {member.avatar
+                        ? <img src={member.avatar} alt={member.username} className="w-full h-full rounded-full object-cover" />
+                        : <span className="text-xs font-bold">{member.username?.charAt(0)?.toUpperCase()}</span>
+                      }
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{member.useDisplayName && member.name ? member.name : member.username}</p>
+                      <p className="text-xs text-zinc-500">@{member.username}</p>
+                    </div>
+                    {transferTarget?._id === member._id && (
+                      <Crown size={14} className="text-amber-400 ml-auto" />
+                    )}
+                  </button>
+                ))}
+            </div>
+            {transferError && <p className="text-red-400 text-sm mb-3">{transferError}</p>}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowTransferModal(false)}
+                className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-3 rounded-xl font-medium transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleTransferOwnership}
+                disabled={!transferTarget}
+                className="flex-1 bg-amber-600 hover:bg-amber-500 py-3 rounded-xl font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Transfer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Drive Confirmation */}
+      {driveToDelete && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-900 rounded-2xl p-6 max-w-sm w-full border border-zinc-700 shadow-2xl">
+            <h3 className="text-lg font-bold mb-2">Delete Drive</h3>
+            <p className="text-zinc-400 text-sm mb-6">
+              Are you sure you want to delete <span className="text-white font-medium">{driveToDelete.name}</span>? This cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDriveToDelete(null)}
+                className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-3 rounded-xl font-medium transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteDrive}
+                className="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-xl font-medium transition"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Member Confirmation */}
+      {memberToRemove && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-900 rounded-2xl p-6 max-w-sm w-full border border-zinc-700 shadow-2xl">
+            <h3 className="text-lg font-bold mb-2">Remove Member</h3>
+            <p className="text-zinc-400 text-sm mb-2">
+              Are you sure you want to remove <span className="text-white font-medium">@{memberToRemove.username}</span> from this club?
+            </p>
+            {memberActionError && (
+              <p className="text-red-400 text-sm mb-3">{memberActionError}</p>
+            )}
+            <div className="flex gap-3 mt-4">
+              <button
+                type="button"
+                onClick={() => { setMemberToRemove(null); setMemberActionError(''); }}
+                className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-3 rounded-xl font-medium transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmRemoveMember}
+                className="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-xl font-medium transition"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-red-600 shadow-2xl">
@@ -2111,6 +2159,12 @@ const ClubDetail = ({ user, onLogout }) => {
                 <X size={24} />
               </button>
             </div>
+
+            {memberActionError && (
+              <div className="mb-4 p-3 bg-red-900/30 border border-red-600 rounded-xl">
+                <p className="text-red-400 text-sm">{memberActionError}</p>
+              </div>
+            )}
 
             <div className="space-y-4">
               <div className="bg-red-900/20 border border-red-600 rounded-xl p-4">
