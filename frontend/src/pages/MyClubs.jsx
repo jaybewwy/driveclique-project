@@ -16,8 +16,8 @@ const MyClubs = ({ user, onLogout }) => {
 
   // Sort clubs to prioritize clubs where the user is the leader
   const sortedClubs = [...clubs].sort((a, b) => {
-    const aIsLeader = a.leader._id === user?._id || a.leader === user?._id;
-    const bIsLeader = b.leader._id === user?._id || b.leader === user?._id;
+    const aIsLeader = a.leader?._id === user?._id || a.leader === user?._id;
+    const bIsLeader = b.leader?._id === user?._id || b.leader === user?._id;
     
     if (aIsLeader && !bIsLeader) return -1;
     if (!aIsLeader && bIsLeader) return 1;
@@ -179,7 +179,7 @@ const MyClubs = ({ user, onLogout }) => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {sortedClubs.map((club) => {
-                const isLeader = club.leader._id === user?._id || club.leader === user?._id;
+                const isLeader = club.leader?._id === user?._id || club.leader === user?._id;
                 return (
                   <div
                     key={club._id}
@@ -246,7 +246,7 @@ const MyClubs = ({ user, onLogout }) => {
             ) : (
               <div className="space-y-3">
             {sortedClubs.map((club) => {
-                  const isLeader = club.leader._id === user?._id || club.leader === user?._id;
+                  const isLeader = club.leader?._id === user?._id || club.leader === user?._id;
                   return (
                     <div 
                       key={club._id} 

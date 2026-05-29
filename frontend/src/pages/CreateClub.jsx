@@ -41,6 +41,7 @@ const CreateClub = () => {
         description: formData.description,
         location: formData.location,
         maxMembers: formData.maxMembers ? parseInt(formData.maxMembers) : null,
+        isPrivate: false,
       });
 
       if (response.data.success) {

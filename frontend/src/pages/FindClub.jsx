@@ -33,14 +33,13 @@ const FindClub = ({ user, onLogout }) => {
     fetchClubs();
   }, []);
 
-  // Filter out clubs where the user is already a member
   const isUserMember = (club) => {
-    return club.members.some((member) => 
+    return club.members.some((member) =>
       typeof member === 'string' ? member === user?._id : member._id === user?._id
     );
   };
 
-  const publicClubs = clubs.filter(club => !club.isPrivate && !isUserMember(club));
+  const publicClubs = clubs.filter(club => !club.isPrivate);
   const filteredClubs = searchQuery.trim()
     ? publicClubs.filter(club =>
         club.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -379,12 +378,21 @@ const FindClub = ({ user, onLogout }) => {
                       </div>
                     </div>
                     <div className="flex items-center gap-4 ml-4">
-                      <button
-                        onClick={(e) => handleJoinClub(club._id, e)}
-                        className="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 px-6 py-3 rounded-2xl font-medium whitespace-nowrap transition-all duration-300 shadow-lg shadow-red-500/25 hover:shadow-red-500/40"
-                      >
-                        Join Club
-                      </button>
+                      {isUserMember(club) ? (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); navigate(`/club/${club._id}`); }}
+                          className="bg-zinc-700 hover:bg-zinc-600 px-6 py-3 rounded-2xl font-medium whitespace-nowrap transition-all duration-300"
+                        >
+                          View Club
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => handleJoinClub(club._id, e)}
+                          className="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 px-6 py-3 rounded-2xl font-medium whitespace-nowrap transition-all duration-300 shadow-lg shadow-red-500/25 hover:shadow-red-500/40"
+                        >
+                          Join Club
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

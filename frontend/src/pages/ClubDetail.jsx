@@ -57,11 +57,14 @@ const ClubDetail = ({ user, onLogout }) => {
   const [deleteReason, setDeleteReason] = useState('');
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
-  // RSVP state
+  // RSVP state (modal-scoped — reset when modal closes)
   const [userRSVP, setUserRSVP] = useState(null); // 'going', 'maybe', 'not-going', or null
   const [rsvpCounts, setRsvpCounts] = useState({ going: 0, maybe: 0, notGoing: 0 });
   const [isRSVPLoading, setIsRSVPLoading] = useState(false);
   const [rsvpMessage, setRsvpMessage] = useState('');
+
+  // Persistent per-drive RSVP counts (survive modal close, used by drive cards)
+  const [driveRSVPCounts, setDriveRSVPCounts] = useState({});
 
   // Schedule Drive modal state
   const [showScheduleDriveModal, setShowScheduleDriveModal] = useState(false);
@@ -125,6 +128,36 @@ const ClubDetail = ({ user, onLogout }) => {
   const userId = user?._id?.toString() || user?.id?.toString() || "";
   const isLeader = Boolean(leaderId && userId && leaderId === userId);
 
+  // Pre-fetch RSVP counts for all upcoming drives once they are loaded,
+  // so the drive cards show live counts immediately (before the modal is opened).
+  useEffect(() => {
+    if (drives.length === 0) return;
+    const upcomingIds = drives
+      .filter(d => !d.isCancelled && !d.isCompleted && new Date(d.date) >= new Date())
+      .map(d => d._id);
+
+    const token = localStorage.getItem('token');
+    upcomingIds.forEach(driveId => {
+      axios
+        .get(`http://localhost:5000/api/drives/${driveId}/rsvp-status`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        .then(res => {
+          if (res.data?.success) {
+            setDriveRSVPCounts(prev => ({
+              ...prev,
+              [driveId]: {
+                going: res.data.counts.going,
+                maybe: res.data.counts.maybe,
+                notGoing: res.data.counts.notGoing
+              }
+            }));
+          }
+        })
+        .catch(() => {}); // silently ignore — counts just won't pre-populate
+    });
+  }, [drives]);
+
   const copyInviteCode = () => {
     if (!club?.inviteCode) return;
     navigator.clipboard.writeText(club.inviteCode);
@@ -147,45 +180,29 @@ const ClubDetail = ({ user, onLogout }) => {
     setRsvpMessage('');
   };
 
-  // Fetch RSVP data for a drive
+  // Fetch RSVP data for a drive (counts + current user's status)
+  // Uses the /rsvp-status endpoint which is accessible to all authenticated members.
+  // Updates both the modal-scoped rsvpCounts AND the persistent driveRSVPCounts map
+  // so that drive cards reflect live counts even after the modal is closed.
   const fetchDriveRSVPData = async (driveId) => {
     try {
       const token = localStorage.getItem('token');
-      
-      // Fetch attendees data (for leader) or just get counts
-      if (isLeader) {
-        const response = await axios.get(
-          `http://localhost:5000/api/drives/${driveId}/attendees`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (response.data?.success) {
-          setRsvpCounts({
-            going: response.data.stats.going,
-            maybe: response.data.stats.maybe,
-            notGoing: response.data.stats.notGoing
-          });
-        }
-      } else {
-        // For non-leaders, we'll just show their own RSVP status
-        // In a real app, you might have a separate endpoint for this
-        const response = await axios.get(
-          `http://localhost:5000/api/drives/${driveId}/attendees`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (response.data?.success) {
-          setRsvpCounts({
-            going: response.data.stats.going,
-            maybe: response.data.stats.maybe,
-            notGoing: response.data.stats.notGoing
-          });
-          // Check if current user has an RSVP
-          const userRSVPData = response.data.rsvps.find(
-            r => r.user._id === userId || r.user === userId
-          );
-          if (userRSVPData) {
-            setUserRSVP(userRSVPData.status);
-          }
-        }
+      const response = await axios.get(
+        `http://localhost:5000/api/drives/${driveId}/rsvp-status`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (response.data?.success) {
+        const counts = {
+          going: response.data.counts.going,
+          maybe: response.data.counts.maybe,
+          notGoing: response.data.counts.notGoing
+        };
+        // Update modal counts (shown inside the open modal)
+        setRsvpCounts(counts);
+        // Update the persistent per-drive map (shown on the drive card, survives modal close)
+        setDriveRSVPCounts(prev => ({ ...prev, [driveId]: counts }));
+        // Restore the user's existing RSVP status (null means no RSVP yet)
+        setUserRSVP(response.data.userStatus);
       }
     } catch (error) {
       console.error('Error fetching RSVP data:', error);
@@ -834,7 +851,7 @@ const ClubDetail = ({ user, onLogout }) => {
                       )}
                       <span className="flex items-center gap-1">
                         <Users className="w-4 h-4" />
-                        {rsvpCounts.going} going
+                        {driveRSVPCounts[upcomingDrives[0]?._id]?.going ?? 0} going
                       </span>
                     </div>
                   </div>

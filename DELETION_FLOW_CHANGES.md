@@ -1,11 +1,13 @@
 # Club Deletion Flow Changes
 
 ## Overview
+
 Modified the club deletion flow to include a dedicated confirmation page with verification steps before final deletion. The previous modal-based deletion has been replaced with a full-page confirmation flow.
 
 ## Changes Made
 
 ### 1. New Page Created: `frontend/src/pages/DeleteClubConfirmation.jsx`
+
 - **Purpose**: Confirmation page that requires verification before club deletion
 - **Features**:
   - Displays club information (name, leader, email, member count)
@@ -19,6 +21,7 @@ Modified the club deletion flow to include a dedicated confirmation page with ve
   - Redirects to `/my-clubs` after successful deletion
 
 ### 2. Updated: `frontend/src/pages/ClubDetail.jsx`
+
 - **Changes**:
   - Modified `handleDeleteClub` function to redirect to confirmation page
   - Removed unused delete modal state variables (`showDeleteModal`, `deleteLoading`, `deleteError`, `deleteConfirmName`)
@@ -27,6 +30,7 @@ Modified the club deletion flow to include a dedicated confirmation page with ve
   - Cleaned up code for better maintainability
 
 ### 3. Updated: `backend/controllers/clubController.js`
+
 - **Changes**: Enhanced `deleteClub` controller function
 - **New Features**:
   - Verifies leader email matches the club's registered leader (additional security layer)
@@ -36,6 +40,7 @@ Modified the club deletion flow to include a dedicated confirmation page with ve
   - Maintains security by ensuring only the group leader can delete
 
 ### 4. Updated: `frontend/src/App.jsx`
+
 - **Change**: Added new route for delete confirmation page
 - **Route**: `/club/:clubId/delete` → `DeleteClubConfirmation` component
 - **Protection**: Route is protected (requires authentication)
@@ -88,3 +93,39 @@ Modified the club deletion flow to include a dedicated confirmation page with ve
 4. Test that non-leaders cannot delete the club
 5. Test that the route is properly protected (redirects to login when not authenticated)
 6. Test that the deletion reason is required
+
+---
+
+## Session 2026-05-28 — No Deletion Flow Changes
+
+No changes to the deletion flow were made in this session. Security hardening work (rate limiting, query length limits, Drive indexes) did not affect any deletion-related files.
+
+---
+
+## Session 2026-05-28 — searchClubs Sort Fix (No Deletion Flow Impact)
+
+`searchClubs` now sorts by `createdAt: -1` so newly created clubs appear first in browse results. No impact on deletion flow.
+
+---
+
+## Session 2026-05-28 — FindClub & Club Creation (No Deletion Flow Impact)
+
+FindClub now shows all public clubs including ones the user is already a member of. Club creation now explicitly sets `isPrivate: false`. Neither change affects the deletion flow.
+
+---
+
+## Session 2026-05-28 — Sidebar Quick Stats (No Deletion Flow Impact)
+
+The sidebar Quick Stats "Scheduled Drives" count was updated to reflect real data. This change does not affect the deletion flow.
+
+---
+
+## Post-Deletion Navigation Bug Fix (2026-05-28)
+
+### Problem
+
+After a successful club deletion, navigating to `/my-clubs` crashed the page due to a null-safety bug in `MyClubs.jsx` (see `FIXES_APPLIED.md`). The deletion flow itself (`handleDeleteClubConfirm` in `ClubDetail.jsx`) was correct — it called the API, confirmed success, and navigated to `/my-clubs`. The crash was in the destination page, not the deletion handler.
+
+### Fix
+
+Fixed `MyClubs.jsx` to use optional chaining when reading `club.leader?._id`. No changes to `ClubDetail.jsx` or the deletion API were needed.

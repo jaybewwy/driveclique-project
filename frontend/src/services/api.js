@@ -142,6 +142,7 @@ export const drivesAPI = {
   rsvp: (driveId, status) => api.post(`/drives/${driveId}/rsvp`, { status }),
   cancel: (driveId, cancellationReason) => 
     api.post(`/drives/${driveId}/cancel`, { cancellationReason }),
+  getRSVPStatus: (driveId) => api.get(`/drives/${driveId}/rsvp-status`),
   getAttendees: (driveId) => api.get(`/drives/${driveId}/attendees`),
   getLeaderDashboard: () => api.get('/drives/dashboard'),
 };

@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { Home, User, Users, Search, Sparkles, TrendingUp, Calendar } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { clubsAPI } from "../services/api";
+import { clubsAPI, drivesAPI } from "../services/api";
 
 const Sidebar = ({ user }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [userClubs, setUserClubs] = useState([]);
+  const [scheduledDrivesCount, setScheduledDrivesCount] = useState(0);
   const [hoveredItem, setHoveredItem] = useState(null);
 
   // Get the display name or fall back to username
@@ -22,19 +23,39 @@ const Sidebar = ({ user }) => {
     return 0;
   });
 
-  // Fetch user's clubs
+  // Fetch user's clubs then count scheduled drives across all of them
   useEffect(() => {
-    const fetchClubs = async () => {
+    const fetchData = async () => {
       try {
         const response = await clubsAPI.getAll();
-        if (response.data.success) {
-          setUserClubs(response.data.clubs);
+        if (!response.data.success) return;
+
+        const clubs = response.data.clubs || [];
+        setUserClubs(clubs);
+
+        if (clubs.length === 0) {
+          setScheduledDrivesCount(0);
+          return;
         }
+
+        const now = new Date();
+        const results = await Promise.all(clubs.map(c => drivesAPI.getClubDrives(c._id)));
+        let count = 0;
+        results.forEach(res => {
+          if (res.data.success && res.data.drives) {
+            res.data.drives.forEach(drive => {
+              if (!drive.isCancelled && !drive.isCompleted && new Date(drive.date) >= now) {
+                count++;
+              }
+            });
+          }
+        });
+        setScheduledDrivesCount(count);
       } catch (error) {
-        console.error("Error fetching clubs:", error);
+        console.error("Error fetching sidebar data:", error);
       }
     };
-    fetchClubs();
+    fetchData();
   }, []);
 
   const sidebarItems = [
@@ -168,7 +189,7 @@ const Sidebar = ({ user }) => {
               <p className="text-xs text-zinc-500">Clubs</p>
             </div>
             <div className="p-2 bg-zinc-800/30 rounded-lg">
-              <p className="text-lg font-bold text-white">12</p>
+              <p className="text-lg font-bold text-white">{scheduledDrivesCount}</p>
               <p className="text-xs text-zinc-500">Events</p>
             </div>
           </div>

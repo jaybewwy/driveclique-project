@@ -10,6 +10,7 @@ const {
   updateDrive,
   deleteDrive,
   getDriveAttendees,
+  getDriveRSVPStatus,
   getLeaderDashboard
 } = require('../controllers/driveController');
 
@@ -54,6 +55,19 @@ router.get(
     clubId: { required: true, objectId: true }
   }),
   getClubDrives
+);
+
+/**
+ * @route   GET /api/drives/:driveId/rsvp-status
+ * @desc    Get RSVP counts + current user's RSVP status for a drive
+ * @access  Private (any club member)
+ */
+router.get(
+  '/:driveId/rsvp-status',
+  validateParams({
+    driveId: { required: true, objectId: true }
+  }),
+  getDriveRSVPStatus
 );
 
 /**

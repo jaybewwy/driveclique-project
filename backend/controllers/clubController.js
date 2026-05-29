@@ -14,7 +14,7 @@ const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
  * @access Private
  */
 const createClub = asyncHandler(async (req, res) => {
-  const { name, description, location, maxMembers } = req.body;
+  const { name, description, location, maxMembers, isPrivate } = req.body;
   const userId = req.user?.id;
 
   if (!userId) {
@@ -32,6 +32,7 @@ const createClub = asyncHandler(async (req, res) => {
     description,
     location: location || '',
     maxMembers: maxMembers || null,
+    isPrivate: isPrivate === true ? true : false,
     leader: userId,
     members: [userId]
   });
@@ -216,6 +217,7 @@ const searchClubs = asyncHandler(async (req, res) => {
 
   const clubs = await Club.find(searchQuery)
     .populate('leader', 'username email')
+    .sort({ createdAt: -1 })
     .limit(50);
 
   res.json({ success: true, clubs });

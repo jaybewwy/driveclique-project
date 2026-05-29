@@ -1,14 +1,31 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const { protect } = require('../middleware/authentication');
-const { validateInput } = require('../middleware/validation');
-const { 
-  registerUser, 
-  loginUser, 
-  getProfile, 
-  updateProfile, 
-  searchUsers 
+const { validateInput, validateQuery } = require('../middleware/validation');
+const {
+  registerUser,
+  loginUser,
+  getProfile,
+  updateProfile,
+  searchUsers
 } = require('../controllers/authController');
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { success: false, message: 'Too many login attempts. Please try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: { success: false, message: 'Too many accounts created from this IP. Please try again in an hour.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 /**
  * @route   POST /api/auth/register
@@ -17,6 +34,7 @@ const {
  */
 router.post(
   '/register',
+  registerLimiter,
   validateInput({
     username: { required: true, type: 'string', minLength: 3, maxLength: 30 },
     email: { required: true, type: 'string', email: true },
@@ -33,6 +51,7 @@ router.post(
  */
 router.post(
   '/login',
+  loginLimiter,
   validateInput({
     username: { required: true, type: 'string' },
     password: { required: true, type: 'string' }
@@ -89,6 +108,11 @@ router.put(
  * @desc    Search users
  * @access  Private
  */
-router.get('/users/search', protect, searchUsers);
+router.get(
+  '/users/search',
+  protect,
+  validateQuery({ query: { maxLength: 100 } }),
+  searchUsers
+);
 
 module.exports = router;

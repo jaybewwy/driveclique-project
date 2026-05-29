@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authentication');
-const { validateParams, validateInput } = require('../middleware/validation');
+const { validateParams, validateInput, validateQuery } = require('../middleware/validation');
 const { 
   createClub, 
   getUserClubs, 
@@ -32,7 +32,8 @@ router.post(
     name: { required: true, type: 'string', minLength: 1, maxLength: 100 },
     description: { required: true, type: 'string', minLength: 10, maxLength: 1000 },
     location: { type: 'string', maxLength: 200 },
-    maxMembers: { type: 'number', min: 2, max: 10000 }
+    maxMembers: { type: 'number', min: 2, max: 10000 },
+    isPrivate: { type: 'boolean' }
   }),
   createClub
 );
@@ -49,7 +50,11 @@ router.get('/', getUserClubs);
  * @desc    Search and browse public clubs
  * @access  Private
  */
-router.get('/browse', searchClubs);
+router.get(
+  '/browse',
+  validateQuery({ query: { maxLength: 100 } }),
+  searchClubs
+);
 
 /**
  * @route   GET /api/clubs/trending

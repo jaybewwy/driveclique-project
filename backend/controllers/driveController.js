@@ -158,6 +158,48 @@ const cancelDrive = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Get RSVP Counts + Current User's RSVP Status for a Drive
+ * @route GET /api/drives/:driveId/rsvp-status
+ * @access Private (any authenticated club member)
+ */
+const getDriveRSVPStatus = asyncHandler(async (req, res) => {
+  const { driveId } = req.params;
+  const userId = req.user.id;
+
+  // Verify drive exists
+  const drive = await Drive.findById(driveId);
+  if (!drive) {
+    throw new AppError('Drive not found', 404);
+  }
+
+  // Fetch all RSVPs for this drive (only user + status fields needed)
+  const rsvps = await RSVP.find({ drive: driveId })
+    .select('user status')
+    .lean();
+
+  // Calculate counts in a single pass
+  const counts = rsvps.reduce(
+    (acc, r) => {
+      if (r.status === 'going') acc.going++;
+      else if (r.status === 'maybe') acc.maybe++;
+      else if (r.status === 'not-going') acc.notGoing++;
+      return acc;
+    },
+    { going: 0, maybe: 0, notGoing: 0 }
+  );
+
+  // Find the requesting user's own RSVP (if any)
+  const userRSVP = rsvps.find(r => r.user.toString() === userId);
+
+  res.json({
+    success: true,
+    counts,
+    userStatus: userRSVP ? userRSVP.status : null,
+    totalRSVPs: rsvps.length
+  });
+});
+
+/**
  * Get Drive Attendees and Stats
  * @route GET /api/drives/:driveId/attendees
  * @access Private (Club Leaders only)
@@ -394,5 +436,6 @@ module.exports = {
   updateDrive,
   deleteDrive,
   getDriveAttendees,
+  getDriveRSVPStatus,
   getLeaderDashboard
 };

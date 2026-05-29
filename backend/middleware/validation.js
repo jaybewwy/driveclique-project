@@ -211,6 +211,11 @@ const validateQuery = (rules) => {
         continue;
       }
 
+      if (value && rule.maxLength && value.length > rule.maxLength) {
+        errors.push(`Query parameter '${field}' must be at most ${rule.maxLength} characters`);
+        continue;
+      }
+
       if (value && rule.type === 'number') {
         const num = Number(value);
         if (isNaN(num)) {
