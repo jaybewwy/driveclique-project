@@ -157,7 +157,7 @@ const Dashboard = ({ user, onLogout }) => {
                   <Car className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg">Plan Your Next Drive</h3>
+                  <h3 className="font-semibold text-lg">Plan Your Next Event</h3>
                   <p className="text-sm text-zinc-400">Organize events and connect with fellow enthusiasts</p>
                 </div>
               </div>

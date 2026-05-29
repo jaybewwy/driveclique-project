@@ -25,6 +25,7 @@ import {
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 import { compressImage } from "../utils/imageCompressor";
+import { clubsAPI } from "../services/api";
 
 const ClubDetail = ({ user, onLogout }) => {
   const { clubId } = useParams();
@@ -81,6 +82,8 @@ const ClubDetail = ({ user, onLogout }) => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [isScheduling, setIsScheduling] = useState(false);
   const [validationError, setValidationError] = useState(null);
+  const [joinLoading, setJoinLoading] = useState(false);
+  const [joinFeedback, setJoinFeedback] = useState('');
 
   // Fetch club details and drives
   useEffect(() => {
@@ -127,6 +130,12 @@ const ClubDetail = ({ user, onLogout }) => {
   const leaderId = club?.leader?._id?.toString() || club?.leader?.toString() || "";
   const userId = user?._id?.toString() || user?.id?.toString() || "";
   const isLeader = Boolean(leaderId && userId && leaderId === userId);
+  const isMember = club?.members?.some(
+    m => (m._id?.toString() || m?.toString()) === userId
+  ) ?? false;
+  const hasPendingRequest = club?.joinRequests?.some(
+    r => r.user?.toString() === userId && r.status === 'pending'
+  ) ?? false;
 
   // Pre-fetch RSVP counts for all upcoming drives once they are loaded,
   // so the drive cards show live counts immediately (before the modal is opened).
@@ -477,6 +486,31 @@ const ClubDetail = ({ user, onLogout }) => {
     setShowLeaveConfirm(false);
   };
 
+  const handleJoinClub = async () => {
+    setJoinLoading(true);
+    setJoinFeedback('');
+    try {
+      const response = await clubsAPI.requestToJoin(clubId);
+      if (response.data.success) {
+        if (response.data.clubId) {
+          // Public club — joined immediately; refresh club data so isMember updates
+          const token = localStorage.getItem('token');
+          const refreshed = await axios.get(
+            `http://localhost:5000/api/clubs/${clubId}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (refreshed.data?.success) setClub(refreshed.data.club);
+        } else {
+          setJoinFeedback('Join request sent! Awaiting leader approval.');
+        }
+      }
+    } catch (err) {
+      setJoinFeedback(err.response?.data?.message || 'Failed to send join request.');
+    } finally {
+      setJoinLoading(false);
+    }
+  };
+
   const handleDeleteClubConfirm = async () => {
     if (!deleteEmail || !deleteReason) {
       alert("Please fill in all fields");
@@ -645,10 +679,9 @@ const ClubDetail = ({ user, onLogout }) => {
       setValidationError('Location is required');
       return false;
     }
-    const selectedDateObj = new Date(formattedDate);
     const todayObj = new Date();
     todayObj.setHours(0, 0, 0, 0);
-    if (selectedDateObj < todayObj) {
+    if (selectedDate < todayObj) {
       setValidationError('Cannot schedule a drive in the past');
       return false;
     }
@@ -1074,7 +1107,7 @@ const ClubDetail = ({ user, onLogout }) => {
               </div>
             </div>
 
-            {!isLeader && (
+            {!isLeader && isMember && (
               <div className="mt-8 pt-6 border-t border-zinc-800">
                 <button
                   onClick={handleLeaveClub}
@@ -1083,6 +1116,29 @@ const ClubDetail = ({ user, onLogout }) => {
                   <X size={18} />
                   Leave Club
                 </button>
+              </div>
+            )}
+
+            {!isLeader && !isMember && (
+              <div className="mt-8 pt-6 border-t border-zinc-800">
+                {joinFeedback && (
+                  <p className="text-sm text-center mb-3 text-zinc-400">{joinFeedback}</p>
+                )}
+                {!hasPendingRequest && !joinFeedback && (
+                  <button
+                    onClick={handleJoinClub}
+                    disabled={joinLoading}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-2xl font-medium flex items-center justify-center gap-2 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Plus size={18} />
+                    {joinLoading ? 'Joining...' : 'Join Club'}
+                  </button>
+                )}
+                {hasPendingRequest && !joinFeedback && (
+                  <p className="text-sm text-center text-zinc-500">
+                    Join request pending approval
+                  </p>
+                )}
               </div>
             )}
 

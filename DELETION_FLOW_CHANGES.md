@@ -102,6 +102,18 @@ No changes to the deletion flow were made in this session. Security hardening wo
 
 ---
 
+## Session 2026-05-29 — ClubDetail Join/Leave Fix (No Deletion Flow Impact)
+
+Added `isMember` guard to sidebar; non-members now see "Join Club" instead of "Leave Club." No impact on deletion flow.
+
+---
+
+## Session 2026-05-29 — Schedule Drive Fix (No Deletion Flow Impact)
+
+Fixed a timezone validation bug in `ClubDetail.jsx` that blocked drive scheduling. No impact on deletion flow.
+
+---
+
 ## Session 2026-05-28 — searchClubs Sort Fix (No Deletion Flow Impact)
 
 `searchClubs` now sorts by `createdAt: -1` so newly created clubs appear first in browse results. No impact on deletion flow.
