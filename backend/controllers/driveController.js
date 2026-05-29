@@ -86,6 +86,15 @@ const rsvpToDrive = asyncHandler(async (req, res) => {
     throw new AppError('Drive not found', 404);
   }
 
+  // Verify user is a member of the club that owns this drive
+  const club = await Club.findById(drive.club).select('members');
+  if (!club) {
+    throw new AppError('Club not found', 404);
+  }
+  if (!club.members.some(m => m.toString() === userId)) {
+    throw new AppError('You must be a member of this club to RSVP', 403);
+  }
+
   // Find existing RSVP or create new one
   let rsvp = await RSVP.findOne({ drive: driveId, user: userId });
 
@@ -170,6 +179,15 @@ const getDriveRSVPStatus = asyncHandler(async (req, res) => {
   const drive = await Drive.findById(driveId);
   if (!drive) {
     throw new AppError('Drive not found', 404);
+  }
+
+  // Verify user is a member of the club that owns this drive
+  const rsvpClub = await Club.findById(drive.club).select('members');
+  if (!rsvpClub) {
+    throw new AppError('Club not found', 404);
+  }
+  if (!rsvpClub.members.some(m => m.toString() === userId)) {
+    throw new AppError('You must be a member of this club to view RSVP data', 403);
   }
 
   // Fetch all RSVPs for this drive (only user + status fields needed)

@@ -853,8 +853,8 @@ const ClubDetail = ({ user, onLogout }) => {
 
               {/* Main Drive Card - New Design */}
               <div
-                className="bg-zinc-900/50 backdrop-blur-sm rounded-2xl p-4 border border-zinc-800/50 hover:border-zinc-700/50 transition-all duration-300 cursor-pointer group"
-                onClick={() => handleDriveClick(upcomingDrives[0])}
+                className={`bg-zinc-900/50 backdrop-blur-sm rounded-2xl p-4 border border-zinc-800/50 transition-all duration-300 group ${isMember || isLeader ? 'cursor-pointer hover:border-zinc-700/50' : 'cursor-default opacity-80'}`}
+                onClick={() => (isMember || isLeader) && handleDriveClick(upcomingDrives[0])}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -960,9 +960,9 @@ const ClubDetail = ({ user, onLogout }) => {
                       className="bg-zinc-900/50 backdrop-blur-sm rounded-2xl p-4 border border-zinc-800/50 hover:border-zinc-700/50 transition-all duration-300 cursor-pointer group relative overflow-visible"
                     >
                       <div className="flex items-start justify-between">
-                        <div 
-                          className="flex-1 cursor-pointer"
-                          onClick={() => handleDriveClick(drive)}
+                        <div
+                          className={`flex-1 ${isMember || isLeader ? 'cursor-pointer' : 'cursor-default'}`}
+                          onClick={() => (isMember || isLeader) && handleDriveClick(drive)}
                         >
                           <h4 className="font-semibold mb-2 group-hover:text-red-400 transition-colors">
                             {drive.name}
@@ -1377,11 +1377,12 @@ const ClubDetail = ({ user, onLogout }) => {
                 <div
                   key={drive._id}
                   onClick={() => {
+                    if (!(isMember || isLeader)) return;
                     setSelectedDrive(drive);
                     setShowDriveModal(true);
                     setShowPastEventsModal(false);
                   }}
-                  className="bg-black rounded-2xl p-4 cursor-pointer hover:bg-zinc-800 transition"
+                  className={`bg-black rounded-2xl p-4 transition ${isMember || isLeader ? 'cursor-pointer hover:bg-zinc-800' : 'cursor-default opacity-80'}`}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <p className="font-medium text-sm">{drive.name}</p>
@@ -1577,83 +1578,90 @@ const ClubDetail = ({ user, onLogout }) => {
                 </div>
               )}
 
-              {/* RSVP Section - Show for all users (members and leaders) for upcoming drives */}
+              {/* RSVP Section - Members and leaders only */}
               {new Date(selectedDrive.date) >= new Date() && !selectedDrive.isCompleted && (
                 <div className="border-t border-zinc-700 pt-6">
-                  {/* RSVP Buttons - Show for everyone */}
-                  <h3 className="text-lg font-semibold mb-4">
-                    {isLeader ? 'Mark your attendance' : 'Are you going?'}
-                  </h3>
-                  
-                  <div className="flex gap-3 mb-4">
-                    <button
-                      type="button"
-                      onClick={() => handleRSVP('going')}
-                      disabled={isRSVPLoading}
-                      className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
-                        userRSVP === 'going'
-                          ? 'bg-green-600 text-white'
-                          : 'bg-zinc-800 hover:bg-green-900/30 text-white hover:text-green-400 border border-zinc-700 hover:border-green-600'
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      <CheckCircle size={18} />
-                      Going
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRSVP('maybe')}
-                      disabled={isRSVPLoading}
-                      className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
-                        userRSVP === 'maybe'
-                          ? 'bg-yellow-600 text-white'
-                          : 'bg-zinc-800 hover:bg-yellow-900/30 text-white hover:text-yellow-400 border border-zinc-700 hover:border-yellow-600'
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      <CalendarDays size={18} />
-                      Maybe
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRSVP('not-going')}
-                      disabled={isRSVPLoading}
-                      className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
-                        userRSVP === 'not-going'
-                          ? 'bg-red-600 text-white'
-                          : 'bg-zinc-800 hover:bg-red-900/30 text-white hover:text-red-400 border border-zinc-700 hover:border-red-600'
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      <X size={18} />
-                      Not Going
-                    </button>
-                  </div>
+                  {!(isMember || isLeader) ? (
+                    <p className="text-sm text-zinc-500 text-center py-2">
+                      Join this club to RSVP to drives.
+                    </p>
+                  ) : (
+                    <>
+                      <h3 className="text-lg font-semibold mb-4">
+                        {isLeader ? 'Mark your attendance' : 'Are you going?'}
+                      </h3>
 
-                  {/* RSVP Message */}
-                  {rsvpMessage && (
-                    <div className="mb-4 p-3 bg-green-900/30 border border-green-600 rounded-xl">
-                      <p className="text-green-400 text-sm text-center">{rsvpMessage}</p>
-                    </div>
+                      <div className="flex gap-3 mb-4">
+                        <button
+                          type="button"
+                          onClick={() => handleRSVP('going')}
+                          disabled={isRSVPLoading}
+                          className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
+                            userRSVP === 'going'
+                              ? 'bg-green-600 text-white'
+                              : 'bg-zinc-800 hover:bg-green-900/30 text-white hover:text-green-400 border border-zinc-700 hover:border-green-600'
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          <CheckCircle size={18} />
+                          Going
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRSVP('maybe')}
+                          disabled={isRSVPLoading}
+                          className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
+                            userRSVP === 'maybe'
+                              ? 'bg-yellow-600 text-white'
+                              : 'bg-zinc-800 hover:bg-yellow-900/30 text-white hover:text-yellow-400 border border-zinc-700 hover:border-yellow-600'
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          <CalendarDays size={18} />
+                          Maybe
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRSVP('not-going')}
+                          disabled={isRSVPLoading}
+                          className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
+                            userRSVP === 'not-going'
+                              ? 'bg-red-600 text-white'
+                              : 'bg-zinc-800 hover:bg-red-900/30 text-white hover:text-red-400 border border-zinc-700 hover:border-red-600'
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          <X size={18} />
+                          Not Going
+                        </button>
+                      </div>
+
+                      {/* RSVP Message */}
+                      {rsvpMessage && (
+                        <div className="mb-4 p-3 bg-green-900/30 border border-green-600 rounded-xl">
+                          <p className="text-green-400 text-sm text-center">{rsvpMessage}</p>
+                        </div>
+                      )}
+
+                      {/* RSVP Counts */}
+                      <div className="border-t border-zinc-700/50 pt-4">
+                        <h4 className="text-sm font-semibold mb-3 text-zinc-400">
+                          {isLeader ? 'RSVP Summary' : 'Current RSVPs'}
+                        </h4>
+                        <div className="flex gap-4">
+                          <div className="flex-1 bg-black rounded-xl p-3 text-center">
+                            <p className="text-2xl font-bold text-green-400">{rsvpCounts.going}</p>
+                            <p className="text-xs text-zinc-500">Going</p>
+                          </div>
+                          <div className="flex-1 bg-black rounded-xl p-3 text-center">
+                            <p className="text-2xl font-bold text-yellow-400">{rsvpCounts.maybe}</p>
+                            <p className="text-xs text-zinc-500">Maybe</p>
+                          </div>
+                          <div className="flex-1 bg-black rounded-xl p-3 text-center">
+                            <p className="text-2xl font-bold text-red-400">{rsvpCounts.notGoing}</p>
+                            <p className="text-xs text-zinc-500">Not Going</p>
+                          </div>
+                        </div>
+                      </div>
+                    </>
                   )}
-
-                  {/* RSVP Counts */}
-                  <div className="border-t border-zinc-700/50 pt-4">
-                    <h4 className="text-sm font-semibold mb-3 text-zinc-400">
-                      {isLeader ? 'RSVP Summary' : 'Current RSVPs'}
-                    </h4>
-                    <div className="flex gap-4">
-                      <div className="flex-1 bg-black rounded-xl p-3 text-center">
-                        <p className="text-2xl font-bold text-green-400">{rsvpCounts.going}</p>
-                        <p className="text-xs text-zinc-500">Going</p>
-                      </div>
-                      <div className="flex-1 bg-black rounded-xl p-3 text-center">
-                        <p className="text-2xl font-bold text-yellow-400">{rsvpCounts.maybe}</p>
-                        <p className="text-xs text-zinc-500">Maybe</p>
-                      </div>
-                      <div className="flex-1 bg-black rounded-xl p-3 text-center">
-                        <p className="text-2xl font-bold text-red-400">{rsvpCounts.notGoing}</p>
-                        <p className="text-xs text-zinc-500">Not Going</p>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               )}
 
