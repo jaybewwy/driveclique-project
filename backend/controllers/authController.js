@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { validateInput, isValidEmail, isValidUsername } = require('../middleware/validation');
 const { sendEmail, emailTemplates } = require('../services/emailService');
+const { verifyEmailAddress } = require('../services/emailVerifier');
 
 const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -154,6 +155,12 @@ const searchUsers = asyncHandler(async (req, res) => {
  */
 const registerUser = asyncHandler(async (req, res) => {
   const { username, email, password, name } = req.body;
+
+  // Validate the email address (syntax, domain, MX records, disposable detection)
+  const emailCheck = await verifyEmailAddress(email);
+  if (!emailCheck.valid) {
+    throw new AppError(emailCheck.reason, 400);
+  }
 
   // Check for existing user (email or username)
   const existingUser = await User.findOne({ $or: [{ email }, { username }] });

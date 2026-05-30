@@ -1,13 +1,21 @@
+const postmark = require('postmark');
 const nodemailer = require('nodemailer');
 
-/**
- * Returns a configured transporter, or null if SMTP env vars are missing.
- * Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS in your .env to enable emails.
- */
-const getTransporter = () => {
+// ── Sender address ────────────────────────────────────────────────────────────
+// POSTMARK_FROM must be a verified sender or domain in your Postmark account.
+const FROM = process.env.POSTMARK_FROM || process.env.EMAIL_FROM || 'DriveClique <noreply@driveclique.app>';
+
+// ── Postmark HTTP client (primary) ────────────────────────────────────────────
+const getPostmarkClient = () => {
+  const token = process.env.POSTMARK_SERVER_TOKEN;
+  if (!token) return null;
+  return new postmark.ServerClient(token);
+};
+
+// ── nodemailer SMTP (fallback) ────────────────────────────────────────────────
+const getSmtpTransporter = () => {
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) return null;
-
   return nodemailer.createTransport({
     host: SMTP_HOST,
     port: parseInt(SMTP_PORT || '587', 10),
@@ -16,21 +24,40 @@ const getTransporter = () => {
   });
 };
 
-const FROM = process.env.EMAIL_FROM || 'DriveClique <noreply@driveclique.app>';
-
 /**
- * Send an email. Silently no-ops if SMTP is not configured.
+ * Send an email.
+ * Uses Postmark HTTP API if POSTMARK_SERVER_TOKEN is set,
+ * falls back to SMTP via nodemailer, and silently no-ops if neither is configured.
  * @param {{ to: string, subject: string, html: string }} options
  */
 const sendEmail = async ({ to, subject, html }) => {
-  const transporter = getTransporter();
-  if (!transporter) return; // Email not configured — skip gracefully
-
-  try {
-    await transporter.sendMail({ from: FROM, to, subject, html });
-  } catch (err) {
-    console.error('[Email] Failed to send:', err.message);
+  const postmarkClient = getPostmarkClient();
+  if (postmarkClient) {
+    try {
+      await postmarkClient.sendEmail({
+        From: FROM,
+        To: to,
+        Subject: subject,
+        HtmlBody: html,
+        MessageStream: 'outbound',
+      });
+    } catch (err) {
+      console.error('[Email/Postmark] Failed to send to', to, '—', err.message);
+    }
+    return;
   }
+
+  const smtpTransporter = getSmtpTransporter();
+  if (smtpTransporter) {
+    try {
+      await smtpTransporter.sendMail({ from: FROM, to, subject, html });
+    } catch (err) {
+      console.error('[Email/SMTP] Failed to send to', to, '—', err.message);
+    }
+    return;
+  }
+
+  // No provider configured — skip gracefully (development without email setup)
 };
 
 // ─── Template helpers ────────────────────────────────────────────────────────
