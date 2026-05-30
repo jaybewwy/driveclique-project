@@ -45,7 +45,7 @@ let _refreshSubscribers = [];
 
 // Pages that are intentionally unauthenticated — never redirect away from these
 const _isPublicPath = () =>
-  ['/login', '/register', '/forgot-password', '/reset-password'].includes(
+  ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email'].includes(
     window.location.pathname
   );
 
@@ -146,6 +146,8 @@ export const authAPI = {
   searchUsers: (query) => api.get('/auth/users/search', { params: { query } }),
   forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
   resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }),
+  verifyEmail: (token) => api.get('/auth/verify-email', { params: { token } }),
+  resendVerification: () => api.post('/auth/resend-verification'),
 };
 
 /**

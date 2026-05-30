@@ -1,13 +1,29 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Car, Calendar, MapPin, Users, TrendingUp, ArrowRight, Sparkles, Zap, Shield, Globe } from "lucide-react";
+import { Car, Calendar, MapPin, Users, TrendingUp, ArrowRight, Sparkles, Zap, Shield, Globe, Mail, CheckCircle } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
-import { clubsAPI, drivesAPI } from "../services/api";
+import { clubsAPI, drivesAPI, authAPI } from "../services/api";
 import { SkeletonCard } from "../components/Skeleton";
+import { useAuth } from "../hooks/useAuth";
 
 const Dashboard = ({ user, onLogout }) => {
   const navigate = useNavigate();
+  const { updateUser } = useAuth();
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSent, setResendSent] = useState(false);
+
+  const handleResendVerification = async () => {
+    setResendLoading(true);
+    try {
+      await authAPI.resendVerification();
+      setResendSent(true);
+    } catch {
+      // Silently fail — user can try again
+    } finally {
+      setResendLoading(false);
+    }
+  };
   const [upcomingDrives, setUpcomingDrives] = useState([]);
   const [trendingClub, setTrendingClub] = useState(null);
   const [drivesLoading, setDrivesLoading] = useState(true);
@@ -117,6 +133,29 @@ const Dashboard = ({ user, onLogout }) => {
 
         {/* Main Feed */}
         <div className="flex-1 max-w-3xl min-h-screen p-6">
+
+          {/* Email verification banner — only shown when emailVerified is explicitly false */}
+          {user?.emailVerified === false && (
+            <div className="bg-amber-900/20 border border-amber-500/40 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <Mail className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-amber-300 font-medium text-sm">Verify your email address</p>
+                  <p className="text-amber-400/70 text-xs mt-0.5">Verify to receive drive reminders and club notifications.</p>
+                </div>
+              </div>
+              <button
+                onClick={handleResendVerification}
+                disabled={resendLoading || resendSent}
+                className="flex items-center gap-2 text-sm font-medium whitespace-nowrap transition disabled:opacity-60 text-amber-400 hover:text-amber-300"
+              >
+                {resendSent
+                  ? <><CheckCircle className="w-4 h-4" /> Sent!</>
+                  : resendLoading ? 'Sending…' : 'Resend email'}
+              </button>
+            </div>
+          )}
+
           {/* Welcome Section */}
           <div className="mb-8">
             <h2 className="text-3xl font-bold mb-2">

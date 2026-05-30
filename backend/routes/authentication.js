@@ -13,6 +13,8 @@ const {
   logoutUser,
   forgotPassword,
   resetPassword,
+  verifyEmail,
+  resendVerification,
 } = require('../controllers/authController');
 
 const loginLimiter = rateLimit({
@@ -37,6 +39,14 @@ const forgotPasswordLimiter = rateLimit({
   windowMs: isDev ? 60 * 1000 : 60 * 60 * 1000,   // 1 min in dev, 1 hr in prod
   max: isDev ? 10 : 3,
   message: { success: false, message: 'Too many password reset requests. Please try again in an hour.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const resendVerificationLimiter = rateLimit({
+  windowMs: isDev ? 60 * 1000 : 60 * 60 * 1000,   // 1 min in dev, 1 hr in prod
+  max: isDev ? 10 : 3,
+  message: { success: false, message: 'Too many verification requests. Please try again in an hour.' },
   standardHeaders: true,
   legacyHeaders: false
 });
@@ -173,6 +183,29 @@ router.post(
     password: { required: true, type: 'string', minLength: 6, maxLength: 100 }
   }),
   resetPassword
+);
+
+/**
+ * @route   GET /api/auth/verify-email
+ * @desc    Verify email address using token from email link
+ * @access  Public
+ */
+router.get(
+  '/verify-email',
+  validateQuery({ token: { required: true, type: 'string', minLength: 80, maxLength: 80 } }),
+  verifyEmail
+);
+
+/**
+ * @route   POST /api/auth/resend-verification
+ * @desc    Resend email verification link
+ * @access  Private
+ */
+router.post(
+  '/resend-verification',
+  protect,
+  resendVerificationLimiter,
+  resendVerification
 );
 
 module.exports = router;

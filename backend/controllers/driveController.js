@@ -49,14 +49,21 @@ const createDrive = asyncHandler(async (req, res) => {
   const driveClub = await Club.findById(clubId).select('members');
   if (driveClub) {
     const User = require('../models/user');
-    const members = await User.find({ _id: { $in: driveClub.members } }).select('email');
+    // Only email members with a verified email (emailVerified !== false preserves existing accounts)
+    const verifiedMembers = await User.find({
+      _id: { $in: driveClub.members },
+      emailVerified: { $ne: false }
+    }).select('_id email');
+    const emailMap = new Map(verifiedMembers.map(m => [m._id.toString(), m.email]));
+
     const dateStr = new Date(date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     const tpl = emailTemplates.driveScheduled({ driveName: name, clubName: club.name, date: dateStr, location });
 
-    driveClub.members.forEach((memberId, idx) => {
+    driveClub.members.forEach(memberId => {
       if (memberId.toString() !== req.user.id) {
         notify(memberId.toString(), { type: 'NEW_DRIVE', message: `New drive scheduled: "${name}"`, data: { driveId: newDrive._id, clubId } });
-        if (members[idx]?.email) sendEmail({ to: members[idx].email, ...tpl });
+        const email = emailMap.get(memberId.toString());
+        if (email) sendEmail({ to: email, ...tpl });
       }
     });
   }
@@ -217,20 +224,25 @@ const cancelDrive = asyncHandler(async (req, res) => {
 
   // Notify club members about the cancellation (SSE + email)
   const User = require('../models/user');
-  const cancelMembers = await User.find({ _id: { $in: drive.club.members } }).select('email');
+  const cancelVerifiedMembers = await User.find({
+    _id: { $in: drive.club.members },
+    emailVerified: { $ne: false }
+  }).select('_id email');
+  const cancelEmailMap = new Map(cancelVerifiedMembers.map(m => [m._id.toString(), m.email]));
   const cancelTpl = emailTemplates.driveCancelled({
     driveName: drive.name,
     clubName: drive.club.name,
     reason: cancellationReason.trim()
   });
-  drive.club.members.forEach((memberId, idx) => {
+  drive.club.members.forEach(memberId => {
     if (memberId.toString() !== leaderId) {
       notify(memberId.toString(), {
         type: 'DRIVE_CANCELLED',
         message: `Drive "${drive.name}" has been cancelled`,
         data: { driveId, clubId: drive.club._id }
       });
-      if (cancelMembers[idx]?.email) sendEmail({ to: cancelMembers[idx].email, ...cancelTpl });
+      const cancelEmail = cancelEmailMap.get(memberId.toString());
+      if (cancelEmail) sendEmail({ to: cancelEmail, ...cancelTpl });
     }
   });
 

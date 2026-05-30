@@ -169,6 +169,17 @@ const registerUser = asyncHandler(async (req, res) => {
     name: name || username
   });
 
+  // Generate email verification token (same hashed-token pattern as password reset)
+  const rawVerifyToken = crypto.randomBytes(40).toString('hex');
+  user.emailVerifyToken = crypto.createHash('sha256').update(rawVerifyToken).digest('hex');
+  user.emailVerifyExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  await user.save();
+
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const verifyUrl = `${frontendUrl}/verify-email?token=${rawVerifyToken}`;
+  const { subject, html } = emailTemplates.emailVerification({ verifyUrl, username: user.username });
+  await sendEmail({ to: user.email, subject, html });
+
   const [token, refreshToken] = await Promise.all([
     Promise.resolve(generateAccessToken(user._id)),
     createRefreshToken(user._id),
@@ -183,7 +194,8 @@ const registerUser = asyncHandler(async (req, res) => {
       email: user.email,
       name: user.name,
       role: user.role,
-      useDisplayName: user.useDisplayName
+      useDisplayName: user.useDisplayName,
+      emailVerified: user.emailVerified
     },
     token,
     refreshToken,
@@ -216,7 +228,8 @@ const loginUser = asyncHandler(async (req, res) => {
       email: user.email,
       name: user.name,
       role: user.role,
-      useDisplayName: user.useDisplayName
+      useDisplayName: user.useDisplayName,
+      emailVerified: user.emailVerified
     },
     token,
     refreshToken,
@@ -276,6 +289,55 @@ const resetPassword = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Password reset successful. You can now sign in.' });
 });
 
+/**
+ * GET /api/auth/verify-email?token= — Mark email as verified using token from email link
+ * @access Public
+ */
+const verifyEmail = asyncHandler(async (req, res) => {
+  const { token } = req.query;
+
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+  const user = await User.findOne({
+    emailVerifyToken: hashedToken,
+    emailVerifyExpiry: { $gt: new Date() },
+  });
+
+  if (!user) throw new AppError('Verification link is invalid or has expired', 400);
+
+  user.emailVerified = true;
+  user.emailVerifyToken = undefined;
+  user.emailVerifyExpiry = undefined;
+  await user.save();
+
+  res.json({ success: true, message: 'Email verified successfully!' });
+});
+
+/**
+ * POST /api/auth/resend-verification — Send a fresh verification email
+ * @access Private
+ */
+const resendVerification = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user.id);
+  if (!user) throw new AppError('User not found', 404);
+
+  if (user.emailVerified) {
+    return res.json({ success: true, message: 'Your email is already verified.' });
+  }
+
+  const rawToken = crypto.randomBytes(40).toString('hex');
+  user.emailVerifyToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+  user.emailVerifyExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  await user.save();
+
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const verifyUrl = `${frontendUrl}/verify-email?token=${rawToken}`;
+  const { subject, html } = emailTemplates.emailVerification({ verifyUrl, username: user.username });
+  await sendEmail({ to: user.email, subject, html });
+
+  res.json({ success: true, message: 'Verification email sent!' });
+});
+
 module.exports = {
   registerUser,
   loginUser,
@@ -286,4 +348,6 @@ module.exports = {
   logoutUser,
   forgotPassword,
   resetPassword,
+  verifyEmail,
+  resendVerification,
 };

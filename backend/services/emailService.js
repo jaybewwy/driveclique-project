@@ -78,6 +78,21 @@ const emailTemplates = {
     html: wrap(`<p><strong>${username}</strong> has requested to join <strong>${clubName}</strong>. Log in to review the request.</p>`),
   }),
 
+  emailVerification: ({ verifyUrl, username }) => ({
+    subject: 'Verify your DriveClique email',
+    html: wrap(`
+      <p>Hi <strong>${username}</strong>,</p>
+      <p>Welcome to DriveClique! Click the button below to verify your email address and unlock drive notifications.</p>
+      <div style="text-align:center;margin:32px 0">
+        <a href="${verifyUrl}"
+           style="background:#e53e3e;color:#fff;padding:14px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:16px;display:inline-block">
+          Verify Email
+        </a>
+      </div>
+      <p style="color:#aaa;font-size:13px">This link expires in <strong>24 hours</strong>. If you didn't create a DriveClique account, you can safely ignore this email.</p>
+      <p style="color:#666;font-size:12px;word-break:break-all">Or paste this URL into your browser:<br/>${verifyUrl}</p>`),
+  }),
+
   passwordReset: ({ resetUrl, username }) => ({
     subject: 'Reset your DriveClique password',
     html: wrap(`
