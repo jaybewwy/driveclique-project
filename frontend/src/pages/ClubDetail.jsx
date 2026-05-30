@@ -89,7 +89,6 @@ const ClubDetail = ({ user, onLogout }) => {
   const [memberActionError, setMemberActionError] = useState('');
   const [driveToDelete, setDriveToDelete] = useState(null);
   const [memberToRemove, setMemberToRemove] = useState(null);
-  const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferTarget, setTransferTarget] = useState(null);
   const [transferError, setTransferError] = useState('');
 
@@ -301,6 +300,8 @@ const ClubDetail = ({ user, onLogout }) => {
       isPrivate: club.isPrivate || false,
     });
     setClubAvatarPreview(club.avatar || '');
+    setTransferTarget(null);
+    setTransferError('');
     setShowClubEditModal(true);
   };
 
@@ -309,6 +310,8 @@ const ClubDetail = ({ user, onLogout }) => {
     setClubEditFormData({});
     setClubAvatarPreview('');
     setAvatarFileName('');
+    setTransferTarget(null);
+    setTransferError('');
   };
 
   const handleUpdateClub = async () => {
@@ -371,8 +374,7 @@ const ClubDetail = ({ user, onLogout }) => {
       const response = await clubsAPI.transfer(clubId, transferTarget._id);
       if (response.data?.success) {
         setClub(response.data.club);
-        setShowTransferModal(false);
-        setTransferTarget(null);
+        closeClubEditModal();
       }
     } catch (err) {
       setTransferError(err.response?.data?.message || 'Failed to transfer ownership');
@@ -961,18 +963,10 @@ const ClubDetail = ({ user, onLogout }) => {
                   <button
                     type="button"
                     onClick={openClubEditModal}
-                    className="w-full bg-zinc-800 hover:bg-zinc-700 py-2 xl:py-3 rounded-xl xl:rounded-2xl text-sm xl:text-base font-medium flex items-center justify-center gap-2 transition mb-2"
+                    className="w-full bg-zinc-800 hover:bg-zinc-700 py-2 xl:py-3 rounded-xl xl:rounded-2xl text-sm xl:text-base font-medium flex items-center justify-center gap-2 transition mb-3 xl:mb-4"
                   >
                     <Edit3 size={18} />
                     Edit Club Details
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setShowTransferModal(true); setTransferTarget(null); setTransferError(''); }}
-                    className="w-full bg-zinc-800 hover:bg-zinc-700 py-2 xl:py-3 rounded-xl xl:rounded-2xl text-sm xl:text-base font-medium flex items-center justify-center gap-2 transition mb-3 xl:mb-4 text-amber-400 hover:text-amber-300"
-                  >
-                    <Crown size={18} />
-                    Transfer Ownership
                   </button>
                 </>
               )}
@@ -1692,6 +1686,57 @@ const ClubDetail = ({ user, onLogout }) => {
                 </div>
               </div>
 
+              {/* Transfer Ownership */}
+              <div className="border-t border-zinc-700 pt-4 mt-4">
+                <h3 className="text-amber-400 font-medium mb-2 flex items-center gap-2">
+                  <Crown size={16} />
+                  Transfer Ownership
+                </h3>
+                <p className="text-zinc-400 text-sm mb-3">
+                  Select a member to become the new club leader. You will become a regular member.
+                </p>
+                <div className="space-y-2 mb-3 max-h-40 overflow-y-auto">
+                  {(club.members || [])
+                    .filter(m => (m._id?.toString() || m?.toString()) !== userId)
+                    .map(member => (
+                      <button
+                        key={member._id}
+                        type="button"
+                        onClick={() => setTransferTarget(member)}
+                        className={`w-full flex items-center gap-3 p-3 rounded-xl transition text-left ${
+                          transferTarget?._id === member._id
+                            ? 'bg-amber-500/20 border border-amber-500/50'
+                            : 'bg-zinc-800 hover:bg-zinc-700 border border-transparent'
+                        }`}
+                      >
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-zinc-600 to-zinc-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {member.avatar
+                            ? <img src={member.avatar} alt={member.username} className="w-full h-full object-cover" />
+                            : <span className="text-xs font-bold">{member.username?.charAt(0)?.toUpperCase()}</span>
+                          }
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{member.useDisplayName && member.name ? member.name : member.username}</p>
+                          <p className="text-xs text-zinc-500">@{member.username}</p>
+                        </div>
+                        {transferTarget?._id === member._id && (
+                          <Crown size={14} className="text-amber-400 flex-shrink-0" />
+                        )}
+                      </button>
+                    ))}
+                </div>
+                {transferError && <p className="text-red-400 text-sm mb-2">{transferError}</p>}
+                <button
+                  type="button"
+                  onClick={handleTransferOwnership}
+                  disabled={!transferTarget}
+                  className="w-full bg-amber-600 hover:bg-amber-500 py-2 rounded-xl font-medium transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+                >
+                  <Crown size={15} />
+                  Transfer to {transferTarget ? (transferTarget.useDisplayName && transferTarget.name ? transferTarget.name : transferTarget.username) : '...'}
+                </button>
+              </div>
+
               {/* Danger Zone - Delete Club */}
               <div className="border-t border-zinc-700 pt-4 mt-4">
                 <div className="bg-red-900/20 border border-red-600 rounded-xl p-4">
@@ -2015,73 +2060,6 @@ const ClubDetail = ({ user, onLogout }) => {
       )}
 
       {/* Delete Club Confirmation Modal */}
-      {/* Transfer Ownership Modal */}
-      {showTransferModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 rounded-2xl p-6 max-w-md w-full border border-amber-500/30 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <Crown size={18} className="text-amber-400" />
-                Transfer Ownership
-              </h3>
-              <button type="button" onClick={() => setShowTransferModal(false)} className="text-zinc-500 hover:text-white transition">
-                <X size={20} />
-              </button>
-            </div>
-            <p className="text-zinc-400 text-sm mb-4">
-              Select a member to become the new club leader. You will become a regular member.
-            </p>
-            <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
-              {(club.members || [])
-                .filter(m => m._id !== userId)
-                .map(member => (
-                  <button
-                    key={member._id}
-                    type="button"
-                    onClick={() => setTransferTarget(member)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-xl transition text-left ${
-                      transferTarget?._id === member._id
-                        ? 'bg-amber-500/20 border border-amber-500/50'
-                        : 'bg-zinc-800 hover:bg-zinc-700 border border-transparent'
-                    }`}
-                  >
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-zinc-600 to-zinc-700 flex items-center justify-center flex-shrink-0">
-                      {member.avatar
-                        ? <img src={member.avatar} alt={member.username} className="w-full h-full rounded-full object-cover" />
-                        : <span className="text-xs font-bold">{member.username?.charAt(0)?.toUpperCase()}</span>
-                      }
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{member.useDisplayName && member.name ? member.name : member.username}</p>
-                      <p className="text-xs text-zinc-500">@{member.username}</p>
-                    </div>
-                    {transferTarget?._id === member._id && (
-                      <Crown size={14} className="text-amber-400 ml-auto" />
-                    )}
-                  </button>
-                ))}
-            </div>
-            {transferError && <p className="text-red-400 text-sm mb-3">{transferError}</p>}
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowTransferModal(false)}
-                className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-3 rounded-xl font-medium transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleTransferOwnership}
-                disabled={!transferTarget}
-                className="flex-1 bg-amber-600 hover:bg-amber-500 py-3 rounded-xl font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Transfer
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Delete Drive Confirmation */}
       {driveToDelete && (
