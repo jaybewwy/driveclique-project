@@ -214,6 +214,16 @@ const handleJoinRequest = asyncHandler(async (req, res) => {
     data: { clubId: club._id }
   });
 
+  // Send email confirmation to the requesting user
+  const User = require('../models/user');
+  const requestingUser = await User.findById(request.user).select('email');
+  if (requestingUser?.email) {
+    const joinTpl = status === 'accepted'
+      ? emailTemplates.joinRequestAccepted({ clubName: club.name })
+      : emailTemplates.joinRequestRejected({ clubName: club.name });
+    sendEmail({ to: requestingUser.email, ...joinTpl });
+  }
+
   res.json({ success: true, message: `Request ${status}` });
 });
 
@@ -415,7 +425,7 @@ const deleteClub = asyncHandler(async (req, res) => {
   console.log(`[Club Deletion] "${club.name}" (ID: ${clubId}) - Reason: ${deletionReason || 'Not provided'}`);
 
   // Delete all drives associated with the club
-  const Drive = require('../models/Drive');
+  const Drive = require('../models/drive');
   await Drive.deleteMany({ club: clubId });
 
   // Delete the club
@@ -432,7 +442,7 @@ const deleteClub = asyncHandler(async (req, res) => {
  * OPTIMIZED: Uses a single aggregation pipeline instead of N+1 Drive.countDocuments calls
  */
 const getTopClub = asyncHandler(async (req, res) => {
-  const Drive = require('../models/Drive');
+  const Drive = require('../models/drive');
 
   // Get all public club IDs first
   const publicClubs = await Club.find({ isPrivate: false })

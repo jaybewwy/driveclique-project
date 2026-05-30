@@ -1,6 +1,6 @@
 import { Car, Search, Bell, User, Home, Users, Menu, X, CheckCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNotifications } from "../hooks/useNotifications";
 
 const NavBar = ({ user, onLogout, showSearch = true }) => {
@@ -8,8 +8,20 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const notifRef = useRef(null);
 
   const isAuthenticated = !!user;
+
+  useEffect(() => {
+    if (!showNotifPanel) return;
+    const handleClickOutside = (e) => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setShowNotifPanel(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showNotifPanel]);
   const { notifications, unreadCount, markAllRead } = useNotifications(isAuthenticated);
 
   const toggleNotifPanel = () => {
@@ -79,7 +91,7 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
           </button>
 
           {/* Notification Bell */}
-          <div className="relative">
+          <div className="relative" ref={notifRef}>
             <button
               onClick={toggleNotifPanel}
               className="p-2.5 hover:bg-zinc-800/50 rounded-xl transition-all duration-200 relative group"

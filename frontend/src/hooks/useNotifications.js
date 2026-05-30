@@ -42,8 +42,10 @@ export const useNotifications = (enabled = true) => {
 
       es.onerror = () => {
         es.close();
-        // Reconnect after 5 seconds on error
-        setTimeout(connect, 5000);
+        // Only reconnect if the user is still logged in
+        if (localStorage.getItem('token')) {
+          setTimeout(connect, 5000);
+        }
       };
     };
 

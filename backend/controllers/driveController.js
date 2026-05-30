@@ -1,4 +1,4 @@
-const Drive = require('../models/Drive');
+const Drive = require('../models/drive');
 const Club = require('../models/club');
 const RSVP = require('../models/rsvp');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
@@ -214,6 +214,25 @@ const cancelDrive = asyncHandler(async (req, res) => {
   drive.cancelledBy = leaderId;
 
   await drive.save();
+
+  // Notify club members about the cancellation (SSE + email)
+  const User = require('../models/user');
+  const cancelMembers = await User.find({ _id: { $in: drive.club.members } }).select('email');
+  const cancelTpl = emailTemplates.driveCancelled({
+    driveName: drive.name,
+    clubName: drive.club.name,
+    reason: cancellationReason.trim()
+  });
+  drive.club.members.forEach((memberId, idx) => {
+    if (memberId.toString() !== leaderId) {
+      notify(memberId.toString(), {
+        type: 'DRIVE_CANCELLED',
+        message: `Drive "${drive.name}" has been cancelled`,
+        data: { driveId, clubId: drive.club._id }
+      });
+      if (cancelMembers[idx]?.email) sendEmail({ to: cancelMembers[idx].email, ...cancelTpl });
+    }
+  });
 
   res.json({
     success: true,
