@@ -58,6 +58,14 @@ const UserSchema = new mongoose.Schema({
   useDisplayName: {
     type: Boolean,
     default: false
+  },
+  passwordResetToken: {
+    type: String,
+    default: undefined
+  },
+  passwordResetExpires: {
+    type: Date,
+    default: undefined
   }
 }, { timestamps: true });
 

@@ -86,17 +86,27 @@ const Login = ({ onLogin }) => {
               className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 focus:outline-none focus:border-red-600"
               required 
             />
-            <input 
-              type="password" 
+            <input
+              type="password"
               name="password"
-              placeholder="Password" 
+              placeholder="Password"
               value={formData.password}
               onChange={handleChange}
               className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 focus:outline-none focus:border-red-600"
-              required 
+              required
             />
 
-            <button 
+            <div className="text-right -mt-2">
+              <button
+                type="button"
+                onClick={() => navigate('/forgot-password')}
+                className="text-red-500 hover:underline font-medium text-sm"
+              >
+                Forgot password?
+              </button>
+            </div>
+
+            <button
               type="submit" 
               disabled={loading}
               className="w-full bg-red-600 hover:bg-red-700 py-4 rounded-2xl font-semibold text-lg transition disabled:opacity-70"

@@ -11,6 +11,8 @@ const {
   searchUsers,
   refreshAccessToken,
   logoutUser,
+  forgotPassword,
+  resetPassword,
 } = require('../controllers/authController');
 
 const loginLimiter = rateLimit({
@@ -21,10 +23,20 @@ const loginLimiter = rateLimit({
   legacyHeaders: false
 });
 
+const isDev = process.env.NODE_ENV === 'development';
+
 const registerLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 5,
+  windowMs: isDev ? 60 * 1000 : 60 * 60 * 1000,   // 1 min in dev, 1 hr in prod
+  max: isDev ? 50 : 5,
   message: { success: false, message: 'Too many accounts created from this IP. Please try again in an hour.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const forgotPasswordLimiter = rateLimit({
+  windowMs: isDev ? 60 * 1000 : 60 * 60 * 1000,   // 1 min in dev, 1 hr in prod
+  max: isDev ? 10 : 3,
+  message: { success: false, message: 'Too many password reset requests. Please try again in an hour.' },
   standardHeaders: true,
   legacyHeaders: false
 });
@@ -134,5 +146,33 @@ router.post(
  * @access  Public
  */
 router.post('/logout', logoutUser);
+
+/**
+ * @route   POST /api/auth/forgot-password
+ * @desc    Send password reset email
+ * @access  Public
+ */
+router.post(
+  '/forgot-password',
+  forgotPasswordLimiter,
+  validateInput({
+    email: { required: true, type: 'string', email: true }
+  }),
+  forgotPassword
+);
+
+/**
+ * @route   POST /api/auth/reset-password
+ * @desc    Reset password using token from email link
+ * @access  Public
+ */
+router.post(
+  '/reset-password',
+  validateInput({
+    token:    { required: true, type: 'string', minLength: 80, maxLength: 80 },
+    password: { required: true, type: 'string', minLength: 6, maxLength: 100 }
+  }),
+  resetPassword
+);
 
 module.exports = router;

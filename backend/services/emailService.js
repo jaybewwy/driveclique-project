@@ -77,6 +77,21 @@ const emailTemplates = {
     subject: `New join request for ${clubName}`,
     html: wrap(`<p><strong>${username}</strong> has requested to join <strong>${clubName}</strong>. Log in to review the request.</p>`),
   }),
+
+  passwordReset: ({ resetUrl, username }) => ({
+    subject: 'Reset your DriveClique password',
+    html: wrap(`
+      <p>Hi <strong>${username}</strong>,</p>
+      <p>We received a request to reset your password. Click the button below to choose a new one:</p>
+      <div style="text-align:center;margin:32px 0">
+        <a href="${resetUrl}"
+           style="background:#e53e3e;color:#fff;padding:14px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:16px;display:inline-block">
+          Reset Password
+        </a>
+      </div>
+      <p style="color:#aaa;font-size:13px">This link expires in <strong>1 hour</strong>. If you did not request a password reset, you can safely ignore this email.</p>
+      <p style="color:#666;font-size:12px;word-break:break-all">Or paste this URL into your browser:<br/>${resetUrl}</p>`),
+  }),
 };
 
 module.exports = { sendEmail, emailTemplates };

@@ -43,6 +43,12 @@ api.interceptors.request.use(
 let _isRefreshing = false;
 let _refreshSubscribers = [];
 
+// Pages that are intentionally unauthenticated — never redirect away from these
+const _isPublicPath = () =>
+  ['/login', '/register', '/forgot-password', '/reset-password'].includes(
+    window.location.pathname
+  );
+
 const onRefreshed = (newToken) => {
   _refreshSubscribers.forEach(cb => cb(newToken));
   _refreshSubscribers = [];
@@ -83,7 +89,7 @@ api.interceptors.response.use(
           localStorage.removeItem('token');
           localStorage.removeItem('refreshToken');
           localStorage.removeItem('driveclique_user');
-          if (window.location.pathname !== '/login') window.location.href = '/login';
+          if (!_isPublicPath()) window.location.href = '/login';
           return Promise.reject(error);
         } finally {
           _isRefreshing = false;
@@ -93,7 +99,7 @@ api.interceptors.response.use(
       // No refresh token — clear session
       localStorage.removeItem('token');
       localStorage.removeItem('driveclique_user');
-      if (window.location.pathname !== '/login') window.location.href = '/login';
+      if (!_isPublicPath()) window.location.href = '/login';
     }
 
     if (error.response?.status === 403) {
@@ -138,6 +144,8 @@ export const authAPI = {
   getProfile: () => api.get('/auth/profile'),
   updateProfile: (profileData) => api.put('/auth/profile', profileData),
   searchUsers: (query) => api.get('/auth/users/search', { params: { query } }),
+  forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
+  resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }),
 };
 
 /**

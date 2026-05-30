@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { validateInput, isValidEmail, isValidUsername } = require('../middleware/validation');
+const { sendEmail, emailTemplates } = require('../services/emailService');
 
 const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -222,6 +223,59 @@ const loginUser = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * POST /api/auth/forgot-password — Send a password reset link to the user's email
+ * @access Public
+ */
+const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  const genericResponse = () =>
+    res.json({ success: true, message: 'If that email is registered, a reset link has been sent.' });
+
+  const user = await User.findOne({ email: email.toLowerCase() });
+  if (!user) return genericResponse();
+
+  const rawToken = crypto.randomBytes(40).toString('hex');
+  const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+  user.passwordResetToken = hashedToken;
+  user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+  await user.save();
+
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`;
+
+  const { subject, html } = emailTemplates.passwordReset({ resetUrl, username: user.username });
+  await sendEmail({ to: user.email, subject, html });
+
+  return genericResponse();
+});
+
+/**
+ * POST /api/auth/reset-password — Reset the password using a valid token
+ * @access Public
+ */
+const resetPassword = asyncHandler(async (req, res) => {
+  const { token, password } = req.body;
+
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+  const user = await User.findOne({
+    passwordResetToken: hashedToken,
+    passwordResetExpires: { $gt: new Date() },
+  });
+
+  if (!user) throw new AppError('Password reset token is invalid or has expired', 400);
+
+  user.password = password;
+  user.passwordResetToken = undefined;
+  user.passwordResetExpires = undefined;
+  await user.save();
+
+  res.json({ success: true, message: 'Password reset successful. You can now sign in.' });
+});
+
 module.exports = {
   registerUser,
   loginUser,
@@ -230,4 +284,6 @@ module.exports = {
   searchUsers,
   refreshAccessToken,
   logoutUser,
+  forgotPassword,
+  resetPassword,
 };
