@@ -128,11 +128,14 @@ const requestToJoinClub = asyncHandler(async (req, res) => {
 
   // For public clubs (isPrivate is false), add user directly without requiring approval
   if (club.isPrivate === false) {
+    if (club.maxMembers && club.members.length >= club.maxMembers) {
+      throw new AppError('This club is full and cannot accept new members', 400);
+    }
     club.members.push(userId);
     await club.save();
 
-    return res.json({ 
-      success: true, 
+    return res.json({
+      success: true,
       message: 'Joined club successfully',
       clubId: club._id,
       clubName: club.name
@@ -195,12 +198,15 @@ const handleJoinRequest = asyncHandler(async (req, res) => {
   // Update request status
   request.status = status;
 
-  // If accepted, add user to members (if space available)
+  // If accepted, add user to members (if not already a member and space is available)
   if (status === 'accepted') {
-    if (club.maxMembers && club.members.length >= club.maxMembers) {
-      throw new AppError('Club is full', 400);
+    const alreadyMember = club.members.some(m => m.toString() === request.user.toString());
+    if (!alreadyMember) {
+      if (club.maxMembers && club.members.length >= club.maxMembers) {
+        throw new AppError('Club is full', 400);
+      }
+      club.members.push(request.user);
     }
-    club.members.push(request.user);
   }
 
   await club.save();
@@ -336,6 +342,10 @@ const joinClubByInviteCode = asyncHandler(async (req, res) => {
     }
   }
 
+  if (club.maxMembers && club.members.length >= club.maxMembers) {
+    throw new AppError('This club is full and cannot accept new members', 400);
+  }
+
   club.members.push(userId);
   await club.save();
 
@@ -424,8 +434,15 @@ const deleteClub = asyncHandler(async (req, res) => {
   // Log deletion for audit purposes
   console.log(`[Club Deletion] "${club.name}" (ID: ${clubId}) - Reason: ${deletionReason || 'Not provided'}`);
 
-  // Delete all drives associated with the club
+  // Delete RSVPs for every drive in the club before removing drives
   const Drive = require('../models/drive');
+  const RSVP = require('../models/rsvp');
+  const clubDriveIds = await Drive.find({ club: clubId }).select('_id').lean();
+  if (clubDriveIds.length) {
+    await RSVP.deleteMany({ drive: { $in: clubDriveIds.map(d => d._id) } });
+  }
+
+  // Delete all drives associated with the club
   await Drive.deleteMany({ club: clubId });
 
   // Delete the club

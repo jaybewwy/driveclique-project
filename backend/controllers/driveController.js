@@ -29,6 +29,11 @@ const createDrive = asyncHandler(async (req, res) => {
     throw new AppError('Only the club leader can create drives for this club', 403);
   }
 
+  // Validate drive date is in the future
+  if (!date || new Date(date) <= new Date()) {
+    throw new AppError('Drive date must be in the future', 400);
+  }
+
   // Create the drive
   const newDrive = new Drive({
     club: clubId,
