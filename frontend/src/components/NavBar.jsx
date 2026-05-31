@@ -2,6 +2,7 @@ import { Car, Search, Bell, User, Home, Users, Menu, X, CheckCheck } from "lucid
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { useNotifications } from "../hooks/useNotifications";
+import GooeyDock from "./ui/gooey-dock";
 
 const NavBar = ({ user, onLogout, showSearch = true }) => {
   const navigate = useNavigate();
@@ -83,12 +84,15 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
 
         {/* Right Side Actions */}
         <div className="flex items-center gap-2 sm:gap-4">
-          <button onClick={() => navigate("/dashboard")} className="p-2.5 hover:bg-zinc-800/50 rounded-xl transition-all duration-200 hidden sm:block group" title="Dashboard">
-            <Home className="w-5 h-5 text-zinc-400 group-hover:text-white transition-colors" />
-          </button>
-          <button onClick={() => navigate("/my-clubs")} className="p-2.5 hover:bg-zinc-800/50 rounded-xl transition-all duration-200 hidden sm:block group" title="My Clubs">
-            <Users className="w-5 h-5 text-zinc-400 group-hover:text-white transition-colors" />
-          </button>
+          {/* Gooey nav dock — visible on sm+ */}
+          <GooeyDock
+            className="hidden sm:flex"
+            items={[
+              { icon: Home,   label: "Dashboard",  onClick: () => navigate("/dashboard") },
+              { icon: Users,  label: "My Clubs",   onClick: () => navigate("/my-clubs") },
+              { icon: Search, label: "Find Clubs", onClick: () => navigate("/find-clubs") },
+            ]}
+          />
 
           {/* Notification Bell */}
           <div className="relative" ref={notifRef}>

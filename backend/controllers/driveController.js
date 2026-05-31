@@ -147,7 +147,7 @@ const rsvpToDrive = asyncHandler(async (req, res) => {
   }
 
   // Verify user is a member of the club that owns this drive
-  const club = await Club.findById(drive.club).select('members');
+  const club = await Club.findById(drive.club).select('members name');
   if (!club) {
     throw new AppError('Club not found', 404);
   }
@@ -155,32 +155,79 @@ const rsvpToDrive = asyncHandler(async (req, res) => {
     throw new AppError('You must be a member of this club to RSVP', 403);
   }
 
-  // Enforce capacity — only check when trying to RSVP as 'going'
-  if (status === 'going' && drive.maxAttendees) {
+  // Fetch existing RSVP once — used by both the capacity check and the update path
+  let rsvp = await RSVP.findOne({ drive: driveId, user: userId });
+  const oldStatus = rsvp?.status ?? null;
+
+  // ---------- PATH A: drive is full and user wants 'going' ----------
+  if (status === 'going' && drive.maxAttendees && oldStatus !== 'going') {
     const goingCount = await RSVP.countDocuments({ drive: driveId, status: 'going' });
-    const existingRSVP = await RSVP.findOne({ drive: driveId, user: userId });
-    const alreadyGoing = existingRSVP?.status === 'going';
-    if (!alreadyGoing && goingCount >= drive.maxAttendees) {
-      throw new AppError(`This drive is full (${drive.maxAttendees} spots taken)`, 400);
+    if (goingCount >= drive.maxAttendees) {
+      // Already on the waitlist — return current position without creating a duplicate
+      if (oldStatus === 'waitlisted') {
+        const position = await RSVP.countDocuments({
+          drive: driveId, status: 'waitlisted', createdAt: { $lt: rsvp.createdAt }
+        }) + 1;
+        return res.json({ success: true, waitlisted: true, position, message: `You are #${position} on the waitlist`, rsvp });
+      }
+
+      // Enroll in the waitlist
+      if (rsvp) {
+        rsvp.status = 'waitlisted';
+        await rsvp.save();
+      } else {
+        rsvp = await RSVP.create({ drive: driveId, user: userId, status: 'waitlisted' });
+      }
+      const position = await RSVP.countDocuments({
+        drive: driveId, status: 'waitlisted', createdAt: { $lt: rsvp.createdAt }
+      }) + 1;
+      notify(userId, {
+        type: 'WAITLIST_JOINED',
+        message: `You joined the waitlist for "${drive.name}" at position #${position}`,
+        data: { driveId, position }
+      });
+      return res.json({ success: true, waitlisted: true, position, message: `You joined the waitlist at position #${position}`, rsvp });
     }
   }
 
-  // Find existing RSVP or create new one
-  let rsvp = await RSVP.findOne({ drive: driveId, user: userId });
-
+  // ---------- PATH B / PATH C: update an existing RSVP ----------
   if (rsvp) {
     rsvp.status = status;
     await rsvp.save();
+
+    // PATH B: a confirmed 'going' spot just freed — promote the next waitlisted member
+    if (oldStatus === 'going' && status !== 'going') {
+      const nextInLine = await RSVP.findOne({ drive: driveId, status: 'waitlisted' }).sort({ createdAt: 1 });
+      if (nextInLine) {
+        nextInLine.status = 'going';
+        await nextInLine.save();
+        notify(nextInLine.user.toString(), {
+          type: 'WAITLIST_PROMOTED',
+          message: `A spot opened up — you're now confirmed for "${drive.name}"!`,
+          data: { driveId }
+        });
+        const User = require('../models/user');
+        const promoted = await User.findById(nextInLine.user).select('email emailVerified');
+        if (promoted?.emailVerified !== false) {
+          const tpl = emailTemplates.waitlistPromoted({
+            driveName: drive.name,
+            clubName: club.name,
+            driveDate: new Date(drive.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+          });
+          sendEmail({ to: promoted.email, ...tpl });
+        }
+      }
+    }
 
     notify(drive.createdBy.toString(), {
       type: 'RSVP_UPDATED',
       message: `A member updated their RSVP to "${status}" for "${drive.name}"`,
       data: { driveId, status }
     });
-
     return res.json({ success: true, message: `RSVP updated to ${status}`, rsvp });
   }
 
+  // ---------- New RSVP (drive has space, or status is 'maybe'/'not-going') ----------
   rsvp = new RSVP({ drive: driveId, user: userId, status });
   await rsvp.save();
 
@@ -282,9 +329,9 @@ const getDriveRSVPStatus = asyncHandler(async (req, res) => {
     throw new AppError('You must be a member of this club to view RSVP data', 403);
   }
 
-  // Fetch all RSVPs for this drive (only user + status fields needed)
+  // Fetch all RSVPs for this drive (include createdAt for waitlist position calculation)
   const rsvps = await RSVP.find({ drive: driveId })
-    .select('user status')
+    .select('user status createdAt')
     .lean();
 
   // Calculate counts in a single pass
@@ -293,18 +340,29 @@ const getDriveRSVPStatus = asyncHandler(async (req, res) => {
       if (r.status === 'going') acc.going++;
       else if (r.status === 'maybe') acc.maybe++;
       else if (r.status === 'not-going') acc.notGoing++;
+      else if (r.status === 'waitlisted') acc.waitlisted++;
       return acc;
     },
-    { going: 0, maybe: 0, notGoing: 0 }
+    { going: 0, maybe: 0, notGoing: 0, waitlisted: 0 }
   );
 
   // Find the requesting user's own RSVP (if any)
   const userRSVP = rsvps.find(r => r.user.toString() === userId);
 
+  // Derive waitlist position from createdAt ordering (no stored field needed)
+  let waitlistPosition = null;
+  if (userRSVP?.status === 'waitlisted') {
+    waitlistPosition = rsvps.filter(r =>
+      r.status === 'waitlisted' &&
+      new Date(r.createdAt) < new Date(userRSVP.createdAt)
+    ).length + 1;
+  }
+
   res.json({
     success: true,
     counts,
     userStatus: userRSVP ? userRSVP.status : null,
+    waitlistPosition,
     totalRSVPs: rsvps.length
   });
 });

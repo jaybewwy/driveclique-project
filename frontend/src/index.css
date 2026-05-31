@@ -2,7 +2,41 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+  DriveClique design tokens — RGB-channel format so Tailwind 3
+  "rgb(var(--x) / <alpha-value>)" opacity modifiers work correctly.
+*/
+:root {
+  --background:  9   9  11;    /* zinc-950  — body / button bg */
+  --foreground:  250 250 250;
+
+  --primary:            220  38  38;  /* red-600  — gooey blob, cta */
+  --primary-foreground: 250 250 250;
+
+  --secondary:            39  39  42;  /* zinc-800 */
+  --secondary-foreground: 250 250 250;
+
+  --muted:            39  39  42;
+  --muted-foreground: 161 161 170;  /* zinc-400 */
+
+  --accent:            63  63  70;   /* zinc-700 — ghost hover */
+  --accent-foreground: 250 250 250;
+
+  --destructive:            239 68 68;
+  --destructive-foreground: 250 250 250;
+
+  --card:            24  24  27;   /* zinc-900 */
+  --card-foreground: 250 250 250;
+
+  --popover:            24  24  27;  /* zinc-900 — tooltip bg */
+  --popover-foreground: 250 250 250;
+
+  --border: 39  39  42;  /* zinc-800 */
+  --input:  63  63  70;  /* zinc-700 */
+  --ring:   220 38  38;  /* red-600  */
+}
+
 body {
-  background-color: #09090b;
-  color: white;
+  background-color: rgb(var(--background));
+  color: rgb(var(--foreground));
 }

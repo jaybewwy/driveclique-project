@@ -16,8 +16,6 @@ import {
   CheckCircle,
   MoreVertical,
   CalendarDays,
-  ChevronLeft,
-  ChevronRight,
   Crown,
   Users,
 } from "lucide-react";
@@ -25,6 +23,7 @@ import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 import { compressImage } from "../utils/imageCompressor";
 import { clubsAPI, drivesAPI, authAPI } from "../services/api";
+import { DriveSchedulerPicker } from "../components/ui/drive-scheduler-picker";
 
 const ClubDetail = ({ user, onLogout }) => {
   const { clubId } = useParams();
@@ -58,8 +57,9 @@ const ClubDetail = ({ user, onLogout }) => {
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   // RSVP state (modal-scoped — reset when modal closes)
-  const [userRSVP, setUserRSVP] = useState(null); // 'going', 'maybe', 'not-going', or null
-  const [rsvpCounts, setRsvpCounts] = useState({ going: 0, maybe: 0, notGoing: 0 });
+  const [userRSVP, setUserRSVP] = useState(null); // 'going', 'maybe', 'not-going', 'waitlisted', or null
+  const [userWaitlistPosition, setUserWaitlistPosition] = useState(null);
+  const [rsvpCounts, setRsvpCounts] = useState({ going: 0, maybe: 0, notGoing: 0, waitlisted: 0 });
   const [isRSVPLoading, setIsRSVPLoading] = useState(false);
   const [rsvpMessage, setRsvpMessage] = useState('');
 
@@ -77,9 +77,6 @@ const ClubDetail = ({ user, onLogout }) => {
     image: ''
   });
   const [driveImagePreview, setDriveImagePreview] = useState('');
-  const [timePeriod, setTimePeriod] = useState('AM');
-  const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
-  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
   const [selectedDate, setSelectedDate] = useState(null);
   const [isScheduling, setIsScheduling] = useState(false);
   const [validationError, setValidationError] = useState(null);
@@ -180,16 +177,18 @@ const ClubDetail = ({ user, onLogout }) => {
       const response = await drivesAPI.getRSVPStatus(driveId);
       if (response.data?.success) {
         const counts = {
-          going: response.data.counts.going,
-          maybe: response.data.counts.maybe,
-          notGoing: response.data.counts.notGoing
+          going:      response.data.counts.going,
+          maybe:      response.data.counts.maybe,
+          notGoing:   response.data.counts.notGoing,
+          waitlisted: response.data.counts.waitlisted ?? 0,
         };
         // Update modal counts (shown inside the open modal)
         setRsvpCounts(counts);
         // Update the persistent per-drive map (shown on the drive card, survives modal close)
         setDriveRSVPCounts(prev => ({ ...prev, [driveId]: counts }));
-        // Restore the user's existing RSVP status (null means no RSVP yet)
+        // Restore the user's existing RSVP status and waitlist position
         setUserRSVP(response.data.userStatus);
+        setUserWaitlistPosition(response.data.waitlistPosition ?? null);
       }
     } catch (error) {
       console.error('Error fetching RSVP data:', error);
@@ -442,10 +441,7 @@ const ClubDetail = ({ user, onLogout }) => {
   const openScheduleDriveModal = () => {
     setScheduleForm({ name: '', date: '', time: '', location: '', description: '', image: '' });
     setDriveImagePreview('');
-    setTimePeriod('AM');
     setSelectedDate(null);
-    setCalendarMonth(new Date().getMonth());
-    setCalendarYear(new Date().getFullYear());
     setValidationError(null);
     setShowScheduleDriveModal(true);
   };
@@ -474,36 +470,6 @@ const ClubDetail = ({ user, onLogout }) => {
     setValidationError(null);
   };
 
-  const handleTimeChange = (hour, minute) => {
-    const h = hour || '12';
-    const m = minute || '00';
-    setScheduleForm(prev => ({ ...prev, time: `${h}:${m} ${timePeriod}` }));
-  };
-
-  const handlePeriodChange = (period) => {
-    setTimePeriod(period);
-    const currentTime = scheduleForm.time;
-    if (currentTime) {
-      const [time] = currentTime.split(' ');
-      setScheduleForm(prev => ({ ...prev, time: `${time} ${period}` }));
-    }
-  };
-
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-
-  const hours = Array.from({ length: 12 }, (_, i) => i + 1);
-  const minutes = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
-
-  const parseTimeForDropdowns = () => {
-    if (!scheduleForm.time) return { hour: '', minute: '', period: 'AM' };
-    const [time, period] = scheduleForm.time.split(' ');
-    const [hour, minute] = time.split(':');
-    return { hour: parseInt(hour, 10), minute, period: period || 'AM' };
-  };
-
   const getFormattedDate = () => {
     if (selectedDate) {
       const year = selectedDate.getFullYear();
@@ -514,67 +480,8 @@ const ClubDetail = ({ user, onLogout }) => {
     return '';
   };
 
-  const getDisplayDate = () => {
-    if (selectedDate) {
-      return selectedDate.toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    }
-    return 'Select a date';
-  };
-
-  const goToPreviousMonth = () => {
-    if (calendarMonth === 0) {
-      setCalendarMonth(11);
-      setCalendarYear(calendarYear - 1);
-    } else {
-      setCalendarMonth(calendarMonth - 1);
-    }
-  };
-
-  const goToNextMonth = () => {
-    if (calendarMonth === 11) {
-      setCalendarMonth(0);
-      setCalendarYear(calendarYear + 1);
-    } else {
-      setCalendarMonth(calendarMonth + 1);
-    }
-  };
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const isDateDisabled = (day) => {
-    const dateToCheck = new Date(calendarYear, calendarMonth, day);
-    return dateToCheck < today;
-  };
-
-  const isDateSelected = (day) => {
-    if (!selectedDate) return false;
-    return (
-      selectedDate.getDate() === day &&
-      selectedDate.getMonth() === calendarMonth &&
-      selectedDate.getFullYear() === calendarYear
-    );
-  };
-
-  const handleDateSelect = (day) => {
-    if (isDateDisabled(day)) return;
-    const newDate = new Date(calendarYear, calendarMonth, day);
-    setSelectedDate(newDate);
-  };
-
-  const getDaysInMonth = () => {
-    const year = calendarYear;
-    const month = calendarMonth;
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startingDay = firstDay.getDay();
-    return { daysInMonth, startingDay };
+  const handleDateSelect = (date) => {
+    setSelectedDate(date);
   };
 
   const validateScheduleForm = () => {
@@ -627,8 +534,6 @@ const ClubDetail = ({ user, onLogout }) => {
       setIsScheduling(false);
     }
   };
-
-  const { daysInMonth, startingDay } = getDaysInMonth();
 
   // Filter and sort drives for display
   const upcomingDrives = drives
@@ -966,7 +871,7 @@ const ClubDetail = ({ user, onLogout }) => {
                     className="w-full bg-zinc-800 hover:bg-zinc-700 py-2 xl:py-3 rounded-xl xl:rounded-2xl text-sm xl:text-base font-medium flex items-center justify-center gap-2 transition mb-3 xl:mb-4"
                   >
                     <Edit3 size={18} />
-                    Edit Club Details
+                    Manage Club
                   </button>
                 </>
               )}
@@ -1479,47 +1384,78 @@ const ClubDetail = ({ user, onLogout }) => {
                         {isLeader ? 'Mark your attendance' : 'Are you going?'}
                       </h3>
 
-                      <div className="flex gap-3 mb-4">
-                        <button
-                          type="button"
-                          onClick={() => handleRSVP('going')}
-                          disabled={isRSVPLoading}
-                          className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
-                            userRSVP === 'going'
-                              ? 'bg-green-600 text-white'
-                              : 'bg-zinc-800 hover:bg-green-900/30 text-white hover:text-green-400 border border-zinc-700 hover:border-green-600'
-                          } disabled:opacity-50 disabled:cursor-not-allowed`}
-                        >
-                          <CheckCircle size={18} />
-                          Going
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleRSVP('maybe')}
-                          disabled={isRSVPLoading}
-                          className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
-                            userRSVP === 'maybe'
-                              ? 'bg-yellow-600 text-white'
-                              : 'bg-zinc-800 hover:bg-yellow-900/30 text-white hover:text-yellow-400 border border-zinc-700 hover:border-yellow-600'
-                          } disabled:opacity-50 disabled:cursor-not-allowed`}
-                        >
-                          <CalendarDays size={18} />
-                          Maybe
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleRSVP('not-going')}
-                          disabled={isRSVPLoading}
-                          className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
-                            userRSVP === 'not-going'
-                              ? 'bg-red-600 text-white'
-                              : 'bg-zinc-800 hover:bg-red-900/30 text-white hover:text-red-400 border border-zinc-700 hover:border-red-600'
-                          } disabled:opacity-50 disabled:cursor-not-allowed`}
-                        >
-                          <X size={18} />
-                          Not Going
-                        </button>
-                      </div>
+                      {/* State 1 — user is on the waitlist */}
+                      {userRSVP === 'waitlisted' ? (
+                        <div className="mb-4 bg-amber-900/20 border border-amber-600/40 rounded-2xl p-4 text-center">
+                          <Clock className="w-5 h-5 text-amber-400 mx-auto mb-2" />
+                          <p className="text-amber-400 font-semibold">You are #{userWaitlistPosition} on the waitlist</p>
+                          <p className="text-xs text-zinc-500 mt-1">You'll be automatically confirmed when a spot opens up</p>
+                          <button
+                            type="button"
+                            onClick={() => handleRSVP('not-going')}
+                            disabled={isRSVPLoading}
+                            className="mt-3 text-sm text-zinc-400 hover:text-red-400 transition disabled:opacity-50"
+                          >
+                            Leave Waitlist
+                          </button>
+                        </div>
+                      ) : (
+                        /* State 2 (drive full) or State 3 (normal) */
+                        <div className="flex gap-3 mb-4">
+                          {/* Going — or Join Waitlist when drive is at capacity */}
+                          {rsvpCounts.going >= (selectedDrive?.maxAttendees ?? Infinity) && userRSVP !== 'going' ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRSVP('going')}
+                              disabled={isRSVPLoading}
+                              className="flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 bg-zinc-800 hover:bg-amber-900/30 text-white hover:text-amber-400 border border-zinc-700 hover:border-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <Clock size={18} />
+                              Join Waitlist
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleRSVP('going')}
+                              disabled={isRSVPLoading}
+                              className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
+                                userRSVP === 'going'
+                                  ? 'bg-green-600 text-white'
+                                  : 'bg-zinc-800 hover:bg-green-900/30 text-white hover:text-green-400 border border-zinc-700 hover:border-green-600'
+                              } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                              <CheckCircle size={18} />
+                              Going
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRSVP('maybe')}
+                            disabled={isRSVPLoading}
+                            className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
+                              userRSVP === 'maybe'
+                                ? 'bg-yellow-600 text-white'
+                                : 'bg-zinc-800 hover:bg-yellow-900/30 text-white hover:text-yellow-400 border border-zinc-700 hover:border-yellow-600'
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                          >
+                            <CalendarDays size={18} />
+                            Maybe
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRSVP('not-going')}
+                            disabled={isRSVPLoading}
+                            className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
+                              userRSVP === 'not-going'
+                                ? 'bg-red-600 text-white'
+                                : 'bg-zinc-800 hover:bg-red-900/30 text-white hover:text-red-400 border border-zinc-700 hover:border-red-600'
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                          >
+                            <X size={18} />
+                            Not Going
+                          </button>
+                        </div>
+                      )}
 
                       {/* RSVP Message */}
                       {rsvpMessage && (
@@ -1546,6 +1482,12 @@ const ClubDetail = ({ user, onLogout }) => {
                             <p className="text-2xl font-bold text-red-400">{rsvpCounts.notGoing}</p>
                             <p className="text-xs text-zinc-500">Not Going</p>
                           </div>
+                          {rsvpCounts.waitlisted > 0 && (
+                            <div className="flex-1 bg-black rounded-xl p-3 text-center">
+                              <p className="text-2xl font-bold text-amber-400">{rsvpCounts.waitlisted}</p>
+                              <p className="text-xs text-zinc-500">Waitlisted</p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </>
@@ -1782,7 +1724,7 @@ const ClubDetail = ({ user, onLogout }) => {
       {/* Schedule Drive Modal */}
       {showScheduleDriveModal && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 rounded-3xl p-6 max-w-lg w-full border border-zinc-800 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-zinc-900 rounded-3xl p-6 max-w-2xl w-full border border-zinc-800 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-red-600 rounded-2xl flex items-center justify-center">
@@ -1821,110 +1763,21 @@ const ClubDetail = ({ user, onLogout }) => {
                 />
               </div>
 
-              {/* Date Selection - Box Calendar */}
+              {/* Date & Time Selection */}
               <div>
                 <label className="block text-sm font-medium text-zinc-300 mb-2">
-                  Date <span className="text-red-500">*</span>
+                  Date &amp; Time <span className="text-red-500">*</span>
                 </label>
-                <div className="bg-black border border-zinc-700 rounded-xl p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <button
-                      type="button"
-                      onClick={goToPreviousMonth}
-                      className="p-1 hover:bg-zinc-800 rounded transition"
-                    >
-                      <ChevronLeft className="w-4 h-4 text-zinc-400" />
-                    </button>
-                    <span className="text-white font-medium text-sm">
-                      {monthNames[calendarMonth]} {calendarYear}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={goToNextMonth}
-                      className="p-1 hover:bg-zinc-800 rounded transition"
-                    >
-                      <ChevronRight className="w-4 h-4 text-zinc-400" />
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-7 gap-0.5 mb-1">
-                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                      <div key={day} className="text-center text-[10px] text-zinc-500 py-1">
-                        {day}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="grid grid-cols-7 gap-0.5">
-                    {Array.from({ length: startingDay }, (_, i) => (
-                      <div key={`empty-${i}`} className="aspect-square"></div>
-                    ))}
-                    {Array.from({ length: daysInMonth }, (_, i) => {
-                      const day = i + 1;
-                      const disabled = isDateDisabled(day);
-                      const selected = isDateSelected(day);
-                      return (
-                        <button
-                          key={day}
-                          type="button"
-                          onClick={() => handleDateSelect(day)}
-                          disabled={disabled}
-                          className={`aspect-square rounded text-xs font-medium transition flex items-center justify-center ${
-                            disabled
-                              ? 'text-zinc-700 cursor-not-allowed'
-                              : selected
-                              ? 'bg-red-600 text-white'
-                              : 'text-white hover:bg-zinc-800'
-                          }`}
-                        >
-                          {day}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div className="mt-1 text-xs text-zinc-400">
-                  {selectedDate && (
-                    <span className="text-red-400">{getDisplayDate()}</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Time Selection */}
-              <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-3">
-                  Time <span className="text-red-500">*</span>
-                </label>
-                <div className="flex gap-3">
-                  <select
-                    value={parseTimeForDropdowns().hour || ''}
-                    onChange={(e) => handleTimeChange(parseInt(e.target.value), parseTimeForDropdowns().minute)}
-                    className="flex-1 bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 transition"
-                  >
-                    <option value="">Hour</option>
-                    {hours.map((h) => (
-                      <option key={h} value={h}>{h}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={parseTimeForDropdowns().minute || ''}
-                    onChange={(e) => handleTimeChange(parseTimeForDropdowns().hour, e.target.value)}
-                    className="flex-1 bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 transition"
-                  >
-                    <option value="">Min</option>
-                    {minutes.map((m) => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={parseTimeForDropdowns().period}
-                    onChange={(e) => handlePeriodChange(e.target.value)}
-                    className="flex-1 bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 transition"
-                  >
-                    <option value="AM">AM</option>
-                    <option value="PM">PM</option>
-                  </select>
-                </div>
+                <DriveSchedulerPicker
+                  selectedDate={selectedDate}
+                  selectedTime={scheduleForm.time}
+                  onDateChange={handleDateSelect}
+                  onTimeChange={(time) => {
+                    setScheduleForm((prev) => ({ ...prev, time }));
+                    setValidationError(null);
+                  }}
+                  minDate={new Date()}
+                />
               </div>
 
               {/* Location */}

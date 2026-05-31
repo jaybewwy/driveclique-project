@@ -92,6 +92,18 @@ const emailTemplates = {
       <p style="color:#666;font-size:12px;word-break:break-all">Or paste this URL into your browser:<br/>${verifyUrl}</p>`),
   }),
 
+  waitlistPromoted: ({ driveName, clubName, driveDate }) => ({
+    subject: `You're in! A spot opened up for ${driveName}`,
+    html: wrap(`
+      <p>Good news — a spot just opened up and you've been automatically moved from the waitlist to <strong>confirmed going</strong>!</p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0">
+        <tr><td style="padding:8px;color:#aaa">Drive</td><td style="padding:8px"><strong>${driveName}</strong></td></tr>
+        <tr><td style="padding:8px;color:#aaa">Club</td><td style="padding:8px">${clubName}</td></tr>
+        <tr><td style="padding:8px;color:#aaa">Date</td><td style="padding:8px">${driveDate}</td></tr>
+      </table>
+      <p style="color:#aaa">Log in to view the drive details and we'll see you there!</p>`),
+  }),
+
   passwordReset: ({ resetUrl, username }) => ({
     subject: 'Reset your DriveClique password',
     html: wrap(`

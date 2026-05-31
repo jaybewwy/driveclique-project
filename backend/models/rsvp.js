@@ -12,7 +12,7 @@ const RSVPSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['going', 'maybe', 'not-going'],
+        enum: ['going', 'maybe', 'not-going', 'waitlisted'],
         default: 'going'
     }
 }, { timestamps: true });

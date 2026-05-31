@@ -107,7 +107,7 @@ const Login = ({ onLogin }) => {
             </div>
 
             <button
-              type="submit" 
+              type="submit"
               disabled={loading}
               className="w-full bg-red-600 hover:bg-red-700 py-4 rounded-2xl font-semibold text-lg transition disabled:opacity-70"
             >
