@@ -239,7 +239,7 @@ const handleJoinRequest = asyncHandler(async (req, res) => {
  * @access Private
  */
 const searchClubs = asyncHandler(async (req, res) => {
-  const { query, page = 1, limit = 20 } = req.query;
+  const { query, location, page = 1, limit = 20 } = req.query;
 
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
   const limitNum = Math.min(50, Math.max(1, parseInt(limit, 10) || 20));
@@ -248,6 +248,9 @@ const searchClubs = asyncHandler(async (req, res) => {
   const searchQuery = { isPrivate: false };
   if (query) {
     searchQuery.name = { $regex: escapeRegex(query.trim()), $options: 'i' };
+  }
+  if (location) {
+    searchQuery.location = { $regex: escapeRegex(location.trim()), $options: 'i' };
   }
 
   const [clubs, total] = await Promise.all([

@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Car, User, Camera, X, Save } from "lucide-react";
+import { Car, User, Camera, X, Save, MapPin } from "lucide-react";
 import { authAPI, getErrorMessage } from "../services/api";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 import { compressImage } from "../utils/imageCompressor";
+import { LocationSearch } from "../components/ui/location-search";
 
 const Profile = ({ onLogout, onUpdateUser }) => {
   const navigate = useNavigate();
@@ -13,11 +14,14 @@ const Profile = ({ onLogout, onUpdateUser }) => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
   const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
     name: "",
     username: "",
     email: "",
     bio: "",
     avatar: "",
+    location: "",
     carYear: "",
     carMake: "",
     carModel: "",
@@ -35,15 +39,18 @@ const Profile = ({ onLogout, onUpdateUser }) => {
           const userData = response.data.user;
           setUser(userData);
           setFormData({
-            name: userData.name || "",
-            username: userData.username || "",
-            email: userData.email || "",
-            bio: userData.bio || "",
-            avatar: userData.avatar || "",
-            carYear: userData.car?.year || "",
-            carMake: userData.car?.make || "",
-            carModel: userData.car?.model || "",
-            carColor: userData.car?.color || "",
+            firstName: userData.firstName || "",
+            lastName:  userData.lastName  || "",
+            name:      userData.name      || "",
+            username:  userData.username  || "",
+            email:     userData.email     || "",
+            bio:       userData.bio       || "",
+            avatar:    userData.avatar    || "",
+            location:  userData.location  || "",
+            carYear:   userData.car?.year  || "",
+            carMake:   userData.car?.make  || "",
+            carModel:  userData.car?.model || "",
+            carColor:  userData.car?.color || "",
             useDisplayName: userData.useDisplayName || false
           });
         }
@@ -98,13 +105,16 @@ const Profile = ({ onLogout, onUpdateUser }) => {
 
     try {
       const response = await authAPI.updateProfile({
-        name: formData.name,
-        bio: formData.bio,
-        avatar: formData.avatar,
+        firstName: formData.firstName,
+        lastName:  formData.lastName,
+        name:      formData.name,
+        bio:       formData.bio,
+        avatar:    formData.avatar,
+        location:  formData.location,
         useDisplayName: formData.useDisplayName,
         car: {
-          year: formData.carYear,
-          make: formData.carMake,
+          year:  formData.carYear,
+          make:  formData.carMake,
           model: formData.carModel,
           color: formData.carColor
         }
@@ -222,6 +232,51 @@ const Profile = ({ onLogout, onUpdateUser }) => {
             <div className="bg-zinc-900 rounded-3xl p-6">
               <h2 className="text-xl font-semibold mb-6">Personal Information</h2>
               <div className="space-y-4">
+
+                {/* First name + Last name */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="firstName" className="block text-sm font-medium text-zinc-300 mb-2">
+                      First Name
+                    </label>
+                    <input
+                      id="firstName"
+                      type="text"
+                      name="firstName"
+                      value={formData.firstName}
+                      onChange={handleChange}
+                      placeholder="Jay"
+                      className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="lastName" className="block text-sm font-medium text-zinc-300 mb-2">
+                      Last Name
+                    </label>
+                    <input
+                      id="lastName"
+                      type="text"
+                      name="lastName"
+                      value={formData.lastName}
+                      onChange={handleChange}
+                      placeholder="Wells"
+                      className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+                </div>
+
+                {/* Location */}
+                <div>
+                  <label className="block text-sm font-medium text-zinc-300 mb-2">
+                    Location
+                  </label>
+                  <LocationSearch
+                    value={formData.location}
+                    onChange={(val) => setFormData(prev => ({ ...prev, location: val }))}
+                  />
+                  <p className="text-xs text-zinc-500 mt-1">Used to suggest nearby clubs.</p>
+                </div>
+
                 <div>
                   <label htmlFor="display-name" className="block text-sm font-medium text-zinc-300 mb-2">
                     Display Name
@@ -397,9 +452,15 @@ const Profile = ({ onLogout, onUpdateUser }) => {
               )}
             </div>
             <h4 className="font-bold text-lg">
-              {formData.name || formData.username}
+              {[formData.firstName, formData.lastName].filter(Boolean).join(' ') || formData.name || formData.username}
             </h4>
-            <p className="text-zinc-500 text-sm mb-4">@{formData.username}</p>
+            <p className="text-zinc-500 text-sm">@{formData.username}</p>
+            {formData.location && (
+              <div className="flex items-center justify-center gap-1 text-zinc-500 text-xs mt-1 mb-2">
+                <MapPin className="w-3 h-3" />
+                <span>{formData.location}</span>
+              </div>
+            )}
             {formData.bio && (
               <p className="text-zinc-400 text-sm mb-4">{formData.bio}</p>
             )}

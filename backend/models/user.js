@@ -23,6 +23,18 @@ const UserSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  firstName: {
+    type: String,
+    trim: true
+  },
+  lastName: {
+    type: String,
+    trim: true
+  },
+  location: {
+    type: String,
+    trim: true
+  },
   bio: {
     type: String,
     trim: true,

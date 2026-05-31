@@ -78,10 +78,10 @@ const getProfile = asyncHandler(async (req, res) => {
  * @access Private
  */
 const updateProfile = asyncHandler(async (req, res) => {
-  const { name, bio, avatar, car, useDisplayName } = req.body;
+  const { name, bio, avatar, car, useDisplayName, firstName, lastName, location } = req.body;
 
   const user = await User.findById(req.user.id);
-  
+
   if (!user) {
     throw new AppError('User not found', 404);
   }
@@ -91,11 +91,14 @@ const updateProfile = asyncHandler(async (req, res) => {
     typeof useDisplayName === 'string' ? useDisplayName === 'true' : useDisplayName;
 
   // Update fields only if provided
-  if (name !== undefined) user.name = name;
-  if (bio !== undefined) user.bio = bio;
-  if (avatar !== undefined) user.avatar = avatar;
+  if (name        !== undefined) user.name      = name;
+  if (bio         !== undefined) user.bio       = bio;
+  if (avatar      !== undefined) user.avatar    = avatar;
+  if (firstName   !== undefined) user.firstName = firstName;
+  if (lastName    !== undefined) user.lastName  = lastName;
+  if (location    !== undefined) user.location  = location;
   if (useDisplayName !== undefined) user.useDisplayName = normalizedUseDisplayName;
-  
+
   if (car !== undefined) {
     user.car = {
       year: car.year || '',
@@ -115,6 +118,9 @@ const updateProfile = asyncHandler(async (req, res) => {
       username: user.username,
       email: user.email,
       name: user.name,
+      firstName: user.firstName,
+      lastName:  user.lastName,
+      location:  user.location,
       bio: user.bio,
       avatar: user.avatar,
       car: user.car,
@@ -154,7 +160,7 @@ const searchUsers = asyncHandler(async (req, res) => {
  * @access Public
  */
 const registerUser = asyncHandler(async (req, res) => {
-  const { username, email, password, name } = req.body;
+  const { username, email, password, name, firstName, lastName, location } = req.body;
 
   // Validate the email address (syntax, domain, MX records, disposable detection)
   const emailCheck = await verifyEmailAddress(email);
@@ -168,12 +174,18 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new AppError('User with this email or username already exists', 400);
   }
 
+  // Derive display name from firstName + lastName if provided, else fall back to name or username
+  const derivedName = [firstName, lastName].filter(Boolean).join(' ') || name || username;
+
   // Create user
   const user = await User.create({
     username,
     email,
     password,
-    name: name || username
+    name: derivedName,
+    firstName: firstName || '',
+    lastName:  lastName  || '',
+    location:  location  || '',
   });
 
   // Generate email verification token (same hashed-token pattern as password reset)
@@ -200,6 +212,9 @@ const registerUser = asyncHandler(async (req, res) => {
       username: user.username,
       email: user.email,
       name: user.name,
+      firstName: user.firstName,
+      lastName:  user.lastName,
+      location:  user.location,
       role: user.role,
       useDisplayName: user.useDisplayName,
       emailVerified: user.emailVerified
@@ -234,6 +249,9 @@ const loginUser = asyncHandler(async (req, res) => {
       username: user.username,
       email: user.email,
       name: user.name,
+      firstName: user.firstName,
+      lastName:  user.lastName,
+      location:  user.location,
       role: user.role,
       useDisplayName: user.useDisplayName,
       emailVerified: user.emailVerified
