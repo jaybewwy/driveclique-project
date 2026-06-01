@@ -41,7 +41,7 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
         navigate("/profile");
         break;
       case "settings":
-        navigate("/analytics");
+        navigate("/settings");
         break;
       case "my-clubs":
         navigate("/my-clubs");
