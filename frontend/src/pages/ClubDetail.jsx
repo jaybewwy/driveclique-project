@@ -638,8 +638,8 @@ const ClubDetail = ({ user, onLogout }) => {
             </div>
           </div>
 
-          {/* Next Upcoming Drive - Displayed prominently in center */}
-          {upcomingDrives.length > 0 ? (
+          {/* Next Upcoming Drive - only shown when drives exist */}
+          {upcomingDrives.length > 0 && (
             <div className="mb-8">
               {/* Section Header */}
               <div className="relative mb-5">
@@ -709,29 +709,6 @@ const ClubDetail = ({ user, onLogout }) => {
                   </div>
                 </div>
               )}
-            </div>
-          ) : (
-            <div className="bg-zinc-900 rounded-3xl p-8 border border-zinc-800">
-              <div className="flex flex-col items-center justify-center text-center py-8">
-                <div className="w-16 h-16 bg-zinc-800 rounded-2xl flex items-center justify-center mb-4">
-                  <CalendarDays className="w-8 h-8 text-zinc-500" />
-                </div>
-                <h2 className="text-xl font-bold mb-2">No Upcoming Drives</h2>
-                <p className="text-zinc-500 text-sm mb-4">
-                  {isLeader 
-                    ? "Schedule your first drive to get started!" 
-                    : "Check back later for upcoming events."}
-                </p>
-                {isLeader && (
-                  <button
-                    onClick={openScheduleDriveModal}
-                    className="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-2xl font-medium flex items-center gap-2 transition"
-                  >
-                    <Plus size={18} />
-                    Schedule a Drive
-                  </button>
-                )}
-              </div>
             </div>
           )}
 

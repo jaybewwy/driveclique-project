@@ -46,6 +46,7 @@ export default function RegisterForm({ onRegister }) {
         if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
         localStorage.setItem('driveclique_user', JSON.stringify(userData));
         if (onRegister) onRegister(userData, token, refreshToken);
+        sessionStorage.setItem('justLoggedIn', 'true');
         navigate('/dashboard');
       }
     } catch (err) {

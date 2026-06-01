@@ -38,6 +38,7 @@ export default function LoginForm({ onLogin }) {
           localStorage.setItem('driveclique_user', JSON.stringify(response.data.user));
           onLogin(response.data.user, token, refreshToken);
         }
+        sessionStorage.setItem('justLoggedIn', 'true');
         navigate('/dashboard');
       }
     } catch (err) {

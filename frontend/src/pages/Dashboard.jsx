@@ -12,6 +12,14 @@ const Dashboard = ({ user, onLogout }) => {
   const { updateUser } = useAuth();
   const [resendLoading, setResendLoading] = useState(false);
   const [resendSent, setResendSent] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  useEffect(() => {
+    if (sessionStorage.getItem('justLoggedIn')) {
+      setShowWelcome(true);
+      sessionStorage.removeItem('justLoggedIn');
+    }
+  }, []);
 
   const handleResendVerification = async () => {
     setResendLoading(true);
@@ -156,13 +164,15 @@ const Dashboard = ({ user, onLogout }) => {
             </div>
           )}
 
-          {/* Welcome Section */}
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold mb-2">
-              Welcome back, <span className="bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">{user?.name || user?.username || 'Driver'}</span>
-            </h2>
-            <p className="text-zinc-400">Here's what's happening in your car community</p>
-          </div>
+          {/* Welcome Section — only on first login, cleared on navigate-away */}
+          {showWelcome && (
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold mb-2">
+                Welcome back, <span className="bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">{user?.name || user?.username || 'Driver'}</span>
+              </h2>
+              <p className="text-zinc-400">Here's what's happening in your car community</p>
+            </div>
+          )}
 
           {/* Quick Actions */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
