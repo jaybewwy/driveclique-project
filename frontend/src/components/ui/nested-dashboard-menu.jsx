@@ -28,6 +28,12 @@ export default function NestedDashboardMenu() {
           >
             Overview
           </MenubarItem>
+          <MenubarItem
+            className="focus:bg-zinc-800 focus:text-white cursor-pointer"
+            onSelect={() => navigate("/settings")}
+          >
+            Club Analytics
+          </MenubarItem>
           <MenubarSub>
             <MenubarSubTrigger className="focus:bg-zinc-800 focus:text-white data-[state=open]:bg-zinc-800 data-[state=open]:text-white">
               Quick Links

@@ -1,6 +1,7 @@
 const Drive = require('../models/drive');
 const Club = require('../models/club');
 const RSVP = require('../models/rsvp');
+const User = require('../models/user');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { notify } = require('../services/notificationEmitter');
 const { sendEmail, emailTemplates } = require('../services/emailService');
@@ -597,6 +598,147 @@ const getLeaderDashboard = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Get current user's RSVP history across all clubs
+ * @route GET /api/drives/my-rsvps
+ * @access Private
+ */
+const getMyRSVPs = asyncHandler(async (req, res) => {
+  const rsvps = await RSVP.find({ user: req.user.id })
+    .populate({
+      path: 'drive',
+      select: 'name date time location isCancelled isCompleted club',
+      populate: { path: 'club', select: 'name _id' }
+    })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  // Drop any RSVPs whose drive was hard-deleted
+  const valid = rsvps.filter(r => r.drive);
+
+  res.json({ success: true, rsvps: valid });
+});
+
+/**
+ * Get Club Analytics for Leader
+ * @route GET /api/drives/analytics
+ * @access Private (Club Leaders only)
+ */
+const getClubAnalytics = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+
+  // Batch query 1: all clubs led by this user
+  const clubs = await Club.find({ leader: userId })
+    .select('name members')
+    .lean();
+
+  if (clubs.length === 0) {
+    return res.json({ success: true, analytics: [] });
+  }
+
+  const clubIds = clubs.map(c => c._id);
+
+  // Batch query 2: all drives for those clubs
+  const drives = await Drive.find({ club: { $in: clubIds } })
+    .select('_id club name date isCompleted isCancelled maxAttendees')
+    .lean();
+
+  const driveIds = drives.map(d => d._id);
+
+  // Batch query 3: all going RSVPs for those drives
+  const rsvps = await RSVP.find({ drive: { $in: driveIds }, status: 'going' })
+    .select('drive user')
+    .lean();
+
+  // Batch query 4: user info for most active member display
+  const rsvpUserIds = [...new Set(rsvps.map(r => r.user.toString()))];
+  const users = await User.find({ _id: { $in: rsvpUserIds } })
+    .select('username name')
+    .lean();
+
+  const userMap = new Map(users.map(u => [u._id.toString(), u]));
+
+  // Build driveGoingMap: driveId -> { count, userIds[] }
+  const driveGoingMap = new Map();
+  rsvps.forEach(rsvp => {
+    const driveStr = rsvp.drive.toString();
+    if (!driveGoingMap.has(driveStr)) {
+      driveGoingMap.set(driveStr, { count: 0, userIds: [] });
+    }
+    const entry = driveGoingMap.get(driveStr);
+    entry.count++;
+    entry.userIds.push(rsvp.user.toString());
+  });
+
+  // Compute analytics per club using in-memory Maps (no N+1)
+  const analytics = clubs.map(club => {
+    const clubIdStr = club._id.toString();
+    const clubDrives = drives.filter(d => d.club.toString() === clubIdStr);
+    const memberCount = club.members.length;
+
+    const totalDrives = clubDrives.length;
+    const completedDrives = clubDrives.filter(d => d.isCompleted).length;
+    const cancelledDrives = clubDrives.filter(d => d.isCancelled).length;
+    const completionRate = totalDrives > 0
+      ? Math.round((completedDrives / totalDrives) * 100)
+      : 0;
+
+    // avgRSVPRate: average of (goingCount / memberCount) per non-cancelled drive
+    const activeDrives = clubDrives.filter(d => !d.isCancelled);
+    let avgRSVPRate = 0;
+    if (activeDrives.length > 0 && memberCount > 0) {
+      const totalRate = activeDrives.reduce((sum, drive) => {
+        const goingCount = driveGoingMap.get(drive._id.toString())?.count || 0;
+        return sum + goingCount / memberCount;
+      }, 0);
+      avgRSVPRate = Math.round((totalRate / activeDrives.length) * 100);
+    }
+
+    // mostPopularDrive: non-cancelled drive with highest going RSVP count
+    let mostPopularDrive = null;
+    let maxGoing = 0;
+    activeDrives.forEach(drive => {
+      const goingCount = driveGoingMap.get(drive._id.toString())?.count || 0;
+      if (goingCount > maxGoing) {
+        maxGoing = goingCount;
+        mostPopularDrive = { name: drive.name, date: drive.date, goingCount };
+      }
+    });
+
+    // mostActiveMember: member with most going RSVPs across all this club's drives
+    const memberRSVPCount = new Map();
+    clubDrives.forEach(drive => {
+      const goingUsers = driveGoingMap.get(drive._id.toString())?.userIds || [];
+      goingUsers.forEach(uid => {
+        memberRSVPCount.set(uid, (memberRSVPCount.get(uid) || 0) + 1);
+      });
+    });
+
+    let mostActiveMember = null;
+    let maxRSVPs = 0;
+    memberRSVPCount.forEach((count, uid) => {
+      if (count > maxRSVPs) {
+        maxRSVPs = count;
+        const u = userMap.get(uid);
+        if (u) mostActiveMember = { username: u.username, name: u.name, rsvpCount: count };
+      }
+    });
+
+    return {
+      club: { _id: club._id, name: club.name, memberCount },
+      totalDrives,
+      completedDrives,
+      cancelledDrives,
+      completionRate,
+      avgRSVPRate,
+      mostPopularDrive,
+      mostActiveMember
+    };
+  });
+
+  res.json({ success: true, analytics });
+});
+
 module.exports = {
   createDrive,
   getClubDrives,
@@ -606,5 +748,7 @@ module.exports = {
   deleteDrive,
   getDriveAttendees,
   getDriveRSVPStatus,
-  getLeaderDashboard
+  getLeaderDashboard,
+  getMyRSVPs,
+  getClubAnalytics
 };

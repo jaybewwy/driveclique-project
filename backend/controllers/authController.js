@@ -415,6 +415,51 @@ const deleteAccount = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Account deleted successfully' });
 });
 
+/**
+ * PUT /api/auth/username — Change username (once per 60 days)
+ * @access Private
+ */
+const changeUsername = asyncHandler(async (req, res) => {
+  const { username } = req.body;
+
+  const user = await User.findById(req.user.id);
+  if (!user) throw new AppError('User not found', 404);
+
+  // Enforce 60-day cooldown
+  if (user.usernameChangedAt) {
+    const msSince = Date.now() - new Date(user.usernameChangedAt).getTime();
+    const daysSince = msSince / (1000 * 60 * 60 * 24);
+    if (daysSince < 60) {
+      const daysLeft = Math.ceil(60 - daysSince);
+      throw new AppError(
+        `You can change your username again in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}.`,
+        400
+      );
+    }
+  }
+
+  if (!isValidUsername(username)) {
+    throw new AppError('Username must be 3–30 characters: letters, numbers, and underscores only.', 400);
+  }
+
+  const taken = await User.findOne({ username: username.toLowerCase(), _id: { $ne: user._id } });
+  if (taken) throw new AppError('That username is already taken.', 400);
+
+  user.username = username.toLowerCase();
+  user.usernameChangedAt = new Date();
+  await user.save();
+
+  res.json({
+    success: true,
+    message: 'Username updated successfully.',
+    user: {
+      _id: user._id,
+      username: user.username,
+      usernameChangedAt: user.usernameChangedAt,
+    },
+  });
+});
+
 module.exports = {
   registerUser,
   loginUser,
@@ -428,4 +473,5 @@ module.exports = {
   verifyEmail,
   resendVerification,
   deleteAccount,
+  changeUsername,
 };

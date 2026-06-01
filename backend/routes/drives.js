@@ -11,7 +11,9 @@ const {
   deleteDrive,
   getDriveAttendees,
   getDriveRSVPStatus,
-  getLeaderDashboard
+  getLeaderDashboard,
+  getMyRSVPs,
+  getClubAnalytics
 } = require('../controllers/driveController');
 
 // All routes require authentication
@@ -43,6 +45,20 @@ router.post(
  * @access  Private (Club Leaders only)
  */
 router.get('/dashboard', getLeaderDashboard);
+
+/**
+ * @route   GET /api/drives/my-rsvps
+ * @desc    Get current user's RSVP history across all clubs
+ * @access  Private
+ */
+router.get('/my-rsvps', getMyRSVPs);
+
+/**
+ * @route   GET /api/drives/analytics
+ * @desc    Get club analytics summary for all clubs the user leads
+ * @access  Private (Club Leaders only)
+ */
+router.get('/analytics', getClubAnalytics);
 
 /**
  * @route   GET /api/drives/club/:clubId

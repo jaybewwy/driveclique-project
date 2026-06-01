@@ -37,9 +37,11 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
   const handleDropdownAction = (action) => {
     switch (action) {
       case "profile":
-      case "settings":
       case "notifications":
         navigate("/profile");
+        break;
+      case "settings":
+        navigate("/analytics");
         break;
       case "my-clubs":
         navigate("/my-clubs");

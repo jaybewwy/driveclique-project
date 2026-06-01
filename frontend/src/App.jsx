@@ -14,6 +14,7 @@ import ClubDetail from './pages/ClubDetail';
 import CreateClub from './pages/CreateClub';
 import FindClub from './pages/FindClub';
 import Profile from './pages/Profile';
+import ClubAnalytics from './pages/ClubAnalytics';
 
 function AppRoutes() {
   const { isAuthenticated, isLoading, user, login, logout, updateUser } = useAuth();
@@ -39,7 +40,8 @@ function AppRoutes() {
       <Route path="/club/:clubId" element={isAuthenticated ? <ClubDetail user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
       <Route path="/create-club"  element={isAuthenticated ? <CreateClub /> : <Navigate to="/login" replace />} />
       <Route path="/find-club"    element={isAuthenticated ? <FindClub   user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
-      <Route path="/profile"      element={isAuthenticated ? <Profile    user={user} onLogout={logout} onUpdateUser={updateUser} /> : <Navigate to="/login" replace />} />
+      <Route path="/profile"      element={isAuthenticated ? <Profile       user={user} onLogout={logout} onUpdateUser={updateUser} /> : <Navigate to="/login" replace />} />
+      <Route path="/analytics"    element={isAuthenticated ? <ClubAnalytics user={user} onLogout={logout} onUpdateUser={updateUser} /> : <Navigate to="/login" replace />} />
 
       <Route path="/"  element={<Navigate to="/login" replace />} />
       <Route path="*"  element={<Navigate to="/login" replace />} />

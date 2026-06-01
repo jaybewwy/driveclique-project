@@ -1,15 +1,23 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Car, Calendar, MapPin, Users, TrendingUp, ArrowRight, Sparkles, Zap, Shield, Globe, Mail, CheckCircle } from "lucide-react";
+import { Car, Calendar, MapPin, Users, TrendingUp, ArrowRight, Sparkles, Zap, Shield, Globe, Mail, CheckCircle, BarChart2 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 import { clubsAPI, drivesAPI, authAPI } from "../services/api";
 import { SkeletonCard } from "../components/Skeleton";
 import { useAuth } from "../hooks/useAuth";
+import { useClubs } from "../hooks/useClubs";
 
 const Dashboard = ({ user, onLogout }) => {
   const navigate = useNavigate();
   const { updateUser } = useAuth();
+  const { clubs: userClubs } = useClubs();
+
+  const userId = user?._id?.toString() || user?.id?.toString() || "";
+  const isLeader = userClubs.some(club => {
+    const leaderId = club.leader?._id?.toString() || club.leader?.toString();
+    return leaderId && userId && leaderId === userId;
+  });
   const [resendLoading, setResendLoading] = useState(false);
   const [resendSent, setResendSent] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
@@ -191,6 +199,25 @@ const Dashboard = ({ user, onLogout }) => {
               );
             })}
           </div>
+
+          {/* Club Analytics CTA — leaders only */}
+          {isLeader && (
+            <button
+              onClick={() => navigate("/settings")}
+              className="w-full flex items-center justify-between bg-zinc-900/50 hover:bg-zinc-800/60 border border-zinc-800/50 hover:border-red-500/30 rounded-2xl px-5 py-4 mb-4 transition-all duration-300 group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-red-600/20 to-orange-600/20 group-hover:from-red-600/40 group-hover:to-orange-600/40 rounded-xl transition-all duration-300">
+                  <BarChart2 size={18} className="text-red-400" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-semibold">Club Analytics</p>
+                  <p className="text-xs text-zinc-500">View performance insights for your clubs</p>
+                </div>
+              </div>
+              <ArrowRight size={16} className="text-zinc-600 group-hover:text-red-400 group-hover:translate-x-0.5 transition-all duration-200" />
+            </button>
+          )}
 
           {/* Create Drive Card */}
           <div className="relative overflow-hidden bg-gradient-to-br from-zinc-900/80 to-zinc-900/40 backdrop-blur-sm rounded-3xl p-6 mb-8 border border-zinc-800/50 hover:border-zinc-700/50 transition-all duration-300">

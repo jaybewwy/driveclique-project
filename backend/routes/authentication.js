@@ -16,6 +16,7 @@ const {
   verifyEmail,
   resendVerification,
   deleteAccount,
+  changeUsername,
 } = require('../controllers/authController');
 
 const loginLimiter = rateLimit({
@@ -219,6 +220,20 @@ router.delete(
   protect,
   validateInput({ password: { required: true, type: 'string', minLength: 1 } }),
   deleteAccount
+);
+
+/**
+ * @route   PUT /api/auth/username
+ * @desc    Change username (enforces 60-day cooldown)
+ * @access  Private
+ */
+router.put(
+  '/username',
+  protect,
+  validateInput({
+    username: { required: true, type: 'string', minLength: 3, maxLength: 30 },
+  }),
+  changeUsername
 );
 
 module.exports = router;

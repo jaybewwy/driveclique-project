@@ -90,6 +90,10 @@ const UserSchema = new mongoose.Schema({
   emailVerifyExpiry: {
     type: Date,
     default: undefined
+  },
+  usernameChangedAt: {
+    type: Date,
+    default: null
   }
 }, { timestamps: true });
 

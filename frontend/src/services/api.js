@@ -149,6 +149,7 @@ export const authAPI = {
   verifyEmail: (token) => api.get('/auth/verify-email', { params: { token } }),
   resendVerification: () => api.post('/auth/resend-verification'),
   deleteAccount: (password) => api.delete('/auth/account', { data: { password } }),
+  changeUsername: (username) => api.put('/auth/username', { username }),
 };
 
 /**
@@ -192,6 +193,8 @@ export const drivesAPI = {
   getRSVPStatus: (driveId) => api.get(`/drives/${driveId}/rsvp-status`),
   getAttendees: (driveId) => api.get(`/drives/${driveId}/attendees`),
   getLeaderDashboard: () => api.get('/drives/dashboard'),
+  getAnalytics: () => api.get('/drives/analytics'),
+  getMyRSVPs: () => api.get('/drives/my-rsvps'),
 };
 
 /**
