@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { SkeletonCard } from "../components/Skeleton";
 import { clubsAPI } from "../services/api";
-import { Car, Home, Bell, User, MapPin, Lock, Globe, Users, Calendar, X, Search, Sparkles } from "lucide-react";
+import { Car, MapPin, Lock, Globe, Users, Calendar, X, Search, Sparkles } from "lucide-react";
 import Sidebar from "../components/Sidebar";
+import NavBar from "../components/NavBar";
 
 const FindClub = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -17,7 +18,6 @@ const FindClub = ({ user, onLogout }) => {
   const [inviteCode, setInviteCode] = useState("");
   const [joinError, setJoinError] = useState("");
   const [joinLoading, setJoinLoading] = useState(false);
-  const [searchFocused, setSearchFocused] = useState(false);
   const [actionError, setActionError] = useState("");
   const [actionSuccess, setActionSuccess] = useState("");
 
@@ -196,65 +196,7 @@ const FindClub = ({ user, onLogout }) => {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
-      <nav className="bg-black/80 backdrop-blur-xl border-b border-zinc-800/50 px-4 py-3 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <div 
-            className="w-10 h-10 bg-gradient-to-br from-red-600 to-orange-600 rounded-xl flex items-center justify-center cursor-pointer shadow-lg shadow-red-500/20 hover:shadow-red-500/40 transition-all duration-300 hover:scale-105"
-            onClick={() => navigate("/dashboard")}
-          >
-            <Car className="w-5 h-5 text-white" />
-          </div>
-          <h1 
-            className="text-xl font-bold bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent cursor-pointer hidden sm:block"
-            onClick={() => navigate("/dashboard")}
-          >
-            DriveClique
-          </h1>
-        </div>
-
-        <div className="flex-1 max-w-xl mx-4 hidden md:block">
-          <div className={`relative transition-all duration-300 ${searchFocused ? 'scale-[1.02]' : ''}`}>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search clubs by name, location, or description..."
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-              className="w-full bg-zinc-900/50 border border-zinc-700/50 rounded-full py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-red-500/50 focus:ring-2 focus:ring-red-500/10 transition-all duration-300 placeholder-zinc-500"
-            />
-            <Search className={`absolute left-4 top-3.5 w-5 h-5 transition-colors duration-300 ${searchFocused ? 'text-red-500' : 'text-zinc-500'}`} />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 sm:gap-4">
-          <button onClick={() => navigate("/dashboard")} className="p-2.5 hover:bg-zinc-800/50 rounded-xl transition hidden sm:block">
-            <Home className="w-5 h-5 text-zinc-400 hover:text-white" />
-          </button>
-          <button onClick={() => navigate("/my-clubs")} className="p-2.5 hover:bg-zinc-800/50 rounded-xl transition hidden sm:block">
-            <Users className="w-5 h-5 text-zinc-400 hover:text-white" />
-          </button>
-          <button className="p-2.5 hover:bg-zinc-800/50 rounded-xl transition relative">
-            <Bell className="w-5 h-5 text-zinc-400 hover:text-white" />
-            <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
-          </button>
-          <div 
-            className="w-9 h-9 rounded-xl overflow-hidden cursor-pointer border-2 border-zinc-700/50 hover:border-red-500/50 transition-all duration-300"
-            onClick={() => navigate("/profile")}
-          >
-            {user?.avatar ? (
-              <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center">
-                <User className="w-4 h-4 text-zinc-400" />
-              </div>
-            )}
-          </div>
-          <button onClick={onLogout} className="text-sm text-zinc-400 hover:text-red-400 transition hidden sm:block">
-            Logout
-          </button>
-        </div>
-      </nav>
+      <NavBar user={user} onLogout={onLogout} showSearch={false} />
 
       <div className="flex max-w-7xl mx-auto">
         <Sidebar user={user} />

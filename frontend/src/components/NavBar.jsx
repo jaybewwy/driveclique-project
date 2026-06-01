@@ -1,26 +1,65 @@
-import { Car, Search, Bell, User, Home, Users, Menu, X } from "lucide-react";
+import { Car, Search, Home, Users, Settings, Bell, Menu, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useRef } from "react";
-import { motion } from "framer-motion";
 import { useNotifications } from "../hooks/useNotifications";
-import GooeyDock from "./ui/gooey-dock";
-import SettingsDropdown from "./ui/settings-dropdown";
+import UserDropdown from "./ui/user-dropdown";
 import NotificationPanel from "./ui/notification-panel";
+
+const getInitials = (user) => {
+  if (user?.firstName && user?.lastName)
+    return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+  if (user?.name) return user.name.slice(0, 2).toUpperCase();
+  if (user?.username) return user.username.slice(0, 2).toUpperCase();
+  return "?";
+};
 
 const NavBar = ({ user, onLogout, showSearch = true }) => {
   const navigate = useNavigate();
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState("online");
   const [showNotifPanel, setShowNotifPanel] = useState(false);
-  const [bellHovered, setBellHovered] = useState(false);
-  const [settingsHovered, setSettingsHovered] = useState(false);
   const notifBellRef = useRef(null);
 
   const isAuthenticated = !!user;
-
   const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications(isAuthenticated);
 
-  const toggleNotifPanel = () => setShowNotifPanel(p => !p);
+  const userDropdownData = {
+    name: user?.firstName && user?.lastName
+      ? `${user.firstName} ${user.lastName}`
+      : user?.name || user?.username || "Driver",
+    username: `@${user?.username || "driver"}`,
+    avatar: user?.avatar || null,
+    initials: getInitials(user),
+    status: selectedStatus,
+  };
+
+  const handleDropdownAction = (action) => {
+    switch (action) {
+      case "profile":
+      case "settings":
+      case "notifications":
+        navigate("/profile");
+        break;
+      case "my-clubs":
+        navigate("/my-clubs");
+        break;
+      case "find-club":
+        navigate("/find-club");
+        break;
+      case "dashboard":
+        navigate("/dashboard");
+        break;
+      case "create-club":
+        navigate("/create-club");
+        break;
+      case "logout":
+        onLogout();
+        break;
+      default:
+        break;
+    }
+  };
 
   return (
     <>
@@ -41,10 +80,10 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
           </h1>
         </div>
 
-        {/* Search Bar */}
+        {/* Search Bar — desktop */}
         {showSearch && (
           <div className="flex-1 max-w-xl mx-4 hidden md:block">
-            <div className={`relative transition-all duration-300 ${searchFocused ? 'scale-[1.02]' : ''}`}>
+            <div className={`relative transition-all duration-300 ${searchFocused ? "scale-[1.02]" : ""}`}>
               <input
                 type="text"
                 placeholder="Search clubs, drives, or members..."
@@ -52,58 +91,32 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
                 onBlur={() => setSearchFocused(false)}
                 className="w-full bg-zinc-900/50 border border-zinc-700/50 rounded-full py-3 pl-12 pr-4 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-red-500/50 focus:bg-zinc-900 focus:ring-2 focus:ring-red-500/10 transition-all duration-300"
               />
-              <Search className={`absolute left-4 top-3.5 w-5 h-5 transition-colors duration-300 ${searchFocused ? 'text-red-500' : 'text-zinc-500'}`} />
+              <Search className={`absolute left-4 top-3.5 w-5 h-5 transition-colors duration-300 ${searchFocused ? "text-red-500" : "text-zinc-500"}`} />
             </div>
           </div>
         )}
 
-        {/* Mobile Search Toggle */}
+        {/* Mobile Search icon */}
         <button className="md:hidden p-2 hover:bg-zinc-800 rounded-full transition" onClick={() => {}}>
           <Search className="w-5 h-5 text-zinc-400" />
         </button>
 
-        {/* Right Side Actions */}
-        <div className="flex items-center gap-2 sm:gap-4">
-          {/* Gooey nav dock — visible on sm+ */}
-          <GooeyDock
-            className="hidden sm:flex"
-            items={[
-              { icon: Home,   label: "Dashboard",  onClick: () => navigate("/dashboard") },
-              { icon: Users,  label: "My Clubs",   onClick: () => navigate("/my-clubs") },
-              { icon: Search, label: "Find Clubs", onClick: () => navigate("/find-clubs") },
-            ]}
-          />
-
+        {/* Right-side actions */}
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* Notification Bell */}
-          <div className="relative" ref={notifBellRef}>
-            <motion.div
-              onMouseEnter={() => setBellHovered(true)}
-              onMouseLeave={() => setBellHovered(false)}
-              animate={{ scale: bellHovered ? 1.2 : 1 }}
-              transition={{ type: "spring", stiffness: 300, damping: 20 }}
-              className="relative"
+          <div className="relative hidden sm:flex" ref={notifBellRef}>
+            <button
+              onClick={() => setShowNotifPanel((p) => !p)}
+              className="relative p-2.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+              title="Notifications"
             >
-              {/* Liquid blob — same goo filter as GooeyDock */}
-              <motion.div
-                className="absolute inset-0 rounded-full bg-primary/40"
-                style={{ filter: "url(#goo-nav-filter)" }}
-                animate={{ scale: bellHovered ? 1.8 : 1, opacity: bellHovered ? 1 : 0 }}
-                transition={{ type: "spring", stiffness: 200, damping: 25 }}
-              />
-
-              <button
-                onClick={toggleNotifPanel}
-                className="relative p-2.5 rounded-full bg-background/80 backdrop-blur-xl text-zinc-400 hover:text-white transition-colors"
-                title="Notifications"
-              >
-                <Bell className="w-5 h-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
-                )}
-              </button>
-            </motion.div>
+              <Bell className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </button>
 
             {showNotifPanel && (
               <NotificationPanel
@@ -116,46 +129,57 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
             )}
           </div>
 
-          {/* Settings dropdown with gooey motion */}
-          <motion.div
-            className="relative hidden sm:block"
-            onMouseEnter={() => setSettingsHovered(true)}
-            onMouseLeave={() => setSettingsHovered(false)}
-            animate={{ scale: settingsHovered ? 1.2 : 1 }}
-            transition={{ type: "spring", stiffness: 300, damping: 20 }}
-          >
-            <motion.div
-              className="absolute inset-0 rounded-full bg-primary/40"
-              style={{ filter: "url(#goo-nav-filter)" }}
-              animate={{ scale: settingsHovered ? 1.8 : 1, opacity: settingsHovered ? 1 : 0 }}
-              transition={{ type: "spring", stiffness: 200, damping: 25 }}
+          {/* User avatar dropdown — desktop */}
+          <div className="hidden sm:flex items-center">
+            <UserDropdown
+              user={userDropdownData}
+              onAction={handleDropdownAction}
+              onStatusChange={setSelectedStatus}
+              selectedStatus={selectedStatus}
             />
-            <SettingsDropdown onLogout={onLogout} />
-          </motion.div>
+          </div>
 
-          {/* Mobile Menu Toggle */}
-          <button className="sm:hidden p-2 hover:bg-zinc-800 rounded-xl transition" onClick={() => setShowMobileMenu(!showMobileMenu)}>
+          {/* Mobile hamburger */}
+          <button
+            className="sm:hidden p-2 hover:bg-zinc-800 rounded-xl transition"
+            onClick={() => setShowMobileMenu(!showMobileMenu)}
+          >
             {showMobileMenu ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
       </nav>
 
-      {/* Mobile Menu */}
+      {/* Mobile menu */}
       {showMobileMenu && (
-        <div className="sm:hidden fixed inset-0 top-16 bg-black/95 backdrop-blur-xl z-40 animate-in slide-in-from-top-10 duration-200">
+        <div className="sm:hidden fixed inset-0 top-16 bg-black/95 backdrop-blur-xl z-40">
           <div className="p-4 space-y-2">
-            <button onClick={() => { navigate("/dashboard"); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-800 rounded-xl transition">
+            {/* User info header */}
+            <div className="flex items-center gap-3 px-4 py-3 mb-2 border-b border-zinc-800">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-red-600 to-orange-600 flex items-center justify-center text-white font-semibold text-sm">
+                {getInitials(user)}
+              </div>
+              <div>
+                <p className="text-white text-sm font-medium">{userDropdownData.name}</p>
+                <p className="text-zinc-500 text-xs">{userDropdownData.username}</p>
+              </div>
+            </div>
+
+            <button onClick={() => { navigate("/dashboard"); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-800 rounded-xl transition text-white">
               <Home className="w-5 h-5" /><span>Dashboard</span>
             </button>
-            <button onClick={() => { navigate("/my-clubs"); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-800 rounded-xl transition">
+            <button onClick={() => { navigate("/my-clubs"); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-800 rounded-xl transition text-white">
               <Users className="w-5 h-5" /><span>My Clubs</span>
             </button>
-            <button onClick={() => { navigate("/profile"); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-800 rounded-xl transition">
-              <User className="w-5 h-5" /><span>Profile</span>
+            <button onClick={() => { navigate("/find-club"); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-800 rounded-xl transition text-white">
+              <Search className="w-5 h-5" /><span>Find Clubs</span>
             </button>
+            <button onClick={() => { navigate("/profile"); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-800 rounded-xl transition text-white">
+              <Settings className="w-5 h-5" /><span>Profile &amp; Settings</span>
+            </button>
+
             <div className="border-t border-zinc-800 my-1" />
             <button onClick={() => { onLogout(); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 text-red-400 rounded-xl transition">
-              <Car className="w-5 h-5" /><span>Logout</span>
+              <Car className="w-5 h-5" /><span>Log out</span>
             </button>
           </div>
         </div>

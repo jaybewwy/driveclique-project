@@ -70,7 +70,7 @@ export default function GooeyDock({ items, className }) {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="relative rounded-full bg-background/80 backdrop-blur-xl text-zinc-400 hover:text-white"
+                      className="relative rounded-full bg-background/80 backdrop-blur-xl text-zinc-400 hover:text-white focus-visible:ring-0 focus-visible:ring-offset-0"
                       onClick={item.onClick}
                     >
                       <item.icon className="h-5 w-5" />
