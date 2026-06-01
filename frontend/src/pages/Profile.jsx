@@ -31,6 +31,12 @@ const Profile = ({ onLogout, onUpdateUser }) => {
   const [previewAvatar, setPreviewAvatar] = useState("");
   const [avatarFileName, setAvatarFileName] = useState("");
 
+  // Account deletion state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -88,6 +94,25 @@ const Profile = ({ onLogout, onUpdateUser }) => {
         console.error('Error compressing image:', error);
         setMessage({ type: 'error', text: 'Failed to process image. Please try again.' });
       }
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword) return;
+    setIsDeleting(true);
+    setDeleteError('');
+    try {
+      await authAPI.deleteAccount(deletePassword);
+      // Clear session then redirect — account is gone
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('driveclique_user');
+      onLogout();
+      navigate('/login');
+    } catch (err) {
+      setDeleteError(err.response?.data?.message || 'Failed to delete account. Please try again.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -438,6 +463,21 @@ const Profile = ({ onLogout, onUpdateUser }) => {
               </button>
             </div>
           </form>
+
+          {/* Danger Zone */}
+          <div className="mt-8 border-t border-zinc-800 pt-8">
+            <h2 className="text-lg font-semibold text-red-500 mb-1">Danger Zone</h2>
+            <p className="text-zinc-500 text-sm mb-4">
+              Once you delete your account, there is no going back. Please be certain.
+            </p>
+            <button
+              type="button"
+              onClick={() => { setShowDeleteModal(true); setDeletePassword(''); setDeleteError(''); }}
+              className="border border-red-600 text-red-500 hover:bg-red-600 hover:text-white px-6 py-2.5 rounded-2xl text-sm font-medium transition-all duration-200"
+            >
+              Delete Account
+            </button>
+          </div>
         </div>
 
         {/* Right Sidebar - Profile Preview */}
@@ -477,6 +517,64 @@ const Profile = ({ onLogout, onUpdateUser }) => {
           </div>
         </div>
       </div>
+
+      {/* Delete Account Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-900 rounded-3xl p-6 max-w-md w-full border border-zinc-800 shadow-2xl">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 bg-red-600/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                <X className="w-5 h-5 text-red-500" />
+              </div>
+              <h2 className="text-xl font-bold">Delete Account</h2>
+            </div>
+
+            <p className="text-zinc-400 text-sm mb-3">This will permanently:</p>
+            <ul className="text-zinc-400 text-sm mb-5 space-y-1 list-disc list-inside">
+              <li>Delete your account and profile</li>
+              <li>Remove you from all clubs</li>
+              <li>Cancel all your future RSVPs</li>
+            </ul>
+            <p className="text-zinc-500 text-xs mb-5 bg-zinc-800/50 rounded-xl px-4 py-3 border border-zinc-700/50">
+              This action <span className="text-white font-semibold">cannot be undone</span>. Enter your password to confirm.
+            </p>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Password</label>
+              <input
+                type="password"
+                value={deletePassword}
+                onChange={e => { setDeletePassword(e.target.value); setDeleteError(''); }}
+                placeholder="Enter your password"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-sm placeholder-zinc-500 focus:outline-none focus:border-red-500 transition"
+                onKeyDown={e => e.key === 'Enter' && !isDeleting && handleDeleteAccount()}
+              />
+              {deleteError && (
+                <p className="text-red-400 text-sm mt-2">{deleteError}</p>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={isDeleting}
+                className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-3 rounded-2xl font-medium text-sm transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={isDeleting || !deletePassword}
+                className="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-2xl font-medium text-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? 'Deleting…' : 'Delete My Account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

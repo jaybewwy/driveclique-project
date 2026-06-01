@@ -1,6 +1,9 @@
 const crypto = require('crypto');
 const User = require('../models/user');
 const RefreshToken = require('../models/refreshToken');
+const Club = require('../models/club');
+const Drive = require('../models/drive');
+const RSVP = require('../models/rsvp');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
@@ -363,6 +366,55 @@ const resendVerification = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Verification email sent!' });
 });
 
+/**
+ * DELETE /api/auth/account — Permanently delete the authenticated user's account
+ * @access Private
+ */
+const deleteAccount = asyncHandler(async (req, res) => {
+  const userId = req.user?.id;
+  const { password } = req.body;
+
+  if (!userId) throw new AppError('Authentication required', 401);
+
+  const user = await User.findById(userId).select('+password');
+  if (!user) throw new AppError('User not found', 404);
+
+  const passwordMatch = await bcrypt.compare(password, user.password);
+  if (!passwordMatch) throw new AppError('Incorrect password. Account not deleted.', 401);
+
+  // Block deletion if the user leads any club that still has other members
+  const ledClubs = await Club.find({ leader: userId }).select('name members');
+  const blockedClubs = ledClubs.filter(c => c.members.length > 1);
+  if (blockedClubs.length > 0) {
+    const names = blockedClubs.map(c => `"${c.name}"`).join(', ');
+    throw new AppError(
+      `Transfer leadership or delete these clubs before deleting your account: ${names}`,
+      400
+    );
+  }
+
+  // Clubs the user leads alone — cascade-delete them
+  const soloClubIds = ledClubs.filter(c => c.members.length <= 1).map(c => c._id);
+  if (soloClubIds.length > 0) {
+    const solodriveIds = await Drive.find({ club: { $in: soloClubIds } }).select('_id').lean();
+    if (solodriveIds.length > 0) {
+      await RSVP.deleteMany({ drive: { $in: solodriveIds.map(d => d._id) } });
+    }
+    await Drive.deleteMany({ club: { $in: soloClubIds } });
+    await Club.deleteMany({ _id: { $in: soloClubIds } });
+  }
+
+  // Remove user from all other clubs' member arrays
+  await Club.updateMany({ members: userId }, { $pull: { members: userId } });
+
+  // Delete all personal RSVPs, refresh tokens, and the user document
+  await RSVP.deleteMany({ user: userId });
+  await RefreshToken.deleteMany({ user: userId });
+  await User.findByIdAndDelete(userId);
+
+  res.json({ success: true, message: 'Account deleted successfully' });
+});
+
 module.exports = {
   registerUser,
   loginUser,
@@ -375,4 +427,5 @@ module.exports = {
   resetPassword,
   verifyEmail,
   resendVerification,
+  deleteAccount,
 };

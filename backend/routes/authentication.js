@@ -15,6 +15,7 @@ const {
   resetPassword,
   verifyEmail,
   resendVerification,
+  deleteAccount,
 } = require('../controllers/authController');
 
 const loginLimiter = rateLimit({
@@ -206,6 +207,18 @@ router.post(
   protect,
   resendVerificationLimiter,
   resendVerification
+);
+
+/**
+ * @route   DELETE /api/auth/account
+ * @desc    Permanently delete the authenticated user's account and all associated data
+ * @access  Private
+ */
+router.delete(
+  '/account',
+  protect,
+  validateInput({ password: { required: true, type: 'string', minLength: 1 } }),
+  deleteAccount
 );
 
 module.exports = router;
