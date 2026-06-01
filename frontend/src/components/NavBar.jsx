@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { useNotifications } from "../hooks/useNotifications";
 import GooeyDock from "./ui/gooey-dock";
+import SettingsDropdown from "./ui/settings-dropdown";
 
 const NavBar = ({ user, onLogout, showSearch = true }) => {
   const navigate = useNavigate();
@@ -154,10 +155,10 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
             )}
           </div>
 
-          {/* Logout */}
-          <button onClick={onLogout} className="text-sm text-zinc-400 hover:text-red-400 transition-colors duration-200 hidden sm:block px-3 py-2 hover:bg-red-500/10 rounded-lg">
-            Logout
-          </button>
+          {/* Settings dropdown */}
+          <div className="hidden sm:block">
+            <SettingsDropdown onLogout={onLogout} />
+          </div>
 
           {/* Mobile Menu Toggle */}
           <button className="sm:hidden p-2 hover:bg-zinc-800 rounded-xl transition" onClick={() => setShowMobileMenu(!showMobileMenu)}>
@@ -176,6 +177,10 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
             <button onClick={() => { navigate("/my-clubs"); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-800 rounded-xl transition">
               <Users className="w-5 h-5" /><span>My Clubs</span>
             </button>
+            <button onClick={() => { navigate("/profile"); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-800 rounded-xl transition">
+              <User className="w-5 h-5" /><span>Profile</span>
+            </button>
+            <div className="border-t border-zinc-800 my-1" />
             <button onClick={() => { onLogout(); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 text-red-400 rounded-xl transition">
               <Car className="w-5 h-5" /><span>Logout</span>
             </button>
