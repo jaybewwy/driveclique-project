@@ -632,6 +632,67 @@ const removeMember = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Member removed successfully' });
 });
 
+/**
+ * Post an Announcement
+ * @route POST /api/clubs/:clubId/announcements
+ * @access Private (Club Leaders only)
+ */
+const postAnnouncement = asyncHandler(async (req, res) => {
+  const { clubId } = req.params;
+  const { title, body } = req.body;
+  const userId = req.user?.id;
+
+  if (!userId) throw new AppError('Authentication required', 401);
+  if (!body?.trim()) throw new AppError('Announcement body is required', 400);
+
+  const club = await Club.findById(clubId);
+  if (!club) throw new AppError('Club not found', 404);
+  if (club.leader.toString() !== userId) throw new AppError('Only the club leader can post announcements', 403);
+
+  const announcement = { title: title?.trim() || '', body: body.trim(), createdBy: userId };
+  club.announcements.push(announcement);
+  await club.save();
+
+  const newAnnouncement = club.announcements[club.announcements.length - 1];
+
+  // Notify all members via SSE
+  club.members.forEach((memberId) => {
+    if (memberId.toString() !== userId) {
+      notify(memberId.toString(), {
+        type: 'NEW_ANNOUNCEMENT',
+        message: `${club.name} posted a new announcement`,
+        data: { clubId: club._id, clubName: club.name, announcement: newAnnouncement }
+      });
+    }
+  });
+
+  res.status(201).json({ success: true, announcement: newAnnouncement });
+});
+
+/**
+ * Delete an Announcement
+ * @route DELETE /api/clubs/:clubId/announcements/:announcementId
+ * @access Private (Club Leaders only)
+ */
+const deleteAnnouncement = asyncHandler(async (req, res) => {
+  const { clubId, announcementId } = req.params;
+  const userId = req.user?.id;
+
+  if (!userId) throw new AppError('Authentication required', 401);
+
+  const club = await Club.findById(clubId);
+  if (!club) throw new AppError('Club not found', 404);
+  if (club.leader.toString() !== userId) throw new AppError('Only the club leader can delete announcements', 403);
+
+  const exists = club.announcements.id(announcementId);
+  if (!exists) throw new AppError('Announcement not found', 404);
+
+  club.announcements.pull(announcementId);
+  await club.save();
+
+  res.json({ success: true, message: 'Announcement deleted' });
+});
+
 module.exports = {
   createClub,
   getUserClubs,
@@ -647,5 +708,7 @@ module.exports = {
   getTopClub,
   leaveClub,
   removeMember,
-  transferOwnership
+  transferOwnership,
+  postAnnouncement,
+  deleteAnnouncement
 };

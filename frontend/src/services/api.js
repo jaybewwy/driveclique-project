@@ -173,6 +173,8 @@ export const clubsAPI = {
   leave: (clubId) => api.put(`/clubs/${clubId}/leave`),
   removeMember: (clubId, memberId) => api.delete(`/clubs/${clubId}/members/${memberId}`),
   transfer: (clubId, newLeaderId) => api.put(`/clubs/${clubId}/transfer`, { newLeaderId }),
+  postAnnouncement: (clubId, data) => api.post(`/clubs/${clubId}/announcements`, data),
+  deleteAnnouncement: (clubId, announcementId) => api.delete(`/clubs/${clubId}/announcements/${announcementId}`),
 };
 
 /**

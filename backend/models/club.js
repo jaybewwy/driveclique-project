@@ -62,7 +62,13 @@ const ClubSchema = new mongoose.Schema({
   avatar: {
     type: String,
     default: ''
-  }
+  },
+  announcements: [{
+    title:     { type: String, trim: true, maxlength: 100, default: '' },
+    body:      { type: String, required: true, trim: true, maxlength: 1000 },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    createdAt: { type: Date, default: Date.now }
+  }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('Club', ClubSchema);

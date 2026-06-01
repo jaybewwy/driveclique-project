@@ -17,7 +17,9 @@ const {
   getTopClub,
   leaveClub,
   removeMember,
-  transferOwnership
+  transferOwnership,
+  postAnnouncement,
+  deleteAnnouncement
 } = require('../controllers/clubController');
 
 // All routes require authentication
@@ -224,6 +226,35 @@ router.delete(
     memberId: { required: true, objectId: true }
   }),
   removeMember
+);
+
+/**
+ * @route   POST /api/clubs/:clubId/announcements
+ * @desc    Post a new announcement (leader only)
+ * @access  Private (Club Leaders only)
+ */
+router.post(
+  '/:clubId/announcements',
+  validateParams({ clubId: { required: true, objectId: true } }),
+  validateInput({
+    title: { type: 'string', maxLength: 100 },
+    body:  { required: true, type: 'string', minLength: 1, maxLength: 1000 }
+  }),
+  postAnnouncement
+);
+
+/**
+ * @route   DELETE /api/clubs/:clubId/announcements/:announcementId
+ * @desc    Delete an announcement (leader only)
+ * @access  Private (Club Leaders only)
+ */
+router.delete(
+  '/:clubId/announcements/:announcementId',
+  validateParams({
+    clubId:         { required: true, objectId: true },
+    announcementId: { required: true, objectId: true }
+  }),
+  deleteAnnouncement
 );
 
 module.exports = router;
