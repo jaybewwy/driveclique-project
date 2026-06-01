@@ -24,6 +24,7 @@ import NavBar from "../components/NavBar";
 import { compressImage } from "../utils/imageCompressor";
 import { clubsAPI, drivesAPI, authAPI } from "../services/api";
 import { DriveSchedulerPicker } from "../components/ui/drive-scheduler-picker";
+import { LocationSearch } from "../components/ui/location-search";
 
 const ClubDetail = ({ user, onLogout }) => {
   const { clubId } = useParams();
@@ -1594,13 +1595,10 @@ const ClubDetail = ({ user, onLogout }) => {
               </div>
 
               <div>
-                <label htmlFor="club-edit-location" className="block text-sm text-zinc-400 mb-2">Location</label>
-                <input
-                  id="club-edit-location"
-                  type="text"
+                <label className="block text-sm text-zinc-400 mb-2">Location</label>
+                <LocationSearch
                   value={clubEditFormData.location || ''}
-                  onChange={(e) => setClubEditFormData({ ...clubEditFormData, location: e.target.value })}
-                  className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-600"
+                  onChange={(val) => setClubEditFormData({ ...clubEditFormData, location: val })}
                 />
               </div>
 

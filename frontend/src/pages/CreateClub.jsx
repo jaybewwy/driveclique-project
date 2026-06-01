@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Users, Lock, FileText } from "lucide-react";
+import { ArrowLeft, Lock, FileText } from "lucide-react";
 import { clubsAPI, getErrorMessage } from "../services/api";
+import { LocationSearch } from "../components/ui/location-search";
 
 const CreateClub = () => {
   const navigate = useNavigate();
@@ -127,17 +128,10 @@ const CreateClub = () => {
               <label className="block text-sm font-medium text-zinc-300 mb-3">
                 Location
               </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleChange}
-                  placeholder="e.g. Los Angeles, CA"
-                  className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 pl-12 text-white placeholder-zinc-500 focus:outline-none focus:border-red-600 transition"
-                />
-                <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
-              </div>
+              <LocationSearch
+                value={formData.location}
+                onChange={(val) => setFormData({ ...formData, location: val })}
+              />
             </div>
 
             <div>

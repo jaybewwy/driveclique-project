@@ -290,7 +290,7 @@ const FindClub = ({ user, onLogout }) => {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search clubs..."
+                placeholder="Search by name or location..."
                 className="w-full bg-zinc-900 border border-zinc-700 rounded-2xl px-6 py-4 pl-12 focus:outline-none focus:border-red-500/50 transition-all"
               />
               <Search className="absolute left-4 top-4 text-zinc-500 w-5 h-5" />
@@ -304,7 +304,7 @@ const FindClub = ({ user, onLogout }) => {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search clubs by name..."
+                placeholder="Search by club name or location..."
                 className="w-full bg-zinc-900 border border-zinc-700 rounded-2xl px-6 py-4 pl-12 focus:outline-none focus:border-red-500/50 transition-all"
               />
               <Search className="absolute left-4 top-4 text-zinc-500 w-5 h-5" />
