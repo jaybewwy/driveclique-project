@@ -1,47 +1,26 @@
-import { Car, Search, Bell, User, Home, Users, Menu, X, CheckCheck } from "lucide-react";
+import { Car, Search, Bell, User, Home, Users, Menu, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
+import { motion } from "framer-motion";
 import { useNotifications } from "../hooks/useNotifications";
 import GooeyDock from "./ui/gooey-dock";
 import SettingsDropdown from "./ui/settings-dropdown";
+import NotificationPanel from "./ui/notification-panel";
 
 const NavBar = ({ user, onLogout, showSearch = true }) => {
   const navigate = useNavigate();
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
-  const notifRef = useRef(null);
+  const [bellHovered, setBellHovered] = useState(false);
+  const [settingsHovered, setSettingsHovered] = useState(false);
+  const notifBellRef = useRef(null);
 
   const isAuthenticated = !!user;
 
-  useEffect(() => {
-    if (!showNotifPanel) return;
-    const handleClickOutside = (e) => {
-      if (notifRef.current && !notifRef.current.contains(e.target)) {
-        setShowNotifPanel(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showNotifPanel]);
-  const { notifications, unreadCount, markAllRead } = useNotifications(isAuthenticated);
+  const { notifications, unreadCount, markAllRead, markOneRead } = useNotifications(isAuthenticated);
 
-  const toggleNotifPanel = () => {
-    setShowNotifPanel(p => !p);
-    if (!showNotifPanel && unreadCount > 0) markAllRead();
-  };
-
-  const typeIcon = (type) => {
-    switch (type) {
-      case 'NEW_DRIVE':     return '🚗';
-      case 'RSVP_NEW':
-      case 'RSVP_UPDATED':  return '✅';
-      case 'JOIN_REQUEST':  return '🔔';
-      case 'JOIN_ACCEPTED': return '🎉';
-      case 'JOIN_REJECTED': return '❌';
-      default:              return '📣';
-    }
-  };
+  const toggleNotifPanel = () => setShowNotifPanel(p => !p);
 
   return (
     <>
@@ -96,69 +75,63 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
           />
 
           {/* Notification Bell */}
-          <div className="relative" ref={notifRef}>
-            <button
-              onClick={toggleNotifPanel}
-              className="p-2.5 hover:bg-zinc-800/50 rounded-xl transition-all duration-200 relative group"
-              title="Notifications"
+          <div className="relative" ref={notifBellRef}>
+            <motion.div
+              onMouseEnter={() => setBellHovered(true)}
+              onMouseLeave={() => setBellHovered(false)}
+              animate={{ scale: bellHovered ? 1.2 : 1 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              className="relative"
             >
-              <Bell className="w-5 h-5 text-zinc-400 group-hover:text-white transition-colors" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 animate-pulse">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </button>
+              {/* Liquid blob — same goo filter as GooeyDock */}
+              <motion.div
+                className="absolute inset-0 rounded-full bg-primary/40"
+                style={{ filter: "url(#goo-nav-filter)" }}
+                animate={{ scale: bellHovered ? 1.8 : 1, opacity: bellHovered ? 1 : 0 }}
+                transition={{ type: "spring", stiffness: 200, damping: 25 }}
+              />
 
-            {/* Notification Dropdown */}
+              <button
+                onClick={toggleNotifPanel}
+                className="relative p-2.5 rounded-full bg-background/80 backdrop-blur-xl text-zinc-400 hover:text-white transition-colors"
+                title="Notifications"
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            </motion.div>
+
             {showNotifPanel && (
-              <div className="absolute right-0 top-12 w-80 bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl z-50 overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-                  <span className="font-semibold text-sm">Notifications</span>
-                  {notifications.length > 0 && (
-                    <button onClick={markAllRead} className="flex items-center gap-1 text-xs text-zinc-500 hover:text-white transition">
-                      <CheckCheck size={12} /> Mark all read
-                    </button>
-                  )}
-                </div>
-                <div className="max-h-80 overflow-y-auto">
-                  {notifications.length === 0 ? (
-                    <p className="text-zinc-500 text-sm text-center py-8">No notifications yet</p>
-                  ) : (
-                    notifications.map(n => (
-                      <div
-                        key={n.id}
-                        className={`flex items-start gap-3 px-4 py-3 border-b border-zinc-800/50 hover:bg-zinc-800/30 transition ${!n.read ? 'bg-zinc-800/20' : ''}`}
-                      >
-                        <span className="text-lg flex-shrink-0 mt-0.5">{typeIcon(n.type)}</span>
-                        <p className="text-sm text-zinc-300 leading-snug">{n.message}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+              <NotificationPanel
+                notifications={notifications}
+                unreadCount={unreadCount}
+                markAllRead={markAllRead}
+                markOneRead={markOneRead}
+                onClose={() => setShowNotifPanel(false)}
+              />
             )}
           </div>
 
-          {/* Profile */}
-          <div
-            className="w-9 h-9 rounded-xl overflow-hidden cursor-pointer border-2 border-zinc-700/50 hover:border-red-500/50 transition-all duration-300 hover:scale-105"
-            onClick={() => navigate("/profile")}
-            title="Profile"
+          {/* Settings dropdown with gooey motion */}
+          <motion.div
+            className="relative hidden sm:block"
+            onMouseEnter={() => setSettingsHovered(true)}
+            onMouseLeave={() => setSettingsHovered(false)}
+            animate={{ scale: settingsHovered ? 1.2 : 1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
           >
-            {user?.avatar ? (
-              <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center">
-                <User className="w-4 h-4 text-zinc-400" />
-              </div>
-            )}
-          </div>
-
-          {/* Settings dropdown */}
-          <div className="hidden sm:block">
+            <motion.div
+              className="absolute inset-0 rounded-full bg-primary/40"
+              style={{ filter: "url(#goo-nav-filter)" }}
+              animate={{ scale: settingsHovered ? 1.8 : 1, opacity: settingsHovered ? 1 : 0 }}
+              transition={{ type: "spring", stiffness: 200, damping: 25 }}
+            />
             <SettingsDropdown onLogout={onLogout} />
-          </div>
+          </motion.div>
 
           {/* Mobile Menu Toggle */}
           <button className="sm:hidden p-2 hover:bg-zinc-800 rounded-xl transition" onClick={() => setShowMobileMenu(!showMobileMenu)}>

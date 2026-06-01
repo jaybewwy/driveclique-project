@@ -36,7 +36,7 @@ const SettingsDropdown = ({ onLogout }) => {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(p => !p)}
-        className="p-2.5 hover:bg-zinc-800/50 rounded-xl transition-all duration-200 group"
+        className="p-2.5 rounded-xl transition-all duration-200 group"
         title="Settings"
         aria-label="Settings"
       >

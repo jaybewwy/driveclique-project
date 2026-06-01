@@ -17,6 +17,11 @@ export const useNotifications = (enabled = true) => {
     setUnreadCount(0);
   }, []);
 
+  const markOneRead = useCallback((id) => {
+    setNotifications(prev => prev.map(n => n.id === id && !n.read ? { ...n, read: true } : n));
+    setUnreadCount(c => Math.max(0, c - 1));
+  }, []);
+
   const clear = useCallback(() => {
     setNotifications([]);
     setUnreadCount(0);
@@ -56,5 +61,5 @@ export const useNotifications = (enabled = true) => {
     };
   }, [enabled, addNotification]);
 
-  return { notifications, unreadCount, markAllRead, clear };
+  return { notifications, unreadCount, markAllRead, markOneRead, clear };
 };
