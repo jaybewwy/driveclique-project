@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { SkeletonCard } from "../components/Skeleton";
 import { clubsAPI } from "../services/api";
-import { Car, MapPin, Lock, Globe, Users, Calendar, X, Search, Sparkles, ArrowRight } from "lucide-react";
+import { Car, MapPin, Lock, Globe, Users, Calendar, X, Search, Sparkles, ArrowRight, Flag } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
+import ReportModal from "../components/ui/ReportModal";
 
 const FindClub = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -20,6 +21,7 @@ const FindClub = ({ user, onLogout }) => {
   const [joinLoading, setJoinLoading]   = useState(false);
   const [actionError, setActionError]   = useState("");
   const [actionSuccess, setActionSuccess] = useState("");
+  const [reportTarget, setReportTarget] = useState(null);
 
   useEffect(() => {
     clubsAPI.searchPage(undefined, 1, 50)
@@ -285,8 +287,15 @@ const FindClub = ({ user, onLogout }) => {
                       </div>
                     </div>
 
-                    {/* CTA button */}
-                    <div className="shrink-0 self-center">
+                    {/* CTA + report */}
+                    <div className="shrink-0 self-center flex items-center gap-1.5">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setReportTarget({ type: 'club', id: club._id, name: club.name }); }}
+                        className="w-8 h-8 flex items-center justify-center text-zinc-600 hover:text-orange-400 hover:bg-orange-500/10 rounded-xl transition-all"
+                        title="Report club"
+                      >
+                        <Flag className="w-3.5 h-3.5" />
+                      </button>
                       {isUserMember(club) ? (
                         <button
                           onClick={(e) => { e.stopPropagation(); navigate(`/club/${club._id}`); }}
@@ -392,6 +401,16 @@ const FindClub = ({ user, onLogout }) => {
           </div>
         </div>
       </div>
+
+      {/* Report modal */}
+      {reportTarget && (
+        <ReportModal
+          targetType={reportTarget.type}
+          targetId={reportTarget.id}
+          targetName={reportTarget.name}
+          onClose={() => setReportTarget(null)}
+        />
+      )}
     </div>
   );
 };

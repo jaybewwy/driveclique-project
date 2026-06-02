@@ -18,9 +18,11 @@ import {
   CalendarDays,
   Crown,
   Users,
+  Flag,
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
+import ReportModal from "../components/ui/ReportModal";
 import { compressImage } from "../utils/imageCompressor";
 import { clubsAPI, drivesAPI, authAPI } from "../services/api";
 import { DriveSchedulerPicker } from "../components/ui/drive-scheduler-picker";
@@ -89,6 +91,9 @@ const ClubDetail = ({ user, onLogout }) => {
   const [memberToRemove, setMemberToRemove] = useState(null);
   const [transferTarget, setTransferTarget] = useState(null);
   const [transferError, setTransferError] = useState('');
+
+  // Report modal state
+  const [reportTarget, setReportTarget] = useState(null); // { type, id, name }
 
   // Announcements state
   const [announcements, setAnnouncements] = useState([]);
@@ -690,8 +695,19 @@ const ClubDetail = ({ user, onLogout }) => {
                       </span>
                     </div>
                   </div>
-                  <div className="w-8 h-8 bg-white/[0.04] group-hover:bg-red-500/15 rounded-xl flex items-center justify-center transition-all shrink-0">
-                    <ArrowRight className="w-3.5 h-3.5 text-zinc-600 group-hover:text-red-400" />
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {/* Report drive */}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setReportTarget({ type: 'drive', id: upcomingDrives[0]._id, name: upcomingDrives[0].name }); }}
+                      className="w-8 h-8 flex items-center justify-center text-zinc-600 hover:text-orange-400 hover:bg-orange-500/10 rounded-xl transition-all"
+                      title="Report drive"
+                    >
+                      <Flag className="w-3.5 h-3.5" />
+                    </button>
+                    <div className="w-8 h-8 bg-white/[0.04] group-hover:bg-red-500/15 rounded-xl flex items-center justify-center transition-all">
+                      <ArrowRight className="w-3.5 h-3.5 text-zinc-600 group-hover:text-red-400" />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1229,16 +1245,32 @@ const ClubDetail = ({ user, onLogout }) => {
                       <span className="text-amber-500 text-sm flex items-center gap-1 bg-amber-900/30 px-3 py-1 rounded-full">
                         <Crown size={12} /> Leader
                       </span>
-                    ) : isLeader ? (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveMember(member._id, member.username)}
-                        className="text-red-500 hover:text-red-400 p-2 hover:bg-red-900/30 rounded-lg transition"
-                        title="Remove from club"
-                      >
-                        <X size={18} />
-                      </button>
-                    ) : null}
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        {/* Report button — visible to any member for other members */}
+                        {member._id !== user?._id && (
+                          <button
+                            type="button"
+                            onClick={() => setReportTarget({ type: 'user', id: member._id, name: `@${member.username}` })}
+                            className="p-1.5 text-zinc-600 hover:text-orange-400 hover:bg-orange-500/10 rounded-lg transition-all"
+                            title="Report member"
+                          >
+                            <Flag size={14} />
+                          </button>
+                        )}
+                        {/* Remove button — leader only */}
+                        {isLeader && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMember(member._id, member.username)}
+                            className="p-1.5 text-zinc-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                            title="Remove from club"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -2167,6 +2199,16 @@ const ClubDetail = ({ user, onLogout }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Report modal */}
+      {reportTarget && (
+        <ReportModal
+          targetType={reportTarget.type}
+          targetId={reportTarget.id}
+          targetName={reportTarget.name}
+          onClose={() => setReportTarget(null)}
+        />
       )}
     </div>
   );

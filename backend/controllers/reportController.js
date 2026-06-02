@@ -1,7 +1,7 @@
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const Report  = require('../models/report');
 const Club    = require('../models/club');
-const Drive   = require('../models/Drive');
+const Drive   = require('../models/drive');
 const User    = require('../models/user');
 const { sendEmail, emailTemplates } = require('../services/emailService');
 
