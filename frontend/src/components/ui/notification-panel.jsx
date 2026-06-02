@@ -27,17 +27,19 @@ const relativeTime = (id) => {
   return `${Math.floor(h / 24)}d ago`;
 };
 
-const NotificationPanel = ({ notifications, unreadCount, markAllRead, markOneRead, onClose }) => {
+const NotificationPanel = ({ notifications, unreadCount, markAllRead, markOneRead, onClose, excludeRef }) => {
   const [tab, setTab] = useState("all");
   const ref = useRef(null);
 
   useEffect(() => {
     const handle = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) onClose();
+      const insidePanel  = ref.current?.contains(e.target);
+      const insideBell   = excludeRef?.current?.contains(e.target);
+      if (!insidePanel && !insideBell) onClose();
     };
     document.addEventListener("mousedown", handle);
     return () => document.removeEventListener("mousedown", handle);
-  }, [onClose]);
+  }, [onClose, excludeRef]);
 
   const filtered = tab === "unread"
     ? notifications.filter(n => !n.read)
@@ -46,7 +48,7 @@ const NotificationPanel = ({ notifications, unreadCount, markAllRead, markOneRea
   return (
     <div
       ref={ref}
-      className="absolute right-0 top-12 w-96 bg-zinc-900 border border-zinc-700/50 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col"
+      className="absolute right-0 top-12 w-96 bg-zinc-950/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl shadow-glass-lg z-50 overflow-hidden flex flex-col"
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">

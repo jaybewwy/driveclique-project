@@ -156,20 +156,20 @@ const AnalyticsSidebar = ({ user, activeView, onViewChange }) => {
 /* ─── Shared primitives ────────────────────────────────────────────────── */
 
 const StatChip = ({ icon: Icon, label, value, accent }) => (
-  <div className="bg-zinc-800/60 rounded-2xl p-4 flex flex-col gap-1">
-    <div className="flex items-center gap-2 mb-1">
-      <Icon size={15} className={accent} />
-      <span className="text-xs text-zinc-500 uppercase tracking-wide">{label}</span>
+  <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl p-4 flex flex-col gap-1 hover:border-white/[0.11] transition-all duration-200">
+    <div className="flex items-center gap-1.5 mb-1">
+      <Icon size={13} className={accent} />
+      <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">{label}</span>
     </div>
-    <span className={`text-2xl font-bold ${accent}`}>{value}</span>
+    <span className={`text-2xl font-bold tabular-nums ${accent}`}>{value}</span>
   </div>
 );
 
 const DetailCard = ({ icon: Icon, label, children, accent = "text-zinc-400" }) => (
-  <div className="bg-zinc-800/40 rounded-2xl p-4 flex flex-col gap-2 min-h-[120px]">
-    <div className="flex items-center gap-2">
-      <Icon size={15} className={accent} />
-      <span className="text-xs text-zinc-500 uppercase tracking-wide">{label}</span>
+  <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-4 flex flex-col gap-2 min-h-[110px] hover:border-white/[0.09] transition-all duration-200">
+    <div className="flex items-center gap-1.5">
+      <Icon size={13} className={accent} />
+      <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">{label}</span>
     </div>
     <div className="flex-1 flex flex-col justify-center">{children}</div>
   </div>
@@ -177,11 +177,11 @@ const DetailCard = ({ icon: Icon, label, children, accent = "text-zinc-400" }) =
 
 const CompletionBar = ({ rate }) => (
   <div className="mt-2">
-    <div className="flex justify-between mb-1">
-      <span className="text-xs text-zinc-500">Completion</span>
-      <span className="text-xs font-semibold text-emerald-400">{rate}%</span>
+    <div className="flex justify-between mb-1.5">
+      <span className="text-[11px] text-zinc-500">Completion</span>
+      <span className="text-[11px] font-semibold text-emerald-400">{rate}%</span>
     </div>
-    <div className="w-full h-2 bg-zinc-700 rounded-full overflow-hidden">
+    <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
       <div
         className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-700"
         style={{ width: `${Math.min(rate, 100)}%` }}
@@ -192,13 +192,13 @@ const CompletionBar = ({ rate }) => (
 
 const RSVPBar = ({ rate }) => (
   <div className="mt-2">
-    <div className="flex justify-between mb-1">
-      <span className="text-xs text-zinc-500">Avg RSVP Rate</span>
-      <span className="text-xs font-semibold text-blue-400">{rate}%</span>
+    <div className="flex justify-between mb-1.5">
+      <span className="text-[11px] text-zinc-500">Avg RSVP Rate</span>
+      <span className="text-[11px] font-semibold text-sky-400">{rate}%</span>
     </div>
-    <div className="w-full h-2 bg-zinc-700 rounded-full overflow-hidden">
+    <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
       <div
-        className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full transition-all duration-700"
+        className="h-full bg-gradient-to-r from-sky-500 to-sky-400 rounded-full transition-all duration-700"
         style={{ width: `${Math.min(rate, 100)}%` }}
       />
     </div>
@@ -206,13 +206,13 @@ const RSVPBar = ({ rate }) => (
 );
 
 const SkeletonAnalyticsCard = () => (
-  <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-3xl p-6 animate-pulse">
-    <div className="h-6 bg-zinc-800 rounded-lg w-48 mb-6" />
+  <div className="bg-white/[0.03] border border-white/[0.06] rounded-3xl p-6 animate-pulse">
+    <div className="h-5 bg-white/[0.06] rounded-lg w-48 mb-6" />
     <div className="grid grid-cols-3 gap-3 mb-4">
-      {[1, 2, 3].map(i => <div key={i} className="bg-zinc-800/60 rounded-2xl p-4 h-20" />)}
+      {[1, 2, 3].map(i => <div key={i} className="bg-white/[0.04] rounded-2xl p-4 h-20" />)}
     </div>
     <div className="grid grid-cols-3 gap-3">
-      {[1, 2, 3].map(i => <div key={i} className="bg-zinc-800/40 rounded-2xl p-4 h-28" />)}
+      {[1, 2, 3].map(i => <div key={i} className="bg-white/[0.03] rounded-2xl p-4 h-28" />)}
     </div>
   </div>
 );
@@ -220,10 +220,10 @@ const SkeletonAnalyticsCard = () => (
 const SkeletonPersonalCard = () => (
   <div className="animate-pulse space-y-4">
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      {[1, 2, 3, 4].map(i => <div key={i} className="bg-zinc-800/60 rounded-2xl h-20" />)}
+      {[1, 2, 3, 4].map(i => <div key={i} className="bg-white/[0.04] rounded-2xl h-20" />)}
     </div>
-    <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-3xl p-6 space-y-3">
-      {[1, 2, 3].map(i => <div key={i} className="bg-zinc-800 rounded-xl h-16" />)}
+    <div className="bg-white/[0.03] border border-white/[0.06] rounded-3xl p-6 space-y-3">
+      {[1, 2, 3].map(i => <div key={i} className="bg-white/[0.05] rounded-xl h-16" />)}
     </div>
   </div>
 );
@@ -248,7 +248,7 @@ const StatusBadge = ({ status }) => (
 const formatDate = (d) =>
   d ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—";
 
-const PersonalAnalytics = ({ user }) => {
+const PersonalAnalytics = ({ user: _user }) => {
   const navigate = useNavigate();
   const [rsvps, setRsvps] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -338,7 +338,7 @@ const PersonalAnalytics = ({ user }) => {
           </div>
 
           {/* Drive history list */}
-          <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-3xl p-6">
+          <div className="glass-card rounded-3xl p-6">
             {/* Tabs */}
             <div className="flex gap-2 mb-6">
               {["upcoming", "past"].map(t => (
@@ -506,7 +506,7 @@ const ClubsAnalytics = () => {
           {analytics.map(({ club, totalDrives, completedDrives, cancelledDrives, completionRate, avgRSVPRate, mostPopularDrive, mostActiveMember }) => (
             <div
               key={club._id}
-              className="bg-zinc-900/50 border border-zinc-800/50 rounded-3xl p-6 hover:border-zinc-700/50 transition-all duration-300"
+              className="glass-card rounded-3xl p-6 hover:border-white/[0.12] hover:-translate-y-0.5 transition-all duration-200"
             >
               {/* Club header */}
               <div className="flex items-center justify-between mb-6">
@@ -746,7 +746,7 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
     return (
       <div className="animate-pulse space-y-4">
         <div className="h-8 bg-zinc-800 rounded-lg w-48 mb-8" />
-        <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-3xl p-6 space-y-4">
+        <div className="glass-card rounded-3xl p-6 space-y-4">
           {[1, 2, 3, 4, 5].map(i => <div key={i} className="bg-zinc-800 rounded-xl h-12" />)}
         </div>
       </div>
@@ -779,7 +779,7 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
       )}
 
       <form onSubmit={handleSave} className="space-y-6">
-        <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-3xl p-6 space-y-4">
+        <div className="glass-card rounded-3xl p-6 space-y-4">
 
           {/* First + Last name */}
           <div className="grid grid-cols-2 gap-4">
@@ -919,7 +919,7 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
         </div>
 
         {/* Change Password */}
-        <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-3xl p-6 space-y-4">
+        <div className="glass-card rounded-3xl p-6 space-y-4">
           <div className="flex items-center gap-2 mb-2">
             <Lock className="w-5 h-5 text-zinc-400" />
             <h2 className="text-base font-semibold text-white">Change Password</h2>
@@ -1060,7 +1060,7 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
 
 /* ─── Page shell ───────────────────────────────────────────────────────── */
 
-const ClubAnalytics = ({ user, onLogout, onUpdateUser }) => {
+const UserSettings = ({ user, onLogout, onUpdateUser }) => {
   const [activeView, setActiveView] = useState("clubs");
 
   return (
@@ -1078,4 +1078,4 @@ const ClubAnalytics = ({ user, onLogout, onUpdateUser }) => {
   );
 };
 
-export default ClubAnalytics;
+export default UserSettings;

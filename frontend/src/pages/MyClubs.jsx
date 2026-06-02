@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { clubsAPI } from "../services/api";
 import { useClubs } from "../hooks/useClubs";
-import { Users, Plus, Crown, Lock, X, TrendingUp } from "lucide-react";
+import { Users, Plus, Crown, Lock, X, TrendingUp, ArrowRight } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 import { SkeletonClubCard } from "../components/Skeleton";
@@ -11,23 +11,18 @@ const MyClubs = ({ user, onLogout }) => {
   const navigate = useNavigate();
   const { clubs, isLoading: loading, refreshClubs } = useClubs();
   const [showJoinModal, setShowJoinModal] = useState(false);
-  const [inviteCode, setInviteCode] = useState("");
-  const [joinError, setJoinError] = useState("");
-  const [joinLoading, setJoinLoading] = useState(false);
+  const [inviteCode, setInviteCode]       = useState("");
+  const [joinError, setJoinError]         = useState("");
+  const [joinLoading, setJoinLoading]     = useState(false);
 
   const sortedClubs = [...clubs].sort((a, b) => {
-    const aIsLeader = a.leader?._id === user?._id || a.leader === user?._id;
-    const bIsLeader = b.leader?._id === user?._id || b.leader === user?._id;
-    if (aIsLeader && !bIsLeader) return -1;
-    if (!aIsLeader && bIsLeader) return 1;
-    return 0;
+    const aL = a.leader?._id === user?._id || a.leader === user?._id;
+    const bL = b.leader?._id === user?._id || b.leader === user?._id;
+    return aL === bL ? 0 : aL ? -1 : 1;
   });
 
   const submitJoinByCode = async () => {
-    if (!inviteCode.trim()) {
-      setJoinError("Please enter an invite code");
-      return;
-    }
+    if (!inviteCode.trim()) { setJoinError("Please enter an invite code"); return; }
     setJoinLoading(true);
     setJoinError("");
     try {
@@ -38,28 +33,27 @@ const MyClubs = ({ user, onLogout }) => {
         setInviteCode("");
       }
     } catch (error) {
-      console.error("Join by code error:", error);
       setJoinError(error.response?.data?.message || "Invalid invite code");
     } finally {
       setJoinLoading(false);
     }
   };
 
-  const closeModal = () => {
-    setShowJoinModal(false);
-    setInviteCode("");
-    setJoinError("");
-  };
+  const closeModal = () => { setShowJoinModal(false); setInviteCode(""); setJoinError(""); };
 
+  /* ── Loading ────────────────────────────────────────────────────────── */
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 text-white">
         <NavBar user={user} onLogout={onLogout} />
         <div className="flex max-w-7xl mx-auto">
           <Sidebar user={user} />
-          <div className="flex-1 min-w-0 p-8">
-            <h1 className="text-4xl font-bold mb-8">My Clubs</h1>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="flex-1 p-6">
+            <div className="mb-6">
+              <p className="section-label mb-1">My Garage</p>
+              <h1 className="text-2xl font-bold">My Clubs</h1>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {Array.from({ length: 4 }).map((_, i) => <SkeletonClubCard key={i} />)}
             </div>
           </div>
@@ -68,47 +62,40 @@ const MyClubs = ({ user, onLogout }) => {
     );
   }
 
-  // Join with Code Modal
+  /* ── Invite-code modal ──────────────────────────────────────────────── */
   if (showJoinModal) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={closeModal}></div>
-        <div className="relative bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-xl" onClick={closeModal} />
+        <div className="relative glass-card p-8 max-w-sm w-full animate-fade-slide-up rounded-3xl">
           <button
             onClick={closeModal}
-            className="absolute top-4 right-4 text-zinc-500 hover:text-white transition"
+            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/[0.07] rounded-lg transition-all"
           >
-            <X size={24} />
+            <X size={16} />
           </button>
 
           <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 bg-gradient-to-br from-red-600 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-red-500/30">
               <Lock className="w-8 h-8 text-white" />
             </div>
-            <h2 className="text-2xl font-bold mb-2">Join with Invite Code</h2>
-            <p className="text-zinc-400 text-sm">
-              Enter the invite code from a club leader to join a private club.
-            </p>
+            <h2 className="text-xl font-bold text-white mb-1">Join with Invite Code</h2>
+            <p className="text-zinc-500 text-sm">Enter the code from a club leader</p>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="invite-code-input" className="block text-sm font-medium text-zinc-300 mb-2">
-                Invite Code
-              </label>
-              <input
-                id="invite-code-input"
-                type="text"
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                placeholder="e.g. HRK707"
-                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 text-center text-lg font-mono tracking-widest text-white placeholder-zinc-500 focus:outline-none focus:border-red-600 transition"
-                autoFocus
-              />
-            </div>
+          <div className="space-y-3">
+            <input
+              id="invite-code-input"
+              type="text"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+              placeholder="e.g. HRK707"
+              className="w-full bg-white/[0.06] border border-white/[0.10] rounded-2xl px-4 py-3.5 text-center text-xl font-mono tracking-widest text-white placeholder-zinc-600 focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/20 transition-all"
+              autoFocus
+            />
 
             {joinError && (
-              <div className="bg-red-900/30 border border-red-600 rounded-xl p-3">
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3">
                 <p className="text-red-400 text-sm text-center">{joinError}</p>
               </div>
             )}
@@ -116,20 +103,23 @@ const MyClubs = ({ user, onLogout }) => {
             <button
               onClick={submitJoinByCode}
               disabled={joinLoading}
-              className="w-full bg-red-600 hover:bg-red-700 py-3 rounded-xl font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full btn-primary py-3 text-sm flex items-center justify-center gap-2"
             >
-              {joinLoading ? "Joining..." : "Join Club"}
+              {joinLoading ? (
+                <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg> Joining…</>
+              ) : "Join Club"}
             </button>
           </div>
 
-          <p className="text-zinc-500 text-xs text-center mt-4">
-            Contact the club leader to get an invite code.
+          <p className="text-zinc-600 text-xs text-center mt-5">
+            Contact the club leader to get an invite code
           </p>
         </div>
       </div>
     );
   }
 
+  /* ── Main page ──────────────────────────────────────────────────────── */
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       <NavBar user={user} onLogout={onLogout} />
@@ -137,86 +127,87 @@ const MyClubs = ({ user, onLogout }) => {
       <div className="flex max-w-7xl mx-auto">
         <Sidebar user={user} />
 
-        <div className="flex-1 max-w-4xl min-h-screen p-8">
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-4xl font-bold">My Clubs</h1>
-            <div className="flex gap-4">
-              <button
-                onClick={() => navigate("/create-club")}
-                className="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-2xl flex items-center gap-2 font-medium"
-              >
-                <Plus size={20} /> Create New Club
-              </button>
+        {/* Main content */}
+        <div className="flex-1 max-w-4xl min-h-screen p-5 md:p-6">
+
+          {/* Header */}
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <p className="section-label mb-1.5">My Garage</p>
+              <h1 className="text-2xl font-bold text-white">My Clubs</h1>
             </div>
+            <button
+              onClick={() => navigate("/create-club")}
+              className="btn-primary px-4 py-2.5 text-sm flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" /> Create Club
+            </button>
           </div>
 
+          {/* Empty state */}
           {clubs.length === 0 ? (
-            <div className="bg-zinc-900 rounded-3xl p-12 text-center">
-              <Users className="w-16 h-16 mx-auto text-zinc-600 mb-4" />
-              <h2 className="text-2xl font-bold mb-2">No Clubs Yet</h2>
-              <p className="text-zinc-400 mb-6">
-                You haven't joined or created any clubs yet.
+            <div className="glass-card py-16 text-center rounded-3xl">
+              <div className="w-16 h-16 bg-white/[0.04] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8 text-zinc-600" />
+              </div>
+              <h2 className="text-lg font-semibold text-white mb-1">No clubs yet</h2>
+              <p className="text-zinc-500 text-sm mb-6 max-w-xs mx-auto">
+                You haven't joined or created any clubs. Start your journey!
               </p>
               <button
                 onClick={() => navigate("/create-club")}
-                className="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-2xl font-medium inline-flex items-center gap-2"
+                className="btn-primary px-5 py-2.5 text-sm inline-flex items-center gap-2"
               >
-                <Plus size={20} /> Create Your First Club
+                <Plus className="w-4 h-4" /> Create Your First Club
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {sortedClubs.map((club) => {
                 const isLeader = club.leader?._id === user?._id || club.leader === user?._id;
                 return (
                   <div
                     key={club._id}
-                    className="bg-zinc-900 rounded-3xl p-6 flex flex-col border border-zinc-800"
+                    className="glass-card p-5 flex flex-col hover:border-white/[0.12] hover:-translate-y-0.5 transition-all duration-200 group rounded-3xl"
                   >
-                    <div className="flex justify-between items-start mb-4">
+                    {/* Club header */}
+                    <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-zinc-800 overflow-hidden flex-shrink-0 border-2 border-zinc-700">
-                        {club.avatar ? (
-                            <img
-                              src={club.avatar}
-                              alt={club.name}
-                              className="w-full h-full object-cover"
-                              onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
-                            />
+                        <div className="w-11 h-11 rounded-xl overflow-hidden ring-1 ring-white/[0.08] group-hover:ring-red-500/20 transition-all shrink-0">
+                          {club.avatar ? (
+                            <img src={club.avatar} alt={club.name} className="w-full h-full object-cover" />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-red-600 to-orange-600">
-                              <span className="text-white font-bold">
-                                {club.name.charAt(0).toUpperCase()}
-                              </span>
+                            <div className="w-full h-full bg-gradient-to-br from-red-600 to-orange-600 flex items-center justify-center">
+                              <span className="text-white font-bold">{club.name.charAt(0)}</span>
                             </div>
                           )}
                         </div>
                         <div>
-                          <h3 className="text-xl font-semibold">{club.name}</h3>
+                          <h3 className="font-semibold text-white text-sm leading-tight">{club.name}</h3>
                           {isLeader && (
-                            <div className="flex items-center gap-1 text-amber-500 text-sm mt-1">
-                              <Crown size={14} /> Leader
-                            </div>
+                            <span className="inline-flex items-center gap-1 text-[11px] text-amber-400 mt-0.5">
+                              <Crown className="w-3 h-3" /> Leader
+                            </span>
                           )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-red-500">
-                          {club.members.length}
-                        </div>
-                        <div className="text-xs text-zinc-500">members</div>
+                      <div className="text-right shrink-0">
+                        <p className="text-lg font-bold text-white">{club.members.length}</p>
+                        <p className="text-[11px] text-zinc-600">members</p>
                       </div>
                     </div>
 
-                    <p className="text-zinc-400 text-sm mb-6 flex-1">
-                      {club.description}
+                    {/* Description */}
+                    <p className="text-xs text-zinc-500 mb-4 flex-1 line-clamp-2 leading-relaxed">
+                      {club.description || "No description provided."}
                     </p>
 
+                    {/* CTA */}
                     <button
                       onClick={() => navigate(`/club/${club._id}`)}
-                      className="w-full bg-red-600 hover:bg-red-700 py-3 rounded-2xl font-medium transition"
+                      className="w-full btn-primary py-2.5 text-sm flex items-center justify-center gap-2"
                     >
-                      View Club
+                      View Club <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 );
@@ -225,69 +216,63 @@ const MyClubs = ({ user, onLogout }) => {
           )}
         </div>
 
-        <div className="w-80 hidden 2xl:block p-6 sticky top-16 h-[calc(100vh-4rem)] overflow-hidden flex flex-col">
-          {/* Your Clubs */}
-          <div className="mb-6">
-            <h3 className="font-semibold mb-4">Your Clubs</h3>
+        {/* Right sidebar */}
+        <div className="w-72 hidden 2xl:flex flex-col p-5 sticky top-[49px] h-[calc(100vh-49px)] overflow-y-auto gap-4">
+
+          {/* Clubs list */}
+          <div>
+            <p className="section-label mb-3">Your Clubs</p>
             {clubs.length === 0 ? (
-              <p className="text-zinc-500 text-sm">No clubs yet</p>
+              <p className="text-zinc-600 text-xs">No clubs yet</p>
             ) : (
-              <div className="space-y-3">
-            {sortedClubs.map((club) => {
+              <div className="space-y-1.5">
+                {sortedClubs.map((club) => {
                   const isLeader = club.leader?._id === user?._id || club.leader === user?._id;
                   return (
-                    <div 
-                      key={club._id} 
-                      className="flex items-center gap-3 p-2 rounded-xl hover:bg-zinc-900/50 transition cursor-pointer"
+                    <button
+                      key={club._id}
                       onClick={() => navigate(`/club/${club._id}`)}
+                      className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/[0.05] group transition-all text-left"
                     >
-                      <div className="w-10 h-10 rounded-full bg-zinc-800 overflow-hidden flex-shrink-0 border border-zinc-700">
+                      <div className="w-8 h-8 rounded-lg overflow-hidden ring-1 ring-white/[0.07] shrink-0">
                         {club.avatar ? (
-                          <img
-                            src={club.avatar}
-                            alt={club.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
-                          />
-                        ) : null}
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-red-600 to-orange-600" style={{ display: club.avatar ? 'none' : 'flex' }}>
-                          <span className="text-white text-xs font-bold">
-                            {club.name.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
+                          <img src={club.avatar} alt={club.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-red-600 to-orange-600 flex items-center justify-center">
+                            <span className="text-white text-xs font-bold">{club.name.charAt(0)}</span>
+                          </div>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1">
-                          <p className="font-medium truncate">{club.name}</p>
-                          {isLeader && <Crown size={12} className="text-amber-500 flex-shrink-0" />}
+                          <p className="text-xs font-medium text-zinc-300 group-hover:text-white transition-colors truncate">{club.name}</p>
+                          {isLeader && <Crown className="w-3 h-3 text-amber-400 shrink-0" />}
                         </div>
-                        <p className="text-xs text-zinc-500">
-                          {club.members.length} members
-                        </p>
+                        <p className="text-[11px] text-zinc-600">{club.members.length} members</p>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
             )}
           </div>
 
-          {/* Quick Stats */}
-          <div className="p-4 bg-gradient-to-br from-zinc-900/50 to-zinc-900/20 rounded-2xl border border-zinc-800/30 mt-auto">
-            <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-              <TrendingUp className="w-3 h-3" />
-              Quick Stats
-            </h3>
-            <div className="grid grid-cols-1 gap-2">
-              <div className="p-2 bg-zinc-800/30 rounded-lg">
-                <p className="text-lg font-bold text-white">{clubs.length}</p>
+          {/* Quick stats */}
+          <div className="glass-subtle p-4 rounded-2xl mt-auto">
+            <div className="flex items-center gap-1.5 mb-3">
+              <TrendingUp className="w-3.5 h-3.5 text-zinc-500" />
+              <p className="section-label">Quick Stats</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-2.5 bg-white/[0.03] rounded-xl">
                 <p className="text-xs text-zinc-500">Clubs Joined</p>
+                <p className="text-sm font-bold text-white">{clubs.length}</p>
               </div>
-              <div className="p-2 bg-zinc-800/30 rounded-lg">
-                <p className="text-lg font-bold text-white">
-                  {clubs.reduce((sum, c) => sum + (c.members?.length || 0), 0)}
-                </p>
+              <div className="flex items-center justify-between p-2.5 bg-white/[0.03] rounded-xl">
                 <p className="text-xs text-zinc-500">Total Members</p>
+                <p className="text-sm font-bold text-white">
+                  {clubs.reduce((s, c) => s + (c.members?.length || 0), 0)}
+                </p>
               </div>
             </div>
           </div>

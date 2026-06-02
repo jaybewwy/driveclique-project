@@ -198,6 +198,11 @@ export const drivesAPI = {
   getMyRSVPs: () => api.get('/drives/my-rsvps'),
 };
 
+export const reportsAPI = {
+  submit: ({ targetType, targetId, reason, details }) =>
+    api.post('/reports', { targetType, targetId, reason, details }),
+};
+
 /**
  * Export the raw axios instance for custom requests
  */
@@ -206,5 +211,6 @@ export default {
   auth: authAPI,
   clubs: clubsAPI,
   drives: drivesAPI,
+  reports: reportsAPI,
   raw: api,
 };

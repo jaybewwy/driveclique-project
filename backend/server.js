@@ -57,6 +57,7 @@ app.use('/api/auth', require('./routes/authentication'));
 app.use('/api/clubs', require('./routes/clubs'));
 app.use('/api/drives', require('./routes/drives'));
 app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/reports', require('./routes/reports'));
 
 // ============================================
 // Error Handling

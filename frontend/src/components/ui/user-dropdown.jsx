@@ -127,12 +127,12 @@ export function UserDropdown({
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
-        className="no-scrollbar w-[290px] rounded-2xl bg-zinc-950 border-zinc-800 p-0 shadow-2xl shadow-black/60"
+        className="no-scrollbar w-[280px] rounded-2xl bg-zinc-950/95 border-white/[0.08] p-0 shadow-glass-lg backdrop-blur-2xl"
         align="end"
         sideOffset={8}
       >
         {/* User header card */}
-        <section className="bg-zinc-900/80 backdrop-blur-lg rounded-2xl p-1 shadow border border-zinc-800/60">
+        <section className="bg-white/[0.04] backdrop-blur-lg rounded-2xl p-1 shadow border border-white/[0.07]">
           <div className="flex items-center gap-3 p-2">
             <div className="relative">
               <Avatar className="size-10 border-2 border-zinc-700">

@@ -604,36 +604,36 @@ const ClubDetail = ({ user, onLogout }) => {
         <Sidebar user={user} />
 
         <div className="flex-1 min-w-0 max-w-4xl min-h-screen p-4 lg:p-6 xl:p-8">
+          {/* Back button */}
           <button
             onClick={() => navigate("/my-clubs")}
-            className="flex items-center gap-2 text-zinc-400 hover:text-white mb-6 transition"
+            className="inline-flex items-center gap-2 text-xs text-zinc-500 hover:text-white mb-5 transition-colors group"
           >
-            <ArrowLeft size={20} />
+            <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
             Back to My Clubs
           </button>
 
-          <div className="mb-8">
-            <div className="flex items-center gap-6">
-              <div className="w-24 h-24 rounded-full bg-zinc-800 overflow-hidden flex-shrink-0 border-4 border-zinc-700">
+          {/* Club hero header */}
+          <div className="relative overflow-hidden glass-card p-5 mb-6 rounded-3xl">
+            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-red-500/8 to-orange-500/5 rounded-full blur-3xl pointer-events-none" />
+            <div className="relative flex items-center gap-4">
+              <div className="w-16 h-16 rounded-2xl overflow-hidden ring-2 ring-white/[0.10] shrink-0">
                 {club.avatar ? (
-                  <img
-                    src={club.avatar}
-                    alt={club.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => { e.target.style.display = 'none'; }}
-                  />
+                  <img src={club.avatar} alt={club.name} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-red-600 to-orange-600">
-                    <span className="text-white text-3xl font-bold">
-                      {club.name?.charAt(0)?.toUpperCase?.()}
-                    </span>
+                    <span className="text-white text-2xl font-bold">{club.name?.charAt(0)?.toUpperCase?.()}</span>
                   </div>
                 )}
               </div>
-              <div>
-                <h1 className="text-4xl font-bold">{club.name}</h1>
-                <p className="text-zinc-400 mt-2">{club.description}</p>
-                {club.location && <p className="text-zinc-500 mt-1">{club.location}</p>}
+              <div className="flex-1 min-w-0">
+                <h1 className="text-xl font-bold text-white leading-tight">{club.name}</h1>
+                {club.description && <p className="text-zinc-400 text-sm mt-1 line-clamp-2">{club.description}</p>}
+                {club.location && (
+                  <p className="text-zinc-500 text-xs mt-1 flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />{club.location}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -657,45 +657,41 @@ const ClubDetail = ({ user, onLogout }) => {
                 </div>
               </div>
 
-              {/* Main Drive Card - New Design */}
+              {/* Main Drive Card */}
               <div
-                className={`bg-zinc-900/50 backdrop-blur-sm rounded-2xl p-4 border border-zinc-800/50 transition-all duration-300 group ${isMember || isLeader ? 'cursor-pointer hover:border-zinc-700/50' : 'cursor-default opacity-80'}`}
+                className={`glass-card p-4 transition-all duration-200 group rounded-2xl ${isMember || isLeader ? 'cursor-pointer hover:border-white/[0.12] hover:-translate-y-0.5' : 'cursor-default opacity-70'}`}
                 onClick={() => (isMember || isLeader) && handleDriveClick(upcomingDrives[0])}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h4 className="font-semibold mb-2 group-hover:text-red-400 transition-colors">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-white group-hover:text-red-400 transition-colors mb-1.5">
                       {upcomingDrives[0].name}
-                    </h4>
-                    <div className="flex items-center gap-4 text-sm text-zinc-400">
+                    </p>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
                       <span className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
-                        {new Date(upcomingDrives[0].date).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
+                        <Calendar className="w-3.5 h-3.5" />
+                        {new Date(upcomingDrives[0].date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                       </span>
                       {upcomingDrives[0].time && (
                         <span className="flex items-center gap-1">
-                          <Clock className="w-4 h-4" />
+                          <Clock className="w-3.5 h-3.5" />
                           {upcomingDrives[0].time}
                         </span>
                       )}
                       {upcomingDrives[0].location && (
                         <span className="flex items-center gap-1">
-                          <MapPin className="w-4 h-4" />
-                          {upcomingDrives[0].location}
+                          <MapPin className="w-3.5 h-3.5" />
+                          <span className="truncate max-w-[140px]">{upcomingDrives[0].location}</span>
                         </span>
                       )}
                       <span className="flex items-center gap-1">
-                        <Users className="w-4 h-4" />
+                        <Users className="w-3.5 h-3.5" />
                         {driveRSVPCounts[upcomingDrives[0]?._id]?.going ?? 0} going
                       </span>
                     </div>
                   </div>
-                  <div className="w-12 h-12 bg-gradient-to-br from-red-500/20 to-orange-500/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <ArrowRight className="w-5 h-5 text-red-500" />
+                  <div className="w-8 h-8 bg-white/[0.04] group-hover:bg-red-500/15 rounded-xl flex items-center justify-center transition-all shrink-0">
+                    <ArrowRight className="w-3.5 h-3.5 text-zinc-600 group-hover:text-red-400" />
                   </div>
                 </div>
               </div>

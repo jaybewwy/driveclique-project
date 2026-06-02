@@ -36,7 +36,131 @@
   --ring:   220 38  38;  /* red-600  */
 }
 
+/* ─── Base ────────────────────────────────────────────────────────────────── */
 body {
   background-color: rgb(var(--background));
   color: rgb(var(--foreground));
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Custom scrollbar ────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(63, 63, 70, 0.8); /* zinc-700 */
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(82, 82, 91, 0.9); /* zinc-600 */
+}
+
+/* ─── Keyframe animations ─────────────────────────────────────────────────── */
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50%       { background-position: 100% 50%; }
+}
+
+@keyframes fade-slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  from { background-position: -200% center; }
+  to   { background-position: 200% center; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-6px); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(220, 38, 38, 0.2); }
+  50%       { box-shadow: 0 0 40px rgba(220, 38, 38, 0.4); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ─── Utility classes ─────────────────────────────────────────────────────── */
+@layer utilities {
+  /* Glass card — the new standard card surface */
+  .glass-card {
+    @apply bg-white/[0.04] backdrop-blur-xl border border-white/[0.07] rounded-3xl shadow-xl shadow-black/30;
+  }
+
+  /* Subtle glass — for sidebars, secondary panels */
+  .glass-subtle {
+    @apply bg-white/[0.02] backdrop-blur-lg border border-white/[0.05] rounded-2xl;
+  }
+
+  /* Section label — uppercase tracking label above sections */
+  .section-label {
+    @apply text-[11px] font-semibold uppercase tracking-widest text-zinc-500;
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent;
+  }
+
+  /* Primary CTA button */
+  .btn-primary {
+    @apply bg-gradient-to-r from-red-600 to-orange-600 text-white font-semibold
+           shadow-lg shadow-red-500/25 hover:shadow-red-500/40
+           hover:scale-[1.02] active:scale-[0.98]
+           transition-all duration-200 rounded-2xl;
+  }
+
+  /* Ghost button */
+  .btn-ghost {
+    @apply bg-white/[0.06] border border-white/[0.08] text-zinc-300
+           hover:bg-white/[0.10] hover:border-white/[0.14] hover:text-white
+           transition-all duration-200 rounded-2xl;
+  }
+
+  /* Skeleton shimmer */
+  .skeleton {
+    @apply bg-gradient-to-r from-zinc-800 via-zinc-700 to-zinc-800
+           bg-[length:200%_100%] animate-[shimmer_1.5s_ease-in-out_infinite];
+  }
+
+  /* Entrance animation */
+  .animate-fade-slide-up {
+    animation: fade-slide-up 0.3s ease-out forwards;
+  }
+
+  /* Float animation */
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  /* Glow pulse */
+  .animate-glow {
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+
+  /* Ambient gradient background */
+  .ambient-bg {
+    background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(220, 38, 38, 0.08) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 80% 100%, rgba(249, 115, 22, 0.05) 0%, transparent 60%),
+                rgb(9, 9, 11);
+  }
+
+  /* Gradient border card */
+  .gradient-border {
+    background: linear-gradient(rgb(9,9,11), rgb(9,9,11)) padding-box,
+                linear-gradient(135deg, rgba(220,38,38,0.3), rgba(249,115,22,0.15), rgba(63,63,70,0.2)) border-box;
+    border: 1px solid transparent;
+  }
 }

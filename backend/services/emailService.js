@@ -104,6 +104,20 @@ const emailTemplates = {
       <p style="color:#aaa">Log in to view the drive details and we'll see you there!</p>`),
   }),
 
+  reportNotification: ({ reporterUsername, targetType, targetName, reason, details, clubName }) => ({
+    subject: `New report in ${clubName}`,
+    html: wrap(`
+      <p>A member has submitted a content report in <strong>${clubName}</strong>.</p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0">
+        <tr><td style="padding:8px;color:#aaa">Reported by</td><td style="padding:8px"><strong>@${reporterUsername}</strong></td></tr>
+        <tr><td style="padding:8px;color:#aaa">Content type</td><td style="padding:8px">${targetType}</td></tr>
+        <tr><td style="padding:8px;color:#aaa">Content</td><td style="padding:8px">${targetName}</td></tr>
+        <tr><td style="padding:8px;color:#aaa">Reason</td><td style="padding:8px">${reason}</td></tr>
+        ${details ? `<tr><td style="padding:8px;color:#aaa">Details</td><td style="padding:8px">${details}</td></tr>` : ''}
+      </table>
+      <p style="color:#aaa;font-size:13px">Log in to review and take action on this report.</p>`),
+  }),
+
   passwordReset: ({ resetUrl, username }) => ({
     subject: 'Reset your DriveClique password',
     html: wrap(`

@@ -36,87 +36,78 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
 
   const handleDropdownAction = (action) => {
     switch (action) {
-      case "profile":
-        navigate("/profile");
-        break;
-      case "notifications":
-        navigate("/settings");
-        break;
-      case "settings":
-        navigate("/settings");
-        break;
-      case "my-clubs":
-        navigate("/my-clubs");
-        break;
-      case "find-club":
-        navigate("/find-club");
-        break;
-      case "dashboard":
-        navigate("/dashboard");
-        break;
-      case "create-club":
-        navigate("/create-club");
-        break;
-      case "logout":
-        onLogout();
-        break;
-      default:
-        break;
+      case "profile":      navigate("/profile");      break;
+      case "notifications":navigate("/settings");     break;
+      case "settings":     navigate("/settings");     break;
+      case "my-clubs":     navigate("/my-clubs");     break;
+      case "find-club":    navigate("/find-club");    break;
+      case "dashboard":    navigate("/dashboard");    break;
+      case "create-club":  navigate("/create-club");  break;
+      case "logout":       onLogout();                break;
+      default:             break;
     }
   };
 
   return (
     <>
-      <nav className="bg-black/80 backdrop-blur-xl border-b border-zinc-800/50 px-4 py-3 flex items-center justify-between sticky top-0 z-50 transition-all duration-300">
+      {/* ── Main nav bar ──────────────────────────────────────────────── */}
+      <nav className="bg-zinc-950/90 backdrop-blur-2xl border-b border-white/[0.06] px-4 sm:px-6 py-2.5 flex items-center justify-between sticky top-0 z-50 transition-all duration-300">
+
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 bg-gradient-to-br from-red-600 to-orange-600 rounded-xl flex items-center justify-center cursor-pointer shadow-lg shadow-red-500/20 hover:shadow-red-500/40 transition-all duration-300 hover:scale-105"
+          <button
             onClick={() => navigate("/dashboard")}
+            className="w-8 h-8 bg-gradient-to-br from-red-600 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-500/30 hover:shadow-red-500/50 hover:scale-105 active:scale-95 transition-all duration-200"
+            aria-label="Go to dashboard"
           >
-            <Car className="w-5 h-5 text-white" />
-          </div>
-          <h1
-            className="text-xl font-bold bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent cursor-pointer hidden sm:block"
+            <Car className="w-4 h-4 text-white" />
+          </button>
+          <button
             onClick={() => navigate("/dashboard")}
+            className="hidden sm:flex items-center gap-1.5 group"
+            aria-label="DriveClique home"
           >
-            DriveClique
-          </h1>
+            <span className="text-base font-bold tracking-tight text-white group-hover:text-zinc-200 transition-colors">Drive</span>
+            <span className="text-base font-bold tracking-tight bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">Clique</span>
+          </button>
         </div>
 
         {/* Search Bar — desktop */}
         {showSearch && (
-          <div className="flex-1 max-w-xl mx-4 hidden md:block">
-            <div className={`relative transition-all duration-300 ${searchFocused ? "scale-[1.02]" : ""}`}>
+          <div className="flex-1 max-w-md mx-6 hidden md:block">
+            <div className={`relative transition-all duration-200 ${searchFocused ? "scale-[1.01]" : ""}`}>
+              <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors duration-200 ${searchFocused ? "text-red-400" : "text-zinc-500"}`} />
               <input
                 type="text"
-                placeholder="Search clubs, drives, or members..."
+                placeholder="Search clubs, drives, members…"
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setSearchFocused(false)}
-                className="w-full bg-zinc-900/50 border border-zinc-700/50 rounded-full py-3 pl-12 pr-4 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-red-500/50 focus:bg-zinc-900 focus:ring-2 focus:ring-red-500/10 transition-all duration-300"
+                className="w-full h-9 bg-white/[0.06] border border-white/[0.08] rounded-full pl-10 pr-4 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-red-500/40 focus:bg-white/[0.09] focus:ring-2 focus:ring-red-500/10 transition-all duration-200"
               />
-              <Search className={`absolute left-4 top-3.5 w-5 h-5 transition-colors duration-300 ${searchFocused ? "text-red-500" : "text-zinc-500"}`} />
             </div>
           </div>
         )}
 
-        {/* Mobile Search icon */}
-        <button className="md:hidden p-2 hover:bg-zinc-800 rounded-full transition" onClick={() => {}}>
-          <Search className="w-5 h-5 text-zinc-400" />
-        </button>
+        {/* Mobile search icon */}
+        {showSearch && (
+          <button className="md:hidden p-2 text-zinc-400 hover:text-white hover:bg-white/[0.06] rounded-lg transition-all duration-200">
+            <Search className="w-4.5 h-4.5" />
+          </button>
+        )}
 
         {/* Right-side actions */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+
           {/* Notification Bell */}
           <div className="relative hidden sm:flex" ref={notifBellRef}>
             <button
               onClick={() => setShowNotifPanel((p) => !p)}
-              className="relative p-2.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
-              title="Notifications"
+              className="relative w-9 h-9 flex items-center justify-center rounded-xl text-zinc-400 hover:text-white hover:bg-white/[0.07] transition-all duration-200"
+              aria-label="Notifications"
             >
-              <Bell className="w-5 h-5" />
+              <Bell className="w-4.5 h-4.5" />
               {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                <span className="absolute top-1 right-1 min-w-[16px] h-[16px] bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
                   {unreadCount > 99 ? "99+" : unreadCount}
                 </span>
               )}
@@ -129,11 +120,15 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
                 markAllRead={markAllRead}
                 markOneRead={markOneRead}
                 onClose={() => setShowNotifPanel(false)}
+                excludeRef={notifBellRef}
               />
             )}
           </div>
 
-          {/* User avatar dropdown — desktop */}
+          {/* Divider */}
+          <div className="hidden sm:block w-px h-5 bg-white/[0.08] mx-1" />
+
+          {/* User dropdown — desktop */}
           <div className="hidden sm:flex items-center">
             <UserDropdown
               user={userDropdownData}
@@ -145,45 +140,55 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
 
           {/* Mobile hamburger */}
           <button
-            className="sm:hidden p-2 hover:bg-zinc-800 rounded-xl transition"
+            className="sm:hidden w-9 h-9 flex items-center justify-center hover:bg-white/[0.07] rounded-xl transition-all duration-200 text-zinc-300"
             onClick={() => setShowMobileMenu(!showMobileMenu)}
+            aria-label="Toggle menu"
           >
-            {showMobileMenu ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {showMobileMenu ? <X className="w-4.5 h-4.5" /> : <Menu className="w-4.5 h-4.5" />}
           </button>
         </div>
       </nav>
 
-      {/* Mobile menu */}
+      {/* ── Mobile fullscreen menu ─────────────────────────────────────── */}
       {showMobileMenu && (
-        <div className="sm:hidden fixed inset-0 top-16 bg-black/95 backdrop-blur-xl z-40">
-          <div className="p-4 space-y-2">
+        <div className="sm:hidden fixed inset-0 top-[49px] bg-zinc-950/98 backdrop-blur-2xl z-40 animate-fade-slide-up">
+          <div className="p-4 space-y-1">
+
             {/* User info header */}
-            <div className="flex items-center gap-3 px-4 py-3 mb-2 border-b border-zinc-800">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-red-600 to-orange-600 flex items-center justify-center text-white font-semibold text-sm">
+            <div className="flex items-center gap-3 px-4 py-3.5 mb-3 bg-white/[0.04] border border-white/[0.07] rounded-2xl">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-600 to-orange-600 flex items-center justify-center text-white font-semibold text-sm shadow-lg shadow-red-500/20">
                 {getInitials(user)}
               </div>
               <div>
-                <p className="text-white text-sm font-medium">{userDropdownData.name}</p>
-                <p className="text-zinc-500 text-xs">{userDropdownData.username}</p>
+                <p className="text-white text-sm font-semibold leading-tight">{userDropdownData.name}</p>
+                <p className="text-zinc-500 text-xs leading-tight mt-0.5">{userDropdownData.username}</p>
               </div>
             </div>
 
-            <button onClick={() => { navigate("/dashboard"); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-800 rounded-xl transition text-white">
-              <Home className="w-5 h-5" /><span>Dashboard</span>
-            </button>
-            <button onClick={() => { navigate("/my-clubs"); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-800 rounded-xl transition text-white">
-              <Users className="w-5 h-5" /><span>My Clubs</span>
-            </button>
-            <button onClick={() => { navigate("/find-club"); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-800 rounded-xl transition text-white">
-              <Search className="w-5 h-5" /><span>Find Clubs</span>
-            </button>
-            <button onClick={() => { navigate("/profile"); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-800 rounded-xl transition text-white">
-              <Settings className="w-5 h-5" /><span>Profile &amp; Settings</span>
-            </button>
+            {[
+              { label: "Dashboard",       icon: Home,    path: "/dashboard" },
+              { label: "My Clubs",        icon: Users,   path: "/my-clubs" },
+              { label: "Find Clubs",      icon: Search,  path: "/find-club" },
+              { label: "Profile & Settings", icon: Settings, path: "/profile" },
+            ].map(({ label, icon: Icon, path }) => (
+              <button
+                key={path}
+                onClick={() => { navigate(path); setShowMobileMenu(false); }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-zinc-300 hover:text-white hover:bg-white/[0.06] rounded-xl transition-all duration-200"
+              >
+                <Icon className="w-4.5 h-4.5 text-zinc-500" />
+                <span className="text-sm font-medium">{label}</span>
+              </button>
+            ))}
 
-            <div className="border-t border-zinc-800 my-1" />
-            <button onClick={() => { onLogout(); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 text-red-400 rounded-xl transition">
-              <LogOut className="w-5 h-5" /><span>Log out</span>
+            <div className="border-t border-white/[0.06] my-2 mx-4" />
+
+            <button
+              onClick={() => { onLogout(); setShowMobileMenu(false); }}
+              className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all duration-200"
+            >
+              <LogOut className="w-4.5 h-4.5" />
+              <span className="text-sm font-medium">Log out</span>
             </button>
           </div>
         </div>
