@@ -668,7 +668,9 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
       if (res.data.success) {
         setFormData(prev => ({ ...prev, username: res.data.user.username }));
         setUsernameChangedAt(res.data.user.usernameChangedAt);
+        applyCooldown(res.data.user.usernameChangedAt);
         setEditingUsername(false);
+        setNewUsername("");
         setMessage({ type: "success", text: "Username updated successfully!" });
         if (onUpdateUser) onUpdateUser({ username: res.data.user.username });
       }

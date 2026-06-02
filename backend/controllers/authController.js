@@ -404,8 +404,11 @@ const deleteAccount = asyncHandler(async (req, res) => {
     await Club.deleteMany({ _id: { $in: soloClubIds } });
   }
 
-  // Remove user from all other clubs' member arrays
-  await Club.updateMany({ members: userId }, { $pull: { members: userId } });
+  // Remove user from all other clubs' member arrays and pending join requests
+  await Club.updateMany(
+    { $or: [{ members: userId }, { 'joinRequests.user': userId }] },
+    { $pull: { members: userId, joinRequests: { user: userId } } }
+  );
 
   // Delete all personal RSVPs, refresh tokens, and the user document
   await RSVP.deleteMany({ user: userId });

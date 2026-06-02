@@ -1,4 +1,4 @@
-import { Car, Search, Home, Users, Settings, Bell, Menu, X } from "lucide-react";
+import { Car, Search, Home, Users, Settings, Bell, Menu, X, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useRef } from "react";
 import { useNotifications } from "../hooks/useNotifications";
@@ -37,8 +37,10 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
   const handleDropdownAction = (action) => {
     switch (action) {
       case "profile":
-      case "notifications":
         navigate("/profile");
+        break;
+      case "notifications":
+        navigate("/settings");
         break;
       case "settings":
         navigate("/settings");
@@ -181,7 +183,7 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
 
             <div className="border-t border-zinc-800 my-1" />
             <button onClick={() => { onLogout(); setShowMobileMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 text-red-400 rounded-xl transition">
-              <Car className="w-5 h-5" /><span>Log out</span>
+              <LogOut className="w-5 h-5" /><span>Log out</span>
             </button>
           </div>
         </div>

@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   User, Users, Search, Settings, Bell, Car,
   Zap, Moon, HelpCircle, ExternalLink, LogOut,
-  Calendar, PlusCircle, Shield,
+  Calendar, PlusCircle,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";

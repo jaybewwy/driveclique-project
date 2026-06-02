@@ -84,9 +84,9 @@ const Dashboard = ({ user, onLogout }) => {
           const drivesWithRSVPs = await Promise.all(
             upcoming.map(async (drive) => {
               try {
-                const rsvpResponse = await drivesAPI.getAttendees(drive._id);
+                const rsvpResponse = await drivesAPI.getRSVPStatus(drive._id);
                 if (rsvpResponse.data.success) {
-                  return { ...drive, attendees: rsvpResponse.data.stats.going || 0 };
+                  return { ...drive, attendees: rsvpResponse.data.counts?.going || 0 };
                 }
               } catch {
                 // default to 0 if unavailable

@@ -54,7 +54,6 @@ const createDrive = asyncHandler(async (req, res) => {
   // Notify all club members about the new drive (SSE + email)
   const driveClub = await Club.findById(clubId).select('members');
   if (driveClub) {
-    const User = require('../models/user');
     // Only email members with a verified email (emailVerified !== false preserves existing accounts)
     const verifiedMembers = await User.find({
       _id: { $in: driveClub.members },
@@ -207,7 +206,6 @@ const rsvpToDrive = asyncHandler(async (req, res) => {
           message: `A spot opened up — you're now confirmed for "${drive.name}"!`,
           data: { driveId }
         });
-        const User = require('../models/user');
         const promoted = await User.findById(nextInLine.user).select('email emailVerified');
         if (promoted?.emailVerified !== false) {
           const tpl = emailTemplates.waitlistPromoted({
@@ -220,11 +218,13 @@ const rsvpToDrive = asyncHandler(async (req, res) => {
       }
     }
 
-    notify(drive.createdBy.toString(), {
-      type: 'RSVP_UPDATED',
-      message: `A member updated their RSVP to "${status}" for "${drive.name}"`,
-      data: { driveId, status }
-    });
+    if (drive.createdBy) {
+      notify(drive.createdBy.toString(), {
+        type: 'RSVP_UPDATED',
+        message: `A member updated their RSVP to "${status}" for "${drive.name}"`,
+        data: { driveId, status }
+      });
+    }
     return res.json({ success: true, message: `RSVP updated to ${status}`, rsvp });
   }
 
@@ -232,11 +232,13 @@ const rsvpToDrive = asyncHandler(async (req, res) => {
   rsvp = new RSVP({ drive: driveId, user: userId, status });
   await rsvp.save();
 
-  notify(drive.createdBy.toString(), {
-    type: 'RSVP_NEW',
-    message: `A member RSVPed "${status}" to "${drive.name}"`,
-    data: { driveId, status }
-  });
+  if (drive.createdBy) {
+    notify(drive.createdBy.toString(), {
+      type: 'RSVP_NEW',
+      message: `A member RSVPed "${status}" to "${drive.name}"`,
+      data: { driveId, status }
+    });
+  }
 
   res.json({ success: true, message: `You are now marked as ${status}`, rsvp });
 });
@@ -276,7 +278,6 @@ const cancelDrive = asyncHandler(async (req, res) => {
   await drive.save();
 
   // Notify club members about the cancellation (SSE + email)
-  const User = require('../models/user');
   const cancelVerifiedMembers = await User.find({
     _id: { $in: drive.club.members },
     emailVerified: { $ne: false }
