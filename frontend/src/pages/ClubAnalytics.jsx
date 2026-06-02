@@ -5,7 +5,7 @@ import {
   Car, Star, Award, AlertCircle, Plus,
   Home, User as UserIcon, ChevronDown, ChevronRight,
   MapPin, Clock, XCircle, ThumbsUp,
-  Save, X, ShieldAlert, Pencil
+  Save, X, ShieldAlert, Pencil, Lock
 } from "lucide-react";
 import NavBar from "../components/NavBar";
 import { drivesAPI, authAPI, getErrorMessage } from "../services/api";
@@ -623,6 +623,11 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
   const [usernameError,    setUsernameError]    = useState("");
   const [changingUsername, setChangingUsername] = useState(false);
 
+  const [pwForm, setPwForm]     = useState({ current: "", new: "", confirm: "" });
+  const [pwError, setPwError]   = useState("");
+  const [pwSuccess, setPwSuccess] = useState("");
+  const [changingPw, setChangingPw] = useState(false);
+
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletePassword, setDeletePassword]   = useState("");
   const [deleteError, setDeleteError]         = useState("");
@@ -699,6 +704,23 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
       setMessage({ type: "error", text: getErrorMessage(err) });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    setPwError("");
+    setPwSuccess("");
+    if (pwForm.new.length < 6) { setPwError("New password must be at least 6 characters."); return; }
+    if (pwForm.new !== pwForm.confirm) { setPwError("Passwords do not match."); return; }
+    setChangingPw(true);
+    try {
+      await authAPI.changePassword(pwForm.current, pwForm.new);
+      setPwForm({ current: "", new: "", confirm: "" });
+      setPwSuccess("Password updated successfully!");
+    } catch (err) {
+      setPwError(getErrorMessage(err));
+    } finally {
+      setChangingPw(false);
     }
   };
 
@@ -894,6 +916,68 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
             <Save size={18} />
             {saving ? "Saving…" : "Save Changes"}
           </button>
+        </div>
+
+        {/* Change Password */}
+        <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-3xl p-6 space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Lock className="w-5 h-5 text-zinc-400" />
+            <h2 className="text-base font-semibold text-white">Change Password</h2>
+          </div>
+
+          {pwSuccess && (
+            <div className="p-3 rounded-xl bg-green-900/30 border border-green-600">
+              <p className="text-green-400 text-sm">{pwSuccess}</p>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-300 mb-2">Current Password</label>
+            <input
+              type="password"
+              value={pwForm.current}
+              onChange={e => { setPwForm(p => ({ ...p, current: e.target.value })); setPwError(""); setPwSuccess(""); }}
+              placeholder="Enter current password"
+              className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 transition-colors"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-300 mb-2">New Password</label>
+            <input
+              type="password"
+              value={pwForm.new}
+              onChange={e => { setPwForm(p => ({ ...p, new: e.target.value })); setPwError(""); setPwSuccess(""); }}
+              placeholder="At least 6 characters"
+              className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 transition-colors"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-300 mb-2">Confirm New Password</label>
+            <input
+              type="password"
+              value={pwForm.confirm}
+              onChange={e => { setPwForm(p => ({ ...p, confirm: e.target.value })); setPwError(""); setPwSuccess(""); }}
+              placeholder="Re-enter new password"
+              className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 transition-colors"
+              onKeyDown={e => e.key === "Enter" && !changingPw && handleChangePassword()}
+            />
+          </div>
+
+          {pwError && <p className="text-red-400 text-sm">{pwError}</p>}
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleChangePassword}
+              disabled={changingPw || !pwForm.current || !pwForm.new || !pwForm.confirm}
+              className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-orange-600 hover:opacity-90 px-6 py-2.5 rounded-2xl font-medium text-sm transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Lock size={15} />
+              {changingPw ? "Updating…" : "Update Password"}
+            </button>
+          </div>
         </div>
 
         {/* Danger Zone */}

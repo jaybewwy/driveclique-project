@@ -150,6 +150,7 @@ export const authAPI = {
   resendVerification: () => api.post('/auth/resend-verification'),
   deleteAccount: (password) => api.delete('/auth/account', { data: { password } }),
   changeUsername: (username) => api.put('/auth/username', { username }),
+  changePassword: (currentPassword, newPassword) => api.put('/auth/password', { currentPassword, newPassword }),
 };
 
 /**

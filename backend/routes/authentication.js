@@ -17,6 +17,7 @@ const {
   resendVerification,
   deleteAccount,
   changeUsername,
+  changePassword,
 } = require('../controllers/authController');
 
 const loginLimiter = rateLimit({
@@ -234,6 +235,21 @@ router.put(
     username: { required: true, type: 'string', minLength: 3, maxLength: 30 },
   }),
   changeUsername
+);
+
+/**
+ * @route   PUT /api/auth/password
+ * @desc    Change password while logged in
+ * @access  Private
+ */
+router.put(
+  '/password',
+  protect,
+  validateInput({
+    currentPassword: { required: true, type: 'string', minLength: 1 },
+    newPassword:     { required: true, type: 'string', minLength: 6, maxLength: 100 },
+  }),
+  changePassword
 );
 
 module.exports = router;

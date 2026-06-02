@@ -419,6 +419,25 @@ const deleteAccount = asyncHandler(async (req, res) => {
 });
 
 /**
+ * PUT /api/auth/password — Change password while logged in
+ * @access Private
+ */
+const changePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  const user = await User.findById(req.user.id);
+  if (!user) throw new AppError('User not found', 404);
+
+  const match = await bcrypt.compare(currentPassword, user.password);
+  if (!match) throw new AppError('Current password is incorrect.', 401);
+
+  user.password = newPassword;
+  await user.save(); // pre-save hook re-hashes when password is modified
+
+  res.json({ success: true, message: 'Password updated successfully.' });
+});
+
+/**
  * PUT /api/auth/username — Change username (once per 60 days)
  * @access Private
  */
@@ -477,4 +496,5 @@ module.exports = {
   resendVerification,
   deleteAccount,
   changeUsername,
+  changePassword,
 };
