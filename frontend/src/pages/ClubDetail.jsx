@@ -136,29 +136,26 @@ const ClubDetail = ({ user, onLogout }) => {
     r => r.user?.toString() === userId && r.status === 'pending'
   ) ?? false;
 
-  // Pre-fetch RSVP counts for all upcoming drives once they are loaded,
-  // so the drive cards show live counts immediately (before the modal is opened).
+  // Pre-fetch RSVP counts for all upcoming drives in parallel once drives load.
   useEffect(() => {
     if (drives.length === 0) return;
     const upcomingIds = drives
       .filter(d => !d.isCancelled && !d.isCompleted && new Date(d.date) >= new Date())
       .map(d => d._id);
+    if (upcomingIds.length === 0) return;
 
-    upcomingIds.forEach(driveId => {
-      drivesAPI.getRSVPStatus(driveId)
-        .then(res => {
-          if (res.data?.success) {
-            setDriveRSVPCounts(prev => ({
-              ...prev,
-              [driveId]: {
-                going: res.data.counts.going,
-                maybe: res.data.counts.maybe,
-                notGoing: res.data.counts.notGoing
-              }
-            }));
-          }
-        })
-        .catch(() => {});
+    Promise.all(
+      upcomingIds.map(driveId =>
+        drivesAPI.getRSVPStatus(driveId)
+          .then(res => res.data?.success ? { driveId, counts: res.data.counts } : null)
+          .catch(() => null)
+      )
+    ).then(results => {
+      const update = {};
+      results.forEach(r => {
+        if (r) update[r.driveId] = { going: r.counts.going, maybe: r.counts.maybe, notGoing: r.counts.notGoing };
+      });
+      setDriveRSVPCounts(prev => ({ ...prev, ...update }));
     });
   }, [drives]);
 

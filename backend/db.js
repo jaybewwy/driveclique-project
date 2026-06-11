@@ -1,12 +1,13 @@
 const mongoose = require('mongoose');
+const logger = require('./utils/logger');
 
 const connectDB = async () => {
     try {
         await mongoose.connect(process.env.MONGO_URI);
-        console.log('MongoDB Connected...');
+        logger.info('MongoDB connected', { uri: process.env.MONGO_URI?.replace(/\/\/.*@/, '//***@') });
     } catch (error) {
-        console.error('MongoDB Connection Error:', error.message);
-        process.exit(1); // Stops the app if connection fails
+        logger.error('MongoDB connection failed', { error: error.message });
+        process.exit(1);
     }
 };
 

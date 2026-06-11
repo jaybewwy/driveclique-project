@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const logger = require('../utils/logger');
 
 const FROM = process.env.EMAIL_FROM || 'DriveClique <noreply@driveclique.app>';
 
@@ -28,7 +29,7 @@ const sendEmail = async ({ to, subject, html }) => {
   try {
     await transporter.sendMail({ from: FROM, to, subject, html });
   } catch (err) {
-    console.error('[Email] Failed to send to', to, '—', err.message);
+    logger.error('Email send failed', { to, error: err.message });
   }
 };
 

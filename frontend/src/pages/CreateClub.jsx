@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Lock, FileText } from "lucide-react";
 import { clubsAPI, getErrorMessage } from "../services/api";
 import { LocationSearch } from "../components/ui/location-search";
+import { useClubs } from "../hooks/useClubs";
 
 const CreateClub = () => {
   const navigate = useNavigate();
+  const { addClub } = useClubs();
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -46,13 +48,9 @@ const CreateClub = () => {
       });
 
       if (response.data.success) {
+        addClub(response.data.club);
         setSuccess("Club created successfully! Redirecting to club page...");
-        setFormData({
-          name: "",
-          description: "",
-          location: "",
-          maxMembers: "",
-        });
+        setFormData({ name: "", description: "", location: "", maxMembers: "" });
         setTimeout(() => {
           navigate(`/club/${response.data.club._id}`);
         }, 2000);

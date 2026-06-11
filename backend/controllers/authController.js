@@ -200,7 +200,7 @@ const registerUser = asyncHandler(async (req, res) => {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const verifyUrl = `${frontendUrl}/verify-email?token=${rawVerifyToken}`;
   const { subject, html } = emailTemplates.emailVerification({ verifyUrl, username: user.username });
-  await sendEmail({ to: user.email, subject, html });
+  sendEmail({ to: user.email, subject, html }); // fire-and-forget — user gets token immediately
 
   const [token, refreshToken] = await Promise.all([
     Promise.resolve(generateAccessToken(user._id)),
@@ -288,7 +288,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
   const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`;
 
   const { subject, html } = emailTemplates.passwordReset({ resetUrl, username: user.username });
-  await sendEmail({ to: user.email, subject, html });
+  sendEmail({ to: user.email, subject, html }); // fire-and-forget
 
   return genericResponse();
 });
@@ -361,7 +361,7 @@ const resendVerification = asyncHandler(async (req, res) => {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const verifyUrl = `${frontendUrl}/verify-email?token=${rawToken}`;
   const { subject, html } = emailTemplates.emailVerification({ verifyUrl, username: user.username });
-  await sendEmail({ to: user.email, subject, html });
+  sendEmail({ to: user.email, subject, html }); // fire-and-forget
 
   res.json({ success: true, message: 'Verification email sent!' });
 });

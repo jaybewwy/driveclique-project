@@ -1,8 +1,11 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
 const dotenv = require('dotenv');
 const connectDB = require('./db');
 const { errorHandler } = require('./middleware/errorHandler');
+const logger = require('./utils/logger');
 
 // Load environment variables
 dotenv.config();
@@ -15,6 +18,20 @@ const app = express();
 // ============================================
 // Middleware
 // ============================================
+
+// Attach a unique request ID to every incoming request for log correlation
+app.use((req, _res, next) => {
+  req.id = require('crypto').randomUUID();
+  next();
+});
+
+// Security headers (CSP, X-Frame-Options, etc.)
+app.use(helmet());
+
+// HTTP request logging — routed through winston so all logs share one format
+app.use(morgan(':method :url :status :res[content-length]b :response-time ms', {
+  stream: { write: (msg) => logger.http(msg.trim()) },
+}));
 
 // Enable CORS — allow browser clients and Capacitor WebView origins.
 // iOS Capacitor uses 'capacitor://localhost'; Android uses 'http://localhost'.
@@ -36,14 +53,6 @@ app.use(express.json({ limit: '50mb' }));
 
 // Parse URL-encoded request bodies
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-// Request logging middleware (development only)
-if (process.env.NODE_ENV === 'development') {
-  app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-    next();
-  });
-}
 
 // ============================================
 // Routes
@@ -88,32 +97,25 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
 
 const server = app.listen(PORT, () => {
-  console.log(`
-╔══════════════════════════════════════════╗
-║                                          ║
-║   DriveClique API Server                 ║
-║                                          ║
-║   Environment: ${process.env.NODE_ENV || 'development'}${' '.repeat(27 - (process.env.NODE_ENV || 'development').length)}║
-║   Port: ${PORT}${' '.repeat(32 - String(PORT).length)}║
-║   URL: http://localhost:${PORT}${' '.repeat(17 - String(PORT).length)}║
-║                                          ║
-╚══════════════════════════════════════════╝
-  `);
+  logger.info('DriveClique API started', {
+    env: process.env.NODE_ENV || 'development',
+    port: PORT,
+    url: `http://localhost:${PORT}`,
+  });
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully...');
+  logger.info('SIGTERM received, shutting down gracefully');
   server.close(() => {
-    console.log('Server closed');
+    logger.info('Server closed');
     process.exit(0);
   });
 });
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Promise Rejection:', err);
-  // In development, we might want to shut down
+  logger.error('Unhandled Promise Rejection', { message: err.message, stack: err.stack });
   if (process.env.NODE_ENV === 'production') {
     server.close(() => process.exit(1));
   }

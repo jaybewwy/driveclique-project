@@ -71,4 +71,9 @@ const ClubSchema = new mongoose.Schema({
   }]
 }, { timestamps: true });
 
+// leader is queried heavily: getLeaderDashboard, analytics, drive ownership checks
+ClubSchema.index({ leader: 1 });
+// members array is used in $in lookups (getUserClubs, analytics member counts)
+ClubSchema.index({ members: 1 });
+
 module.exports = mongoose.model('Club', ClubSchema);

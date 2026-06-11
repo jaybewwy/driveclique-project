@@ -84,7 +84,7 @@ const submitReport = asyncHandler(async (req, res) => {
       details:  details?.trim() || '',
       clubName,
     });
-    await sendEmail({ to: leaderEmail, subject, html });
+    sendEmail({ to: leaderEmail, subject, html }); // fire-and-forget
   }
 
   res.status(201).json({ success: true, message: 'Your report has been submitted. Thank you.' });

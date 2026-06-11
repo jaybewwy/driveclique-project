@@ -7,6 +7,8 @@
  * a third-party outage never blocks legitimate sign-ups.
  */
 
+const logger = require('../utils/logger');
+
 const VERIFIER_BASE =
   (process.env.EMAIL_VERIFIER_URL || 'https://rapid-email-verifier.fly.dev').replace(/\/$/, '');
 
@@ -25,7 +27,7 @@ const verifyEmailAddress = async (email) => {
     const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
 
     if (!response.ok) {
-      console.warn(`[EmailVerifier] Unexpected status ${response.status} — failing open`);
+      logger.warn('Email verifier unexpected status — failing open', { status: response.status });
       return { valid: true };
     }
 
@@ -46,7 +48,7 @@ const verifyEmailAddress = async (email) => {
     }
   } catch (err) {
     // Timeout, network error, or JSON parse failure — fail open
-    console.warn('[EmailVerifier] Service unavailable, skipping validation —', err.message);
+    logger.warn('Email verifier unavailable, skipping validation', { error: err.message });
     return { valid: true };
   }
 };

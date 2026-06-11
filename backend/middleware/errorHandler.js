@@ -14,17 +14,18 @@ class AppError extends Error {
   }
 }
 
+const logger = require('../utils/logger');
+
 const errorHandler = (err, req, res, next) => {
   let error = { ...err };
   error.message = err.message;
 
-  // Log error for debugging (in production, use a proper logging service)
-  console.error('[Error Handler]', {
-    message: err.message,
-    stack: process.env.NODE_ENV === 'production' ? undefined : err.stack,
-    path: req.path,
+  logger.error(err.message, {
+    reqId: req.id,
     method: req.method,
-    timestamp: new Date().toISOString()
+    path: req.path,
+    status: err.statusCode || 500,
+    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
   });
 
   // Mongoose bad ObjectId

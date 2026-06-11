@@ -2,6 +2,7 @@ const Club = require('../models/club');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { notify } = require('../services/notificationEmitter');
 const { sendEmail, emailTemplates } = require('../services/emailService');
+const logger = require('../utils/logger');
 
 /**
  * Escape special regex characters in a string to prevent ReDoS
@@ -59,7 +60,8 @@ const getUserClubs = asyncHandler(async (req, res) => {
   }
 
   const clubs = await Club.find({ members: userId })
-    .populate('leader', 'username email');
+    .populate('leader', 'username email')
+    .lean();
 
   res.json({ success: true, clubs });
 });
@@ -72,9 +74,12 @@ const getUserClubs = asyncHandler(async (req, res) => {
 const getClubById = asyncHandler(async (req, res) => {
   const { clubId } = req.params;
 
+  // avatar excluded from members — a 50-member club with 50KB avatars = 2.5MB per response.
+  // Member avatars are shown as initials on initial load; avatar loads only on profile view.
   const club = await Club.findById(clubId)
     .populate('leader', 'username email avatar name useDisplayName car')
-    .populate('members', 'username email avatar name useDisplayName car');
+    .populate('members', 'username email name useDisplayName car')
+    .lean();
 
   if (!club) {
     throw new AppError('Club not found', 404);
@@ -93,7 +98,8 @@ const getClubByInviteCode = asyncHandler(async (req, res) => {
 
   const club = await Club.findOne({ inviteCode })
     .populate('leader', 'username email avatar name useDisplayName car')
-    .populate('members', 'username email avatar name useDisplayName car');
+    .populate('members', 'username email name useDisplayName car')
+    .lean();
 
   if (!club) {
     throw new AppError('Club not found', 404);
@@ -256,7 +262,8 @@ const searchClubs = asyncHandler(async (req, res) => {
       .populate('leader', 'username email')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limitNum),
+      .limit(limitNum)
+      .lean(),
     Club.countDocuments(searchQuery),
   ]);
 
@@ -432,8 +439,7 @@ const deleteClub = asyncHandler(async (req, res) => {
     throw new AppError("Email does not match the registered group leader's email", 403);
   }
 
-  // Log deletion for audit purposes
-  console.log(`[Club Deletion] "${club.name}" (ID: ${clubId}) - Reason: ${deletionReason || 'Not provided'}`);
+  logger.info('Club deleted', { clubId, clubName: club.name, reason: deletionReason || null, deletedBy: req.user.id });
 
   // Delete RSVPs for every drive in the club before removing drives
   const Drive = require('../models/drive');
@@ -590,7 +596,8 @@ const transferOwnership = asyncHandler(async (req, res) => {
 
   const updated = await Club.findById(clubId)
     .populate('leader', 'username email avatar name useDisplayName')
-    .populate('members', 'username email avatar name useDisplayName car');
+    .populate('members', 'username email name useDisplayName car')
+    .lean();
 
   res.json({ success: true, message: 'Ownership transferred successfully', club: updated });
 });

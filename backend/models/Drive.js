@@ -65,5 +65,7 @@ const DriveSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 DriveSchema.index({ club: 1, date: 1 });
+// createdBy queried in getClubAnalytics and drive ownership checks
+DriveSchema.index({ createdBy: 1 });
 
 module.exports = mongoose.model('Drive', DriveSchema);

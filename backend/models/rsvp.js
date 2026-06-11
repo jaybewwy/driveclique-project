@@ -19,5 +19,7 @@ const RSVPSchema = new mongoose.Schema({
 
 // Unique constraint: one RSVP per user per drive
 RSVPSchema.index({ drive: 1, user: 1 }, { unique: true });
+// user field queried standalone in getMyRSVPs and waitlist promotion
+RSVPSchema.index({ user: 1 });
 
 module.exports = mongoose.model('RSVP', RSVPSchema);
