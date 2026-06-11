@@ -156,8 +156,14 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
 
             {/* User info header */}
             <div className="flex items-center gap-3 px-4 py-3.5 mb-3 bg-white/[0.04] border border-white/[0.07] rounded-2xl">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-600 to-orange-600 flex items-center justify-center text-white font-semibold text-sm shadow-lg shadow-red-500/20">
-                {getInitials(user)}
+              <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0">
+                {user?.avatar ? (
+                  <img src={user.avatar} alt={userDropdownData.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-red-600 to-orange-600 flex items-center justify-center text-white font-semibold text-sm">
+                    {getInitials(user)}
+                  </div>
+                )}
               </div>
               <div>
                 <p className="text-white text-sm font-semibold leading-tight">{userDropdownData.name}</p>
