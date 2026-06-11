@@ -38,12 +38,6 @@ playwright-report/
 playwright-trace/
 test-results/
 
-# Tests
-tests/
-*.spec.ts
-*.spec.js
-*.test.ts
-*.test.js
 
 # Misc
 *.md

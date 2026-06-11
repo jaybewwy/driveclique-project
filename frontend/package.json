@@ -10,7 +10,8 @@
     "build:capacitor": "node scripts/generate-icons.js && vite build --mode capacitor",
     "generate-icons": "node scripts/generate-icons.js",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "playwright test"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.0",

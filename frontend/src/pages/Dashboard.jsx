@@ -2,11 +2,11 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Car, Calendar, MapPin, Users, TrendingUp, ArrowRight,
-  Sparkles, Zap, Shield, Globe, Mail, CheckCircle, BarChart2, Plus
+  Sparkles, Zap, Shield, Globe, BarChart2, Plus
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
-import { clubsAPI, drivesAPI, authAPI } from "../services/api";
+import { clubsAPI, drivesAPI } from "../services/api";
 import { SkeletonCard } from "../components/Skeleton";
 import { useAuth } from "../hooks/useAuth";
 import { useClubs } from "../hooks/useClubs";
@@ -22,8 +22,6 @@ const Dashboard = ({ user, onLogout }) => {
     return leaderId && userId && leaderId === userId;
   });
 
-  const [resendLoading, setResendLoading] = useState(false);
-  const [resendSent, setResendSent]       = useState(false);
   const [showWelcome, setShowWelcome]     = useState(false);
   const [upcomingDrives, setUpcomingDrives] = useState([]);
   const [trendingClub, setTrendingClub]   = useState(null);
@@ -36,17 +34,6 @@ const Dashboard = ({ user, onLogout }) => {
     }
   }, []);
 
-  const handleResendVerification = async () => {
-    setResendLoading(true);
-    try {
-      await authAPI.resendVerification();
-      setResendSent(true);
-    } catch {
-      // Silently fail
-    } finally {
-      setResendLoading(false);
-    }
-  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -140,29 +127,6 @@ const Dashboard = ({ user, onLogout }) => {
         {/* ── Main feed ────────────────────────────────────────────────── */}
         <div className="flex-1 max-w-3xl min-h-screen p-5 md:p-6">
 
-          {/* Email verification banner */}
-          {user?.emailVerified === false && (
-            <div className="bg-amber-500/8 border border-amber-500/25 rounded-2xl p-4 mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 bg-amber-500/15 rounded-lg flex items-center justify-center shrink-0">
-                  <Mail className="w-4 h-4 text-amber-400" />
-                </div>
-                <div>
-                  <p className="text-amber-300 font-semibold text-sm">Verify your email address</p>
-                  <p className="text-amber-400/60 text-xs mt-0.5">Required for drive reminders and club notifications.</p>
-                </div>
-              </div>
-              <button
-                onClick={handleResendVerification}
-                disabled={resendLoading || resendSent}
-                className="text-xs font-semibold whitespace-nowrap text-amber-400 hover:text-amber-300 transition-colors disabled:opacity-50 flex items-center gap-1.5"
-              >
-                {resendSent
-                  ? <><CheckCircle className="w-3.5 h-3.5" /> Sent!</>
-                  : resendLoading ? 'Sending…' : 'Resend email →'}
-              </button>
-            </div>
-          )}
 
           {/* Welcome heading */}
           {showWelcome && (

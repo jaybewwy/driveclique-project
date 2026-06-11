@@ -180,7 +180,7 @@ const registerUser = asyncHandler(async (req, res) => {
   // Derive display name from firstName + lastName if provided, else fall back to name or username
   const derivedName = [firstName, lastName].filter(Boolean).join(' ') || name || username;
 
-  // Create user
+  // Create user — emailVerified skipped for now; a different strategy will be used later
   const user = await User.create({
     username,
     email,
@@ -189,18 +189,8 @@ const registerUser = asyncHandler(async (req, res) => {
     firstName: firstName || '',
     lastName:  lastName  || '',
     location:  location  || '',
+    emailVerified: true,
   });
-
-  // Generate email verification token (same hashed-token pattern as password reset)
-  const rawVerifyToken = crypto.randomBytes(40).toString('hex');
-  user.emailVerifyToken = crypto.createHash('sha256').update(rawVerifyToken).digest('hex');
-  user.emailVerifyExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-  await user.save();
-
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-  const verifyUrl = `${frontendUrl}/verify-email?token=${rawVerifyToken}`;
-  const { subject, html } = emailTemplates.emailVerification({ verifyUrl, username: user.username });
-  sendEmail({ to: user.email, subject, html }); // fire-and-forget — user gets token immediately
 
   const [token, refreshToken] = await Promise.all([
     Promise.resolve(generateAccessToken(user._id)),

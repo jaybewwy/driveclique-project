@@ -1,0 +1,10 @@
+node_modules
+npm-debug.log
+dist
+android
+ios
+.env
+.env.*
+!.env.example
+playwright-report
+test-results
