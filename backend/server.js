@@ -16,12 +16,19 @@ const app = express();
 // Middleware
 // ============================================
 
-// Enable CORS for all routes (configure as needed for production)
+// Enable CORS — allow browser clients and Capacitor WebView origins.
+// iOS Capacitor uses 'capacitor://localhost'; Android uses 'http://localhost'.
+const _allowedOrigins = process.env.NODE_ENV === 'production'
+  ? [process.env.ALLOWED_ORIGIN_WEB, 'capacitor://localhost', 'http://localhost'].filter(Boolean)
+  : ['http://localhost:5173', 'http://localhost:3000', 'capacitor://localhost', 'http://localhost'];
+
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://yourdomain.com'] 
-    : ['http://localhost:5173', 'http://localhost:3000'],
-  credentials: true
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // curl, Postman, server-to-server
+    if (_allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS blocked: ${origin}`));
+  },
+  credentials: true,
 }));
 
 // Parse JSON request bodies

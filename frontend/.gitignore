@@ -7,10 +7,12 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+
+# Build output
 dist
 dist-ssr
-*.local
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +24,29 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# ── Environment files (contain API URLs / secrets) ───────────────────────────
+.env
+.env.*
+
+# ── Images & binary assets ───────────────────────────────────────────────────
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.ico
+*.bmp
+*.tiff
+# SVG files are vector source art and are intentionally tracked
+
+# ── XML config / resource files ─────────────────────────────────────────────
+*.xml
+
+# ── Generated mobile icons ───────────────────────────────────────────────────
+public/icons/
+
+# ── Capacitor native projects (auto-generated) ───────────────────────────────
+# To restore:  npx cap add android && npx cap add ios && npx cap sync
+android/
+ios/

@@ -6,8 +6,12 @@
 
 import axios from 'axios';
 
-// API base URL - use environment variable if available, fallback to localhost
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// API base URL — env var is required in production/Capacitor builds.
+const API_BASE_URL = import.meta.env.VITE_API_URL
+  || (import.meta.env.DEV ? 'http://localhost:5000/api' : (() => { throw new Error('VITE_API_URL is required in production builds'); })());
+
+// True when running inside a Capacitor native shell (Android / iOS).
+export const isNative = import.meta.env.VITE_IS_NATIVE === 'true';
 
 /**
  * Create axios instance with default configuration

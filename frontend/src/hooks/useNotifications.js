@@ -6,6 +6,8 @@ export const useNotifications = (enabled = true) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const sourceRef = useRef(null);
+  // Holds the Capacitor app-state listener handle so we can remove it on cleanup
+  const appListenerRef = useRef(null);
 
   const addNotification = useCallback((payload) => {
     setNotifications(prev => [{ ...payload, id: Date.now(), read: false }, ...prev].slice(0, 50));
@@ -56,8 +58,28 @@ export const useNotifications = (enabled = true) => {
 
     connect();
 
+    // On native platforms (iOS / Android), the WebView suspends JS execution when
+    // the app is backgrounded, which drops the SSE connection. We use the Capacitor
+    // App plugin to close it cleanly on background and reconnect on foreground.
+    if (window.Capacitor?.isNativePlatform()) {
+      import('@capacitor/app').then(({ App: CapApp }) => {
+        CapApp.addListener('appStateChange', ({ isActive }) => {
+          if (isActive && localStorage.getItem('token')) {
+            if (!sourceRef.current || sourceRef.current.readyState === EventSource.CLOSED) {
+              connect();
+            }
+          } else {
+            sourceRef.current?.close();
+          }
+        }).then(handle => {
+          appListenerRef.current = handle;
+        });
+      });
+    }
+
     return () => {
       sourceRef.current?.close();
+      appListenerRef.current?.remove();
     };
   }, [enabled, addNotification]);
 

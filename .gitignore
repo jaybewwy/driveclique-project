@@ -48,6 +48,34 @@ tests/
 # Misc
 *.md
 *.bak
-*.tmp   
+*.tmp
 APA7_DriveClique_Paper_Draft.txt
 backend/test-api.js
+
+# ── Images & binary assets ────────────────────────────────────────────────────
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.ico
+*.bmp
+*.tiff
+# SVG files are vector source art and are intentionally tracked
+
+# ── XML config / resource files ───────────────────────────────────────────────
+*.xml
+
+# ── Generated mobile icons ────────────────────────────────────────────────────
+frontend/public/icons/
+
+# ── Capacitor native projects (auto-generated, not needed in git) ─────────────
+# To restore:  cd frontend && npx cap add android && npx cap add ios && npx cap sync
+frontend/android/
+frontend/ios/
+
+# ── Frontend env files (contain API URLs / secrets) ──────────────────────────
+frontend/.env
+frontend/.env.capacitor
+frontend/.env.production
+frontend/.env.local
