@@ -20,6 +20,7 @@ const CreateClub   = lazy(() => import('./pages/CreateClub'));
 const FindClub     = lazy(() => import('./pages/FindClub'));
 const Profile      = lazy(() => import('./pages/Profile'));
 const UserSettings = lazy(() => import('./pages/UserSettings'));
+const NotFound     = lazy(() => import('./pages/NotFound'));
 
 const PageSpinner = () => (
   <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
@@ -58,7 +59,7 @@ function AppRoutes() {
         <Route path="/analytics"    element={<Navigate to="/settings" replace />} />
 
         <Route path="/"  element={<Navigate to="/login" replace />} />
-        <Route path="*"  element={<Navigate to="/login" replace />} />
+        <Route path="*"  element={<NotFound isAuthenticated={isAuthenticated} />} />
       </Routes>
     </Suspense>
   );

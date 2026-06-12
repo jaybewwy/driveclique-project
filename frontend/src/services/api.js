@@ -100,10 +100,11 @@ api.interceptors.response.use(
         }
       }
 
-      // No refresh token — clear session
+      // No refresh token — only redirect if a token existed (session expired, not unauthenticated)
+      const hadToken = Boolean(localStorage.getItem('token'));
       localStorage.removeItem('token');
       localStorage.removeItem('driveclique_user');
-      if (!_isPublicPath()) window.location.href = '/login';
+      if (hadToken && !_isPublicPath()) window.location.href = '/login';
     }
 
     if (error.response?.status === 403) {
