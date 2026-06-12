@@ -54,6 +54,8 @@ function AppRoutes() {
         <Route path="/find-club"    element={isAuthenticated ? <FindClub     user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/profile"      element={isAuthenticated ? <Profile      user={user} onLogout={logout} onUpdateUser={updateUser} /> : <Navigate to="/login" replace />} />
         <Route path="/settings"     element={isAuthenticated ? <UserSettings user={user} onLogout={logout} onUpdateUser={updateUser} /> : <Navigate to="/login" replace />} />
+        {/* Legacy alias kept so old nav links don't silently redirect to /dashboard */}
+        <Route path="/analytics"    element={<Navigate to="/settings" replace />} />
 
         <Route path="/"  element={<Navigate to="/login" replace />} />
         <Route path="*"  element={<Navigate to="/login" replace />} />

@@ -275,7 +275,7 @@ const FindClub = ({ user, onLogout }) => {
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500">
                           <span className="flex items-center gap-1.5">
                             <Users className="w-3.5 h-3.5" />
-                            {club.members.length} members
+                            {club.members.length} {club.members.length === 1 ? 'member' : 'members'}
                           </span>
                           {club.location && (
                             <span className="flex items-center gap-1.5">
@@ -366,7 +366,7 @@ const FindClub = ({ user, onLogout }) => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-xs text-zinc-300 group-hover:text-white transition-colors truncate">{club.name}</p>
-                    <p className="text-[11px] text-zinc-600">{club.members.length} members</p>
+                    <p className="text-[11px] text-zinc-600">{club.members.length} {club.members.length === 1 ? 'member' : 'members'}</p>
                   </div>
                 </div>
               ))}

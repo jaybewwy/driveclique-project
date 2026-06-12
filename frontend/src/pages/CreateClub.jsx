@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Lock, FileText } from "lucide-react";
+import { ArrowLeft, Lock, FileText, Globe, Users } from "lucide-react";
 import { clubsAPI, getErrorMessage } from "../services/api";
 import { LocationSearch } from "../components/ui/location-search";
 import { useClubs } from "../hooks/useClubs";
@@ -13,6 +13,7 @@ const CreateClub = () => {
     description: "",
     location: "",
     maxMembers: "",
+    isPrivate: false,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -31,7 +32,6 @@ const CreateClub = () => {
     setError("");
     setSuccess("");
 
-    // Client-side validation
     if (!formData.name || !formData.description) {
       setError("Please fill in all required fields");
       setLoading(false);
@@ -44,13 +44,13 @@ const CreateClub = () => {
         description: formData.description,
         location: formData.location,
         maxMembers: formData.maxMembers ? parseInt(formData.maxMembers) : null,
-        isPrivate: false,
+        isPrivate: formData.isPrivate,
       });
 
       if (response.data.success) {
         addClub(response.data.club);
         setSuccess("Club created successfully! Redirecting to club page...");
-        setFormData({ name: "", description: "", location: "", maxMembers: "" });
+        setFormData({ name: "", description: "", location: "", maxMembers: "", isPrivate: false });
         setTimeout(() => {
           navigate(`/club/${response.data.club._id}`);
         }, 2000);
@@ -132,6 +132,50 @@ const CreateClub = () => {
               />
             </div>
 
+            {/* Club Visibility */}
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-3">
+                Club Visibility
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, isPrivate: false })}
+                  className={`flex flex-col items-start gap-2 p-4 rounded-2xl border-2 transition-all ${
+                    !formData.isPrivate
+                      ? "border-red-600 bg-red-600/10"
+                      : "border-zinc-700 bg-black hover:border-zinc-500"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Globe size={18} className={!formData.isPrivate ? "text-red-500" : "text-zinc-400"} />
+                    <span className={`font-medium text-sm ${!formData.isPrivate ? "text-white" : "text-zinc-400"}`}>
+                      Public
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-500 text-left">Anyone can find and join this club</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, isPrivate: true })}
+                  className={`flex flex-col items-start gap-2 p-4 rounded-2xl border-2 transition-all ${
+                    formData.isPrivate
+                      ? "border-red-600 bg-red-600/10"
+                      : "border-zinc-700 bg-black hover:border-zinc-500"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Lock size={18} className={formData.isPrivate ? "text-red-500" : "text-zinc-400"} />
+                    <span className={`font-medium text-sm ${formData.isPrivate ? "text-white" : "text-zinc-400"}`}>
+                      Private
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-500 text-left">Join by invite code only</p>
+                </button>
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-zinc-300 mb-3">
                 Max Members
@@ -146,7 +190,7 @@ const CreateClub = () => {
                   min="2"
                   className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 pl-12 text-white placeholder-zinc-500 focus:outline-none focus:border-red-600 transition"
                 />
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
+                <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
               </div>
             </div>
 

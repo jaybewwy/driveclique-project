@@ -119,6 +119,18 @@ const emailTemplates = {
       <p style="color:#aaa;font-size:13px">Log in to review and take action on this report.</p>`),
   }),
 
+  driveReminder: ({ driveName, clubName, driveDatetime, location }) => ({
+    subject: `Reminder: ${driveName} is coming up tomorrow`,
+    html: wrap(`
+      <p>This is a reminder that <strong>${driveName}</strong> in <strong>${clubName}</strong> is coming up soon:</p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0">
+        <tr><td style="padding:8px;color:#aaa">Drive</td><td style="padding:8px"><strong>${driveName}</strong></td></tr>
+        <tr><td style="padding:8px;color:#aaa">Date</td><td style="padding:8px">${driveDatetime}</td></tr>
+        <tr><td style="padding:8px;color:#aaa">Location</td><td style="padding:8px">${location}</td></tr>
+      </table>
+      <p style="color:#aaa">Log in to view details or update your RSVP.</p>`),
+  }),
+
   passwordReset: ({ resetUrl, username }) => ({
     subject: 'Reset your DriveClique password',
     html: wrap(`

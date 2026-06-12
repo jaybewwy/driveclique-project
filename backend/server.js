@@ -13,6 +13,9 @@ dotenv.config();
 // Connect to database
 connectDB();
 
+// Start background scheduler (drive reminder notifications)
+require('./services/scheduler').startScheduler();
+
 const app = express();
 
 // ============================================

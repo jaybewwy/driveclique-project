@@ -14,6 +14,10 @@ const RSVPSchema = new mongoose.Schema({
         type: String,
         enum: ['going', 'maybe', 'not-going', 'waitlisted'],
         default: 'going'
+    },
+    reminderSent: {
+        type: Boolean,
+        default: false
     }
 }, { timestamps: true });
 

@@ -2,11 +2,11 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Car, Calendar, MapPin, Users, TrendingUp, ArrowRight,
-  Sparkles, Zap, Shield, Globe, BarChart2, Plus
+  Sparkles, Zap, Shield, Globe, BarChart2, Plus, Mail
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
-import { clubsAPI, drivesAPI } from "../services/api";
+import { clubsAPI, drivesAPI, authAPI } from "../services/api";
 import { SkeletonCard } from "../components/Skeleton";
 import { useAuth } from "../hooks/useAuth";
 import { useClubs } from "../hooks/useClubs";
@@ -22,10 +22,24 @@ const Dashboard = ({ user, onLogout }) => {
     return leaderId && userId && leaderId === userId;
   });
 
-  const [showWelcome, setShowWelcome]     = useState(false);
+  const [showWelcome, setShowWelcome]       = useState(false);
   const [upcomingDrives, setUpcomingDrives] = useState([]);
-  const [trendingClub, setTrendingClub]   = useState(null);
-  const [drivesLoading, setDrivesLoading] = useState(true);
+  const [trendingClub, setTrendingClub]     = useState(null);
+  const [drivesLoading, setDrivesLoading]   = useState(true);
+  const [resendSent, setResendSent]         = useState(false);
+  const [resendLoading, setResendLoading]   = useState(false);
+
+  const handleResendVerification = async () => {
+    setResendLoading(true);
+    try {
+      await authAPI.resendVerification();
+      setResendSent(true);
+    } catch {
+      // fire-and-forget — user can try again
+    } finally {
+      setResendLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (sessionStorage.getItem('justLoggedIn')) {
@@ -127,6 +141,24 @@ const Dashboard = ({ user, onLogout }) => {
         {/* ── Main feed ────────────────────────────────────────────────── */}
         <div className="flex-1 max-w-3xl min-h-screen p-5 md:p-6">
 
+          {/* Email verification banner */}
+          {user?.emailVerified === false && (
+            <div className="flex items-center justify-between gap-3 mb-5 px-4 py-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl">
+              <div className="flex items-center gap-3 min-w-0">
+                <Mail className="w-4 h-4 text-amber-400 shrink-0" />
+                <p className="text-sm text-amber-300 truncate">
+                  Please verify your email to receive drive notifications.
+                </p>
+              </div>
+              <button
+                onClick={handleResendVerification}
+                disabled={resendLoading || resendSent}
+                className="shrink-0 text-xs font-medium text-amber-400 hover:text-amber-300 disabled:opacity-60 transition"
+              >
+                {resendSent ? 'Sent!' : resendLoading ? 'Sending…' : 'Resend email'}
+              </button>
+            </div>
+          )}
 
           {/* Welcome heading */}
           {showWelcome && (
