@@ -65,7 +65,7 @@ router.post(
   validateInput({
     username: { required: true, type: 'string', minLength: 3, maxLength: 30 },
     email: { required: true, type: 'string', email: true },
-    password: { required: true, type: 'string', minLength: 6, maxLength: 100 },
+    password: { required: true, type: 'string', minLength: 8, maxLength: 100 },
     name: { type: 'string', minLength: 1, maxLength: 100 }
   }),
   registerUser
@@ -183,7 +183,7 @@ router.post(
   '/reset-password',
   validateInput({
     token:    { required: true, type: 'string', minLength: 80, maxLength: 80 },
-    password: { required: true, type: 'string', minLength: 6, maxLength: 100 }
+    password: { required: true, type: 'string', minLength: 8, maxLength: 100 }
   }),
   resetPassword
 );
@@ -247,7 +247,7 @@ router.put(
   protect,
   validateInput({
     currentPassword: { required: true, type: 'string', minLength: 1 },
-    newPassword:     { required: true, type: 'string', minLength: 6, maxLength: 100 },
+    newPassword:     { required: true, type: 'string', minLength: 8, maxLength: 100 },
   }),
   changePassword
 );

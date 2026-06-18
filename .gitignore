@@ -74,4 +74,5 @@ frontend/.env.capacitor
 frontend/.env.production
 frontend/.env.local
 *.ts
+!frontend/tests/e2e/*.spec.ts
 *.md

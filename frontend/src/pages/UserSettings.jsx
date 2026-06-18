@@ -710,7 +710,7 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
   const handleChangePassword = async () => {
     setPwError("");
     setPwSuccess("");
-    if (pwForm.new.length < 6) { setPwError("New password must be at least 6 characters."); return; }
+    if (pwForm.new.length < 8) { setPwError("New password must be at least 8 characters."); return; }
     if (pwForm.new !== pwForm.confirm) { setPwError("Passwords do not match."); return; }
     setChangingPw(true);
     try {
@@ -948,9 +948,10 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
               type="password"
               value={pwForm.new}
               onChange={e => { setPwForm(p => ({ ...p, new: e.target.value })); setPwError(""); setPwSuccess(""); }}
-              placeholder="At least 6 characters"
+              placeholder="At least 8 characters"
               className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 transition-colors"
             />
+            <p className="text-xs text-zinc-500 mt-1.5">Cannot be the same as any of your last 5 passwords.</p>
           </div>
 
           <div>

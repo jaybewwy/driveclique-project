@@ -8,6 +8,20 @@ const inputRow =
   "flex items-center w-full bg-white/[0.06] border border-white/[0.10] h-11 rounded-2xl overflow-hidden px-4 gap-3 " +
   "focus-within:border-red-500/60 focus-within:bg-white/[0.09] focus-within:ring-1 focus-within:ring-red-500/20 transition-all duration-200";
 
+// 0 = empty, 1 = weak, 2 = fair, 3 = good, 4 = strong (advisory only — not enforced)
+const getPasswordStrength = (pwd) => {
+  if (!pwd) return 0;
+  const hasComplexity = /\d/.test(pwd) || /[^a-zA-Z0-9]/.test(pwd);
+  const hasMixedCase = /[a-z]/.test(pwd) && /[A-Z]/.test(pwd);
+  if (pwd.length < 6) return 1;
+  if (pwd.length < 8 || !hasComplexity) return 2;
+  if (pwd.length < 10) return 3;
+  return hasComplexity && hasMixedCase ? 4 : 3;
+};
+
+const STRENGTH_BAR_COLOR = ['bg-white/[0.08]', 'bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-emerald-500'];
+const STRENGTH_LABEL = ['', 'Weak', 'Fair', 'Good', 'Strong'];
+
 export default function RegisterForm({ onRegister }) {
   const [formData, setFormData] = useState({
     firstName: '', lastName: '', username: '', email: '', password: '', location: '',
@@ -18,6 +32,8 @@ export default function RegisterForm({ onRegister }) {
 
   const handleChange = (e) =>
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+
+  const passwordStrength = getPasswordStrength(formData.password);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -166,11 +182,33 @@ export default function RegisterForm({ onRegister }) {
             <Lock className="w-4 h-4 text-zinc-500 shrink-0" />
             <input
               type="password" name="password" value={formData.password}
-              onChange={handleChange} placeholder="Password (min. 6 chars)" autoComplete="new-password"
+              onChange={handleChange} placeholder="Password (min. 8 chars)" autoComplete="new-password"
               className="bg-transparent text-white placeholder-zinc-600 outline-none text-sm w-full h-full"
               required
+              minLength={8}
             />
           </div>
+
+          {formData.password && (
+            <div className="mt-1.5 px-0.5">
+              <div className="flex gap-1">
+                {[1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className={`h-1 flex-1 rounded-full transition-colors duration-200 ${
+                      i <= passwordStrength ? STRENGTH_BAR_COLOR[passwordStrength] : 'bg-white/[0.08]'
+                    }`}
+                  />
+                ))}
+              </div>
+              <p className="text-xs text-zinc-500 mt-1">
+                {STRENGTH_LABEL[passwordStrength]
+                  ? `${STRENGTH_LABEL[passwordStrength]} — `
+                  : ''}
+                At least 8 characters, including a number or symbol.
+              </p>
+            </div>
+          )}
 
           {/* Location */}
           <div className="mt-2.5">

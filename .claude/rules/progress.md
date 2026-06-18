@@ -1,5 +1,104 @@
 # DriveClique - Progress
 
+## Session: UC-29 Password Strength Indicator + Password Reuse Prevention (2026-06-17)
+
+### What Was Built
+
+UC-27 (404 page) was confirmed already implemented from a prior session — only documentation was reconciled and the page was re-verified manually. UC-29 (password strength indicator) was newly implemented, plus an additional password-reuse policy requested by the user.
+
+| Layer | File | Change |
+|-------|------|--------|
+| Docs | `.claude/rules/USE_CASES.md` | Moved UC-27 from the pending Index into the Implemented table with a verified write-up; added UC-29 detail section marked implemented |
+| Feature | `frontend/src/components/ui/register-form.jsx` | Added `getPasswordStrength()` + 4-segment color strength bar (Weak/Fair/Good/Strong) rendered below the password field |
+| Policy | `backend/routes/authentication.js` | Bumped password `minLength` from 6 → 8 on register, reset-password, and change-password routes |
+| Policy | `frontend/src/pages/ResetPassword.jsx`, `frontend/src/pages/UserSettings.jsx` | Updated client-side length checks and placeholder text to match the 8-char floor |
+| Feature | `backend/models/user.js` | Added `passwordHistory: [String]` (capped at 4 entries) |
+| Feature | `backend/controllers/authController.js` | Added `isPasswordReused()` helper; wired into `changePassword` and `resetPassword` to block reusing any of the last 5 passwords |
+| Feature | `frontend/src/pages/UserSettings.jsx` | Added "Cannot be the same as any of your last 5 passwords." hint under the New Password field |
+| Test | `frontend/tests/e2e/password-policy.spec.ts` | New 12-test Playwright suite — UI strength-bar assertions + API-level password-reuse rejection across multiple changes |
+
+### Design Decisions
+
+- **`passwordHistory` capped at 4, checked alongside current password** — gives a guarded window of exactly 5 most-recent passwords (current + 4 history) without needing a separate "include current" flag.
+- **Reuse check applied to both `changePassword` and `resetPassword`, not `registerUser`** — a brand-new account has no prior password to reuse; applying the same guard to the forgot-password flow prevents users from sidestepping the policy by resetting instead of changing.
+- **Strength bar is advisory, not blocking** — matches the original UC-29 spec; the hard 8-char minimum is enforced separately via `minLength` + backend validation.
+- **No backend test framework exists yet** — coverage for both features was added as Playwright E2E tests (UI + direct API calls via the `request` fixture), consistent with the project's existing test strategy.
+
+### Screenshots
+
+- `frontend/tests/e2e/screenshots/register-password-strength.png` — register form showing the "Strong" 4-segment green bar for a complex password.
+- `frontend/tests/e2e/screenshots/verify-404-logged-out.png` / `verify-404-logged-in.png` — re-verification of the existing UC-27 404 page in both auth states.
+
+---
+
+## Session: UX Audit + Bug Fixes (2026-06-12)
+
+### What Was Built
+
+Full new-user UX simulation via Playwright (16 tests, 30 desktop + mobile screenshots saved to `frontend/tests/e2e/screenshots/ux-audit/`). Four bugs identified and fixed; four new use cases added.
+
+| Layer | File | Change |
+|-------|------|--------|
+| Bug fix | `frontend/src/pages/FindClub.jsx` | "1 members" → "1 member" singular/plural fix (both card and sidebar locations) |
+| Feature | `frontend/src/pages/CreateClub.jsx` | Added Public/Private card-picker UI; `isPrivate` was hardcoded `false` with no toggle — users can now set club visibility at creation time |
+| Bug fix | `frontend/src/pages/Dashboard.jsx` | Restored email verification banner (removed during a prior refactor); amber banner with Mail icon + Resend button renders when `user.emailVerified === false` |
+| Bug fix | `frontend/src/App.jsx` | Added `/analytics` redirect alias → `/settings`; stale nav links sent users through `*` catch-all → `/login` → `/dashboard` silently |
+| Docs | `.claude/rules/USE_CASES.md` | Added UC-26 through UC-29 (Onboarding, 404 Page, Email Change, Password Strength) |
+| Test | `frontend/tests/e2e/ux-audit.spec.ts` | New 16-test Playwright suite simulating full new-user journey on desktop + mobile |
+
+### Audit Findings Summary
+
+| Severity | Finding |
+|----------|---------|
+| 🔴 Bug | Email verification banner stripped from Dashboard — new users never prompted to verify |
+| 🔴 Bug | `/analytics` route broken (all stale links silently redirected to `/dashboard`) |
+| 🔴 Bug | Club privacy hardcoded `false` at creation — no way to create a private club directly |
+| 🟡 Bug | "1 members" grammar error on Find Club cards and sidebar |
+| 🟡 UX | Rate-limit error message shows raw technical text ("Too many login attempts. Please try again in 15 minutes.") — good message, but shown in bright red which may alarm users for normal dev-mode testing |
+| 🟡 UX | No 404 page — unknown routes silently redirect to login or dashboard (UC-27) |
+| 🟡 UX | No onboarding for fresh users — dashboard empty state has no guided next step (UC-26) |
+| 🟡 UX | Email field on Profile says "Email cannot be changed." — but no change flow exists (UC-28) |
+| 🟡 UX | Mobile dashboard: sidebar quick-stats and clubs list are hidden with no equivalent in hamburger menu |
+| ℹ️ Info | "Premium — Upgrade Now" upsell card in sidebar has no backing feature or route |
+| ℹ️ Info | Console 401 errors on every page load from ClubsProvider firing on public pages (known, tracked) |
+| ✅ Good | Login page renders correctly on both desktop and mobile — no horizontal overflow |
+| ✅ Good | Registration form location autocomplete works — 7 results, city selected correctly |
+| ✅ Good | Mobile navigation hamburger opens correctly with user info header |
+| ✅ Good | Find Club search, club cards, Join-with-Code button all working |
+| ✅ Good | Notification bell opens panel with All/Unread tabs correctly |
+
+### Design Decisions
+
+- **Privacy picker as two-card toggle** — visually distinct from a plain checkbox; shows description of each mode so first-time leaders understand the difference before creating.
+- **Email banner uses `user?.emailVerified === false` strict check** — `undefined` (existing accounts without the field) continues to pass, consistent with backend email filter convention.
+- **`/analytics` kept as alias, not removed** — multiple nav items, docs, and test URLs reference `/analytics`; a redirect is safer than hunting all callers.
+
+---
+
+## Session: UC-04 Drive Reminder Notifications (2026-06-11)
+
+### What Was Built
+
+Hourly background scheduler that sends drive reminder SSE notifications and emails to members who RSVPed "going" or "maybe" within 24 hours of a drive.
+
+| Layer | File | Change |
+|-------|------|--------|
+| Model | `backend/models/rsvp.js` | Added `reminderSent: { type: Boolean, default: false }` — prevents duplicate reminders across hourly job runs |
+| Email | `backend/services/emailService.js` | Added `driveReminder({ driveName, clubName, driveDatetime, location })` template |
+| Scheduler | `backend/services/scheduler.js` | **New file** — `node-cron` hourly job; `startScheduler()` starts cron, `sendReminders()` exported separately for manual/test invocation |
+| Server | `backend/server.js` | `require('./services/scheduler').startScheduler()` after `connectDB()` |
+| Package | `backend/package.json` | Added `node-cron` dependency |
+
+### Design Decisions
+
+- **`reminderSent` on RSVP, not Drive** — per-member granularity; a member who joins the waitlist and gets promoted after the reminder window is still handled correctly (their RSVP gets a new `reminderSent: false` state at promotion time).
+- **Bulk `updateMany` after per-member sends** — avoids partial state if the loop throws mid-way; all sends are attempted before any flag is set, so a crash means a re-send (at most once more), which is safer than missing a reminder.
+- **`sendReminders` exported** — allows `node -e "..."` invocation during dev and integration testing without waiting for the cron tick.
+- **Fire-and-forget email** — consistent with all other email sends in the codebase (registration, waitlist promotion, etc.).
+- **`emailVerified !== false` filter** — same guard used by all member email sends; existing accounts without the field receive reminders.
+
+---
+
 ## Session: DevOps & SecOps Hardening (2026-06-10)
 
 ### What Was Built

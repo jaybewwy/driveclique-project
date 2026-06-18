@@ -2,6 +2,73 @@
 
 ## Current Focus
 
+UC-27 docs reconciliation + UC-29 Password Strength Indicator + Password Reuse Prevention implemented (2026-06-17).
+
+**UC-27 (404 page) was already implemented in a prior session (commit `26de41d`)** — this session only updated `USE_CASES.md` to move it from the pending Index into the Implemented table, and re-verified it manually via Playwright (both logged-out and logged-in CTA states render correctly; screenshots in `frontend/tests/e2e/screenshots/verify-404-logged-out.png` / `verify-404-logged-in.png`).
+
+**UC-29 — Password Strength Indicator (newly implemented):**
+- `frontend/src/components/ui/register-form.jsx` — `getPasswordStrength()` helper computes 0–4 strength; renders a 4-segment color bar (Weak/Fair/Good/Strong) below the password field once it has input.
+- Password minimum bumped from 6 → 8 characters across `register`, `reset-password`, and `change-password` (`backend/routes/authentication.js`), with matching frontend updates in `ResetPassword.jsx` and `UserSettings.jsx`.
+
+**Password Reuse Prevention (added alongside UC-29, per explicit user request — not in the original USE_CASES.md spec):**
+- `backend/models/user.js` — new `passwordHistory: [String]` field (capped at 4 entries).
+- `backend/controllers/authController.js` — new `isPasswordReused()` helper (bcrypt-compares a candidate password against the current password + history); wired into both `changePassword` (UC-17) and `resetPassword` (UC-01) so the policy can't be bypassed via the forgot-password flow. New account registration is exempt (no prior history to check).
+- On a successful password change, the *old* password hash is pushed onto `passwordHistory` before being overwritten — current + 4 history entries = last 5 passwords guarded against reuse.
+
+**Verification:** `frontend/tests/e2e/password-policy.spec.ts` — 12 new Playwright tests, all passing (UI strength-bar states + API-level reuse rejection across multiple password changes).
+
+---
+
+## Previous Focus
+
+UX Audit + Bug Fixes completed (2026-06-12). Full new-user simulation (16 Playwright tests, 30 screenshots — desktop and mobile). Four bugs fixed; four new use cases documented.
+
+**Bugs fixed this session:**
+- `frontend/src/pages/FindClub.jsx` — "1 members" → "1 member" grammar (singular/plural)
+- `frontend/src/pages/CreateClub.jsx` — Added Public/Private card-picker (was hardcoded `isPrivate: false` with no UI)
+- `frontend/src/pages/Dashboard.jsx` — Restored email verification banner (stripped during prior refactor); renders amber banner when `user.emailVerified === false` with Resend button
+- `frontend/src/App.jsx` — Added `/analytics` → `/settings` redirect (stale nav links caused a catch-all bounce to `/dashboard`)
+
+**New use cases added (UC-26 through UC-29):**
+- UC-26 — New-User Onboarding / Welcome Tour
+- UC-27 — Dedicated 404 / Error Page
+- UC-28 — Email Address Change Flow
+- UC-29 — Password Strength Indicator at Registration
+
+**Screenshots:** `frontend/tests/e2e/screenshots/ux-audit/` (30 PNG files)
+
+**Audit test suite:** `frontend/tests/e2e/ux-audit.spec.ts` (16 tests, all passing)
+
+---
+
+## Previous Focus
+
+UC-04 Drive Reminder Notifications implemented (2026-06-11). Hourly background scheduler sends SSE + email reminders to members RSVPed "going" or "maybe" within 24 hours of a drive.
+
+**Key files added/changed:**
+- `backend/models/rsvp.js` — Added `reminderSent: Boolean` (default `false`) to prevent duplicate reminders.
+- `backend/services/emailService.js` — Added `driveReminder` email template.
+- `backend/services/scheduler.js` — **New** `node-cron` hourly job (`0 * * * *`); exports `startScheduler()` and `sendReminders()` (the latter is also callable manually for testing).
+- `backend/server.js` — `require('./services/scheduler').startScheduler()` called after `connectDB()`.
+- `backend/package.json` — `node-cron` added as a dependency.
+
+**Scheduler logic:**
+1. Finds drives where `date` is between `now` and `now + 24h` and `isCancelled: false`.
+2. For each drive, finds RSVPs with `status: 'going' | 'maybe'` and `reminderSent: false`.
+3. Fetches member emails (filtering `emailVerified !== false` per existing convention).
+4. Fires `notify(uid, { type: 'DRIVE_REMINDER', ... })` SSE + fire-and-forget `sendEmail`.
+5. Bulk-marks all targeted RSVPs as `reminderSent: true`.
+
+**To test manually:**
+```bash
+# From backend/
+node -e "require('dotenv').config(); require('./db')(); setTimeout(() => require('./services/scheduler').sendReminders().then(() => process.exit()), 1000)"
+```
+
+---
+
+## Previous Focus
+
 DevOps and SecOps hardening completed (2026-06-10). CI/CD pipeline, Docker support, Railway config, and critical secret rotation all applied.
 
 **Key files added/changed:**

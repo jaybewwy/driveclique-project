@@ -13,6 +13,16 @@ const { verifyEmailAddress } = require('../services/emailVerifier');
 
 const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const PASSWORD_HISTORY_LIMIT = 4; // + current password = last 5 passwords checked for reuse
+
+/** True if plainPassword matches the user's current password or any of their last 4 previous passwords */
+const isPasswordReused = async (plainPassword, user) => {
+  const hashesToCheck = [user.password, ...(user.passwordHistory || [])];
+  for (const hash of hashesToCheck) {
+    if (await bcrypt.compare(plainPassword, hash)) return true;
+  }
+  return false;
+};
 
 /** Short-lived access token (15 min) */
 const generateAccessToken = (userId) =>
@@ -299,6 +309,11 @@ const resetPassword = asyncHandler(async (req, res) => {
 
   if (!user) throw new AppError('Password reset token is invalid or has expired', 400);
 
+  if (await isPasswordReused(password, user)) {
+    throw new AppError('You cannot reuse one of your last 5 passwords. Please choose a different password.', 400);
+  }
+
+  user.passwordHistory = [user.password, ...(user.passwordHistory || [])].slice(0, PASSWORD_HISTORY_LIMIT);
   user.password = password;
   user.passwordResetToken = undefined;
   user.passwordResetExpires = undefined;
@@ -421,6 +436,11 @@ const changePassword = asyncHandler(async (req, res) => {
   const match = await bcrypt.compare(currentPassword, user.password);
   if (!match) throw new AppError('Current password is incorrect.', 401);
 
+  if (await isPasswordReused(newPassword, user)) {
+    throw new AppError('You cannot reuse one of your last 5 passwords. Please choose a different password.', 400);
+  }
+
+  user.passwordHistory = [user.password, ...(user.passwordHistory || [])].slice(0, PASSWORD_HISTORY_LIMIT);
   user.password = newPassword;
   await user.save(); // pre-save hook re-hashes when password is modified
 

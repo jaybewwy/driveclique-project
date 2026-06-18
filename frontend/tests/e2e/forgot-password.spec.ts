@@ -156,7 +156,7 @@ test.describe('Reset Password — UI flow', () => {
     expect(apiCalled).toBe(false);
   });
 
-  test('Client-side: password shorter than 6 chars shows error without API call', async ({ page }) => {
+  test('Client-side: password shorter than 8 chars shows error without API call', async ({ page }) => {
     const fakeToken = 'c'.repeat(80);
     await page.goto(`${BASE}/reset-password?token=${fakeToken}`);
 
@@ -165,11 +165,11 @@ test.describe('Reset Password — UI flow', () => {
       if (req.url().includes('/auth/reset-password')) apiCalled = true;
     });
 
-    await page.getByPlaceholder('New password', { exact: true }).fill('abc');
-    await page.getByPlaceholder('Confirm new password').fill('abc');
+    await page.getByPlaceholder('New password', { exact: true }).fill('abc123');
+    await page.getByPlaceholder('Confirm new password').fill('abc123');
     await page.getByRole('button', { name: /Reset Password/i }).click();
 
-    await expect(page.getByText(/at least 6 characters/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/at least 8 characters/i)).toBeVisible({ timeout: 5000 });
     expect(apiCalled).toBe(false);
   });
 
@@ -247,9 +247,9 @@ test.describe('Forgot Password — API security & brute-force', () => {
     expect(res.status()).toBe(400);
   });
 
-  test('POST /auth/reset-password rejects password shorter than 6 chars', async ({ request }) => {
+  test('POST /auth/reset-password rejects password shorter than 8 chars', async ({ request }) => {
     const res = await request.post(`${API}/auth/reset-password`, {
-      data: { token: 'a'.repeat(80), password: 'abc' },
+      data: { token: 'a'.repeat(80), password: 'abc123' },
     });
     expect(res.status()).toBe(400);
   });

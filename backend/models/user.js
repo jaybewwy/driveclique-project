@@ -94,6 +94,10 @@ const UserSchema = new mongoose.Schema({
   usernameChangedAt: {
     type: Date,
     default: null
+  },
+  passwordHistory: {
+    type: [String],
+    default: []
   }
 }, { timestamps: true });
 
