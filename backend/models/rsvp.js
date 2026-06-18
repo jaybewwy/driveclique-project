@@ -18,6 +18,14 @@ const RSVPSchema = new mongoose.Schema({
     reminderSent: {
         type: Boolean,
         default: false
+    },
+    checkedIn: {
+        type: String,
+        enum: ['pending', 'present', 'not-present'],
+        default: 'pending'
+    },
+    checkedInAt: {
+        type: Date
     }
 }, { timestamps: true });
 

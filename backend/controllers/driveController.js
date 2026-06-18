@@ -333,7 +333,7 @@ const getDriveRSVPStatus = asyncHandler(async (req, res) => {
 
   // Fetch all RSVPs for this drive (include createdAt for waitlist position calculation)
   const rsvps = await RSVP.find({ drive: driveId })
-    .select('user status createdAt')
+    .select('user status createdAt checkedIn')
     .lean();
 
   // Calculate counts in a single pass
@@ -346,6 +346,18 @@ const getDriveRSVPStatus = asyncHandler(async (req, res) => {
       return acc;
     },
     { going: 0, maybe: 0, notGoing: 0, waitlisted: 0 }
+  );
+
+  // Check-in counts among 'going' RSVPs only
+  const checkin = rsvps.reduce(
+    (acc, r) => {
+      if (r.status !== 'going') return acc;
+      if (r.checkedIn === 'present') acc.present++;
+      else if (r.checkedIn === 'not-present') acc.notPresent++;
+      else acc.pending++;
+      return acc;
+    },
+    { present: 0, notPresent: 0, pending: 0 }
   );
 
   // Find the requesting user's own RSVP (if any)
@@ -363,6 +375,8 @@ const getDriveRSVPStatus = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     counts,
+    checkin,
+    checkInRequestedAt: drive.checkInRequestedAt || null,
     userStatus: userRSVP ? userRSVP.status : null,
     waitlistPosition,
     totalRSVPs: rsvps.length
@@ -641,14 +655,14 @@ const getClubAnalytics = asyncHandler(async (req, res) => {
 
   // Batch query 2: all drives for those clubs
   const drives = await Drive.find({ club: { $in: clubIds } })
-    .select('_id club name date isCompleted isCancelled maxAttendees')
+    .select('_id club name date isCompleted isCancelled maxAttendees checkInRequestedAt')
     .lean();
 
   const driveIds = drives.map(d => d._id);
 
   // Batch query 3: all going RSVPs for those drives
   const rsvps = await RSVP.find({ drive: { $in: driveIds }, status: 'going' })
-    .select('drive user')
+    .select('drive user checkedIn')
     .lean();
 
   // Batch query 4: user info for most active member display
@@ -659,15 +673,16 @@ const getClubAnalytics = asyncHandler(async (req, res) => {
 
   const userMap = new Map(users.map(u => [u._id.toString(), u]));
 
-  // Build driveGoingMap: driveId -> { count, userIds[] }
+  // Build driveGoingMap: driveId -> { count, present, userIds[] }
   const driveGoingMap = new Map();
   rsvps.forEach(rsvp => {
     const driveStr = rsvp.drive.toString();
     if (!driveGoingMap.has(driveStr)) {
-      driveGoingMap.set(driveStr, { count: 0, userIds: [] });
+      driveGoingMap.set(driveStr, { count: 0, present: 0, userIds: [] });
     }
     const entry = driveGoingMap.get(driveStr);
     entry.count++;
+    if (rsvp.checkedIn === 'present') entry.present++;
     entry.userIds.push(rsvp.user.toString());
   });
 
@@ -725,6 +740,18 @@ const getClubAnalytics = asyncHandler(async (req, res) => {
       }
     });
 
+    // avgAttendanceRate: average of (present / going) across drives where check-in was used
+    const checkedInDrives = clubDrives.filter(d => d.checkInRequestedAt);
+    let avgAttendanceRate = null;
+    if (checkedInDrives.length > 0) {
+      const totalRate = checkedInDrives.reduce((sum, drive) => {
+        const entry = driveGoingMap.get(drive._id.toString());
+        if (!entry || entry.count === 0) return sum;
+        return sum + entry.present / entry.count;
+      }, 0);
+      avgAttendanceRate = Math.round((totalRate / checkedInDrives.length) * 100);
+    }
+
     return {
       club: { _id: club._id, name: club.name, memberCount },
       totalDrives,
@@ -732,12 +759,110 @@ const getClubAnalytics = asyncHandler(async (req, res) => {
       cancelledDrives,
       completionRate,
       avgRSVPRate,
+      avgAttendanceRate,
       mostPopularDrive,
       mostActiveMember
     };
   });
 
   res.json({ success: true, analytics });
+});
+
+/**
+ * Notify all "going" members that check-in is open (leader can resend any time)
+ * @route POST /api/drives/:driveId/request-checkin
+ * @access Private (Club Leaders only)
+ */
+const requestCheckin = asyncHandler(async (req, res) => {
+  const { driveId } = req.params;
+  const leaderId = req.user.id;
+
+  const drive = await Drive.findById(driveId).populate('club');
+  if (!drive) {
+    throw new AppError('Drive not found', 404);
+  }
+  if (drive.club.leader.toString() !== leaderId) {
+    throw new AppError('Only the club leader can request check-in for this drive', 403);
+  }
+  if (drive.isCompleted) {
+    throw new AppError('This drive has already been marked completed — check-in is closed', 400);
+  }
+
+  drive.checkInRequestedAt = new Date();
+  await drive.save();
+
+  const goingRSVPs = await RSVP.find({ drive: driveId, status: 'going' }).select('user');
+  goingRSVPs.forEach(rsvp => {
+    notify(rsvp.user.toString(), {
+      type: 'DRIVE_CHECKIN_REQUEST',
+      message: `Check in for "${drive.name}" — let your club know you made it!`,
+      data: { driveId, clubId: drive.club._id }
+    });
+  });
+
+  res.json({
+    success: true,
+    message: `Check-in notification sent to ${goingRSVPs.length} member(s)`,
+    checkInRequestedAt: drive.checkInRequestedAt
+  });
+});
+
+/**
+ * Get the requesting user's check-in status for a drive
+ * @route GET /api/drives/:driveId/checkin-status
+ * @access Private (members with a 'going' RSVP)
+ */
+const getCheckinStatus = asyncHandler(async (req, res) => {
+  const { driveId } = req.params;
+  const userId = req.user.id;
+
+  const drive = await Drive.findById(driveId).populate('club', 'name');
+  if (!drive) {
+    throw new AppError('Drive not found', 404);
+  }
+
+  const rsvp = await RSVP.findOne({ drive: driveId, user: userId, status: 'going' });
+  if (!rsvp) {
+    throw new AppError('Only members RSVPed as "going" can check in to this drive', 403);
+  }
+
+  res.json({
+    success: true,
+    driveName: drive.name,
+    clubName: drive.club.name,
+    isCompleted: drive.isCompleted,
+    checkedIn: rsvp.checkedIn
+  });
+});
+
+/**
+ * Mark self as present or not-present for a drive
+ * @route POST /api/drives/:driveId/checkin
+ * @access Private (members with a 'going' RSVP)
+ */
+const submitCheckin = asyncHandler(async (req, res) => {
+  const { driveId } = req.params;
+  const { present } = req.body;
+  const userId = req.user.id;
+
+  const drive = await Drive.findById(driveId);
+  if (!drive) {
+    throw new AppError('Drive not found', 404);
+  }
+  if (drive.isCompleted) {
+    throw new AppError('This drive has been marked completed — check-in is closed', 400);
+  }
+
+  const rsvp = await RSVP.findOne({ drive: driveId, user: userId, status: 'going' });
+  if (!rsvp) {
+    throw new AppError('Only members RSVPed as "going" can check in to this drive', 403);
+  }
+
+  rsvp.checkedIn = present ? 'present' : 'not-present';
+  rsvp.checkedInAt = new Date();
+  await rsvp.save();
+
+  res.json({ success: true, checkedIn: rsvp.checkedIn });
 });
 
 module.exports = {
@@ -751,5 +876,8 @@ module.exports = {
   getDriveRSVPStatus,
   getLeaderDashboard,
   getMyRSVPs,
-  getClubAnalytics
+  getClubAnalytics,
+  requestCheckin,
+  getCheckinStatus,
+  submitCheckin
 };

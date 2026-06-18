@@ -13,7 +13,10 @@ const {
   getDriveRSVPStatus,
   getLeaderDashboard,
   getMyRSVPs,
-  getClubAnalytics
+  getClubAnalytics,
+  requestCheckin,
+  getCheckinStatus,
+  submitCheckin
 } = require('../controllers/driveController');
 
 // All routes require authentication
@@ -165,6 +168,48 @@ router.delete(
     driveId: { required: true, objectId: true }
   }),
   deleteDrive
+);
+
+/**
+ * @route   POST /api/drives/:driveId/request-checkin
+ * @desc    Notify "going" members that check-in is open (resendable until drive is completed)
+ * @access  Private (Club Leaders only)
+ */
+router.post(
+  '/:driveId/request-checkin',
+  validateParams({
+    driveId: { required: true, objectId: true }
+  }),
+  requestCheckin
+);
+
+/**
+ * @route   GET /api/drives/:driveId/checkin-status
+ * @desc    Get the requesting user's check-in status for a drive
+ * @access  Private (members with a 'going' RSVP)
+ */
+router.get(
+  '/:driveId/checkin-status',
+  validateParams({
+    driveId: { required: true, objectId: true }
+  }),
+  getCheckinStatus
+);
+
+/**
+ * @route   POST /api/drives/:driveId/checkin
+ * @desc    Mark self as present or not-present for a drive
+ * @access  Private (members with a 'going' RSVP)
+ */
+router.post(
+  '/:driveId/checkin',
+  validateParams({
+    driveId: { required: true, objectId: true }
+  }),
+  validateInput({
+    present: { required: true, type: 'boolean' }
+  }),
+  submitCheckin
 );
 
 module.exports = router;

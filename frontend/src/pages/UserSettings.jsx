@@ -4,7 +4,7 @@ import {
   BarChart2, Users, Calendar, CheckCircle, TrendingUp,
   Car, Star, Award, AlertCircle, Plus,
   Home, User as UserIcon, ChevronDown, ChevronRight,
-  MapPin, Clock, XCircle, ThumbsUp,
+  MapPin, Clock, XCircle, ThumbsUp, UserCheck,
   Save, X, ShieldAlert, Pencil, Lock
 } from "lucide-react";
 import NavBar from "../components/NavBar";
@@ -199,6 +199,21 @@ const RSVPBar = ({ rate }) => (
     <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
       <div
         className="h-full bg-gradient-to-r from-sky-500 to-sky-400 rounded-full transition-all duration-700"
+        style={{ width: `${Math.min(rate, 100)}%` }}
+      />
+    </div>
+  </div>
+);
+
+const AttendanceBar = ({ rate }) => (
+  <div className="mt-2">
+    <div className="flex justify-between mb-1.5">
+      <span className="text-[11px] text-zinc-500">Checked-In Attendance</span>
+      <span className="text-[11px] font-semibold text-purple-400">{rate}%</span>
+    </div>
+    <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+      <div
+        className="h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded-full transition-all duration-700"
         style={{ width: `${Math.min(rate, 100)}%` }}
       />
     </div>
@@ -503,7 +518,7 @@ const ClubsAnalytics = () => {
 
       {!loading && !error && analytics.length > 0 && (
         <div className="space-y-6">
-          {analytics.map(({ club, totalDrives, completedDrives, cancelledDrives, completionRate, avgRSVPRate, mostPopularDrive, mostActiveMember }) => (
+          {analytics.map(({ club, totalDrives, completedDrives, cancelledDrives, completionRate, avgRSVPRate, avgAttendanceRate, mostPopularDrive, mostActiveMember }) => (
             <div
               key={club._id}
               className="glass-card rounded-3xl p-6 hover:border-white/[0.12] hover:-translate-y-0.5 transition-all duration-200"
@@ -544,7 +559,7 @@ const ClubsAnalytics = () => {
               </div>
 
               {/* Detail cards row */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className={`grid grid-cols-1 sm:grid-cols-2 ${avgAttendanceRate !== null ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-3`}>
                 <DetailCard icon={Star} label="Most Popular Drive" accent="text-yellow-400">
                   {mostPopularDrive ? (
                     <>
@@ -592,6 +607,14 @@ const ClubsAnalytics = () => {
                     </p>
                   )}
                 </DetailCard>
+
+                {avgAttendanceRate !== null && (
+                  <DetailCard icon={UserCheck} label="Attendance Rate" accent="text-purple-400">
+                    <span className="text-3xl font-bold text-purple-400">{avgAttendanceRate}%</span>
+                    <AttendanceBar rate={avgAttendanceRate} />
+                    <p className="text-xs text-zinc-600 mt-1">Checked in vs. "going" RSVPs</p>
+                  </DetailCard>
+                )}
               </div>
             </div>
           ))}

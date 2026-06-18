@@ -1,20 +1,22 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Bell, Calendar, CheckCircle, Users, UserCheck, UserX,
-  Clock, Megaphone, CheckCheck,
+  Clock, Megaphone, CheckCheck, MapPin,
 } from "lucide-react";
 
 // Map SSE event types to lucide icons and accent colours
 const TYPE_META = {
-  NEW_DRIVE:         { icon: Calendar,     color: "text-red-400"    },
-  RSVP_NEW:          { icon: CheckCircle,  color: "text-green-400"  },
-  RSVP_UPDATED:      { icon: CheckCircle,  color: "text-green-400"  },
-  JOIN_REQUEST:      { icon: Users,        color: "text-blue-400"   },
-  JOIN_ACCEPTED:     { icon: UserCheck,    color: "text-green-400"  },
-  JOIN_REJECTED:     { icon: UserX,        color: "text-red-400"    },
-  NEW_ANNOUNCEMENT:  { icon: Megaphone,    color: "text-orange-400" },
-  WAITLIST_JOINED:   { icon: Clock,        color: "text-amber-400"  },
-  WAITLIST_PROMOTED: { icon: CheckCircle,  color: "text-emerald-400"},
+  NEW_DRIVE:            { icon: Calendar,     color: "text-red-400"    },
+  RSVP_NEW:             { icon: CheckCircle,  color: "text-green-400"  },
+  RSVP_UPDATED:         { icon: CheckCircle,  color: "text-green-400"  },
+  JOIN_REQUEST:         { icon: Users,        color: "text-blue-400"   },
+  JOIN_ACCEPTED:        { icon: UserCheck,    color: "text-green-400"  },
+  JOIN_REJECTED:        { icon: UserX,        color: "text-red-400"    },
+  NEW_ANNOUNCEMENT:     { icon: Megaphone,    color: "text-orange-400" },
+  WAITLIST_JOINED:      { icon: Clock,        color: "text-amber-400"  },
+  WAITLIST_PROMOTED:    { icon: CheckCircle,  color: "text-emerald-400"},
+  DRIVE_CHECKIN_REQUEST:{ icon: MapPin,       color: "text-sky-400"    },
 };
 
 const relativeTime = (id) => {
@@ -30,6 +32,15 @@ const relativeTime = (id) => {
 const NotificationPanel = ({ notifications, unreadCount, markAllRead, markOneRead, onClose, excludeRef }) => {
   const [tab, setTab] = useState("all");
   const ref = useRef(null);
+  const navigate = useNavigate();
+
+  const handleClick = (n) => {
+    markOneRead(n.id);
+    if (n.type === "DRIVE_CHECKIN_REQUEST" && n.data?.driveId) {
+      navigate(`/drive/${n.data.driveId}/checkin`);
+      onClose();
+    }
+  };
 
   useEffect(() => {
     const handle = (e) => {
@@ -101,7 +112,7 @@ const NotificationPanel = ({ notifications, unreadCount, markAllRead, markOneRea
             return (
               <button
                 key={n.id}
-                onClick={() => markOneRead(n.id)}
+                onClick={() => handleClick(n)}
                 className={`w-full flex items-start gap-3 px-4 py-3 border-b border-zinc-800/50 text-left hover:bg-zinc-800/40 transition-colors ${
                   !n.read ? "bg-zinc-800/20" : ""
                 }`}

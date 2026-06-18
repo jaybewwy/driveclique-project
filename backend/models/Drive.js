@@ -61,6 +61,10 @@ const DriveSchema = new mongoose.Schema({
   },
   completedAt: {
       type: Date
+  },
+  // Check-in request timestamp (UC-08) — re-set on every leader resend, cleared check-in stays open until isCompleted
+  checkInRequestedAt: {
+      type: Date
   }
 }, { timestamps: true });
 

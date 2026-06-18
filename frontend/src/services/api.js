@@ -201,6 +201,9 @@ export const drivesAPI = {
   getLeaderDashboard: () => api.get('/drives/dashboard'),
   getAnalytics: () => api.get('/drives/analytics'),
   getMyRSVPs: () => api.get('/drives/my-rsvps'),
+  requestCheckin: (driveId) => api.post(`/drives/${driveId}/request-checkin`),
+  getCheckinStatus: (driveId) => api.get(`/drives/${driveId}/checkin-status`),
+  submitCheckin: (driveId, present) => api.post(`/drives/${driveId}/checkin`, { present }),
 };
 
 export const reportsAPI = {

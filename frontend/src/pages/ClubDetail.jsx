@@ -66,6 +66,12 @@ const ClubDetail = ({ user, onLogout }) => {
   const [isRSVPLoading, setIsRSVPLoading] = useState(false);
   const [rsvpMessage, setRsvpMessage] = useState('');
 
+  // Check-in state (modal-scoped — reset when modal closes)
+  const [checkinCounts, setCheckinCounts] = useState({ present: 0, notPresent: 0, pending: 0 });
+  const [checkInRequestedAt, setCheckInRequestedAt] = useState(null);
+  const [isSendingCheckin, setIsSendingCheckin] = useState(false);
+  const [checkinSentMessage, setCheckinSentMessage] = useState('');
+
   // Persistent per-drive RSVP counts (survive modal close, used by drive cards)
   const [driveRSVPCounts, setDriveRSVPCounts] = useState({});
 
@@ -184,6 +190,9 @@ const ClubDetail = ({ user, onLogout }) => {
     setUserRSVP(null);
     setRsvpCounts({ going: 0, maybe: 0, notGoing: 0 });
     setRsvpMessage('');
+    setCheckinCounts({ present: 0, notPresent: 0, pending: 0 });
+    setCheckInRequestedAt(null);
+    setCheckinSentMessage('');
   };
 
   // Fetch RSVP data for a drive (counts + current user's status)
@@ -207,9 +216,35 @@ const ClubDetail = ({ user, onLogout }) => {
         // Restore the user's existing RSVP status and waitlist position
         setUserRSVP(response.data.userStatus);
         setUserWaitlistPosition(response.data.waitlistPosition ?? null);
+        // Check-in results (leader view) and request timestamp (UC-08)
+        if (response.data.checkin) {
+          setCheckinCounts({
+            present: response.data.checkin.present,
+            notPresent: response.data.checkin.notPresent,
+            pending: response.data.checkin.pending,
+          });
+        }
+        setCheckInRequestedAt(response.data.checkInRequestedAt ?? null);
       }
     } catch (error) {
       console.error('Error fetching RSVP data:', error);
+    }
+  };
+
+  // Leader sends (or resends) the check-in notification to all "going" members
+  const handleSendCheckin = async () => {
+    if (!selectedDrive || isSendingCheckin) return;
+    setIsSendingCheckin(true);
+    setCheckinSentMessage('');
+    try {
+      const response = await drivesAPI.requestCheckin(selectedDrive._id);
+      setCheckInRequestedAt(response.data.checkInRequestedAt);
+      setCheckinSentMessage(response.data.message);
+    } catch (error) {
+      setCheckinSentMessage(error.response?.data?.message || 'Failed to send check-in notification');
+    } finally {
+      setIsSendingCheckin(false);
+      setTimeout(() => setCheckinSentMessage(''), 4000);
     }
   };
 
@@ -1666,6 +1701,64 @@ const ClubDetail = ({ user, onLogout }) => {
                         </div>
                       </div>
                     </>
+                  )}
+                </div>
+              )}
+
+              {/* Check-In Section (UC-08) — optional; leader can send/resend anytime, members with a "going"
+                  RSVP can self check-in any time too (covers missed push notifications). Stays open until
+                  the leader marks the drive completed. */}
+              {!selectedDrive.isCompleted && (isLeader || userRSVP === 'going') && (
+                <div className="border-t border-zinc-700 pt-6">
+                  {isLeader ? (
+                    <>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-lg font-semibold">Drive Check-In</h3>
+                        {rsvpCounts.going >= 40 && (
+                          <span className="text-[11px] uppercase tracking-wide bg-sky-900/30 text-sky-400 border border-sky-700/40 rounded-full px-2 py-0.5">
+                            Recommended for large groups
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-zinc-500 mb-4">
+                        Optional — ask members who RSVPed "going" to confirm they showed up. Stays open until you mark this drive completed.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleSendCheckin}
+                        disabled={isSendingCheckin}
+                        className="w-full bg-zinc-800 hover:bg-sky-900/30 text-white hover:text-sky-400 border border-zinc-700 hover:border-sky-600 py-3 rounded-2xl font-medium transition disabled:opacity-50 mb-4"
+                      >
+                        {isSendingCheckin ? 'Sending...' : checkInRequestedAt ? 'Resend Check-In Notification' : 'Send Check-In Notification'}
+                      </button>
+                      {checkinSentMessage && (
+                        <p className="text-sm text-zinc-400 text-center mb-4">{checkinSentMessage}</p>
+                      )}
+                      {checkInRequestedAt && (
+                        <div className="flex gap-4">
+                          <div className="flex-1 bg-black rounded-xl p-3 text-center">
+                            <p className="text-2xl font-bold text-green-400">{checkinCounts.present}</p>
+                            <p className="text-xs text-zinc-500">Present</p>
+                          </div>
+                          <div className="flex-1 bg-black rounded-xl p-3 text-center">
+                            <p className="text-2xl font-bold text-zinc-400">{checkinCounts.notPresent}</p>
+                            <p className="text-xs text-zinc-500">Not Present</p>
+                          </div>
+                          <div className="flex-1 bg-black rounded-xl p-3 text-center">
+                            <p className="text-2xl font-bold text-amber-400">{checkinCounts.pending}</p>
+                            <p className="text-xs text-zinc-500">Pending</p>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/drive/${selectedDrive._id}/checkin`)}
+                      className="w-full bg-zinc-800 hover:bg-sky-900/30 text-white hover:text-sky-400 border border-zinc-700 hover:border-sky-600 py-3 rounded-2xl font-medium transition"
+                    >
+                      Check In to This Drive
+                    </button>
                   )}
                 </div>
               )}

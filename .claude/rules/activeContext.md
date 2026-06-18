@@ -2,6 +2,53 @@
 
 ## Current Focus
 
+True React Native (Expo) mobile app started (2026-06-18) — new `mobile/` project at the repo root, separate codebase from the existing Capacitor wrapper (`frontend/android/`, `frontend/ios/`), built to the plan in `REACT_NATIVE_PLAN.md`.
+
+**This is a from-scratch rewrite, not a port of the Capacitor build.** Capacitor wraps the Vite/React **web** bundle in a native WebView; `mobile/` instead uses real React Native components (Expo Router, NativeWind, no WebView) talking to the same Express backend over the same REST API — zero backend changes except a planned (not yet built) push-token endpoint for Phase 6.
+
+**Stack decisions:** Expo (managed) + Expo Router (file-based nav, mirrors web's route mental model) + NativeWind (Tailwind-syntax styling, reuses `DESIGN_SYSTEM.md` tokens) + JavaScript (matches `frontend/`'s JS-only convention) + `expo-secure-store` for JWT/refresh-token storage (never AsyncStorage for tokens) + axios (same library as web, works unmodified in RN).
+
+**Phase 1 + start of Phase 2 built and smoke-tested this session:**
+- `mobile/src/services/api.js` — `frontend/src/services/api.js` ported near-1:1 (same `authAPI`/`clubsAPI`/`drivesAPI`/`reportsAPI` namespaces, same endpoints/payloads). Only change: token reads are `async` (secure-store), and `window.location` redirects became a `setSessionExpiredHandler` callback the root layout wires to `useAuth`.
+- `mobile/src/services/storage.js` — secure-store wrapper. **Web fallback:** `expo-secure-store` has no real implementation in Expo SDK 56 for the web platform (`ExpoSecureStore.web.js` exports `{}`), so `storage.js` switches to `AsyncStorage` (browser `localStorage`) when `Platform.OS === 'web'`. This is dev-convenience only — Android/iOS builds always use the real encrypted SecureStore.
+- `mobile/src/hooks/useAuth.js`, `useClubs.js` — ported from the web hooks of the same name, same shape (`isAuthenticated`, `login()`, `logout()`, `updateUser()`).
+- Auth screens: `mobile/app/(auth)/{login,register,forgot-password,reset-password,verify-email}.jsx`.
+- Tab screens: `mobile/app/(tabs)/{dashboard,my-clubs,find-club,settings}.jsx`.
+- Stack screens: `mobile/app/club/[clubId].jsx` (drives + RSVP + join), `mobile/app/club/create.jsx`, `mobile/app/drive/[driveId]/checkin.jsx` (UC-08 equivalent), `mobile/app/+not-found.jsx`.
+- `mobile/tailwind.config.js` — `darkMode: "class"` is **required**, not cosmetic: NativeWind's web color-scheme module throws `"Cannot manually set color scheme, as dark mode is type 'media'"` as an uncaught error (full-screen LogBox overlay, blocks all touch input) the moment anything touches color scheme with the default `media` mode. Since this app is dark-only with no `dark:` variants, `class` mode sidesteps the throw entirely.
+
+**Verified end-to-end against the live backend** (Expo web preview + Playwright, since this dev box has no Android/iOS emulator): register → auto-login → dashboard → My Clubs tab → Create Club → club detail page → logout → login with the same credentials → club persisted. Zero console/page errors after fixes below.
+
+**Backend change (additive, dev-only):** `backend/server.js` dev CORS allowlist gained `http://localhost:8081` (Expo's default web dev port) alongside the existing `localhost:5173`/`localhost:3000`/Capacitor origins — needed only for browser-based testing of the Expo web preview; native iOS/Android requests are never subject to CORS.
+
+**Known issue carried forward, not yet fixed:** `expo-status-bar`'s `style="light"` combined with NativeWind's web color-scheme listener is what *triggers* the color-scheme throw above (root-caused but the trigger itself wasn't removed, only the `darkMode: "class"` workaround was applied) — revisit if any future NativeWind/Expo upgrade reintroduces the overlay on web.
+
+**Next up (per `REACT_NATIVE_PLAN.md` §7):** Phase 3 (RSVP polish, waitlist UI, date-picker-based drive scheduling), Phase 4 (announcements, reports, check-in send/resend on the leader side), Phase 5 (Settings screen: username change, password change/reuse policy, club analytics), Phase 6 (Expo push notifications + the `POST /api/auth/push-token` backend addition + EAS Build).
+
+---
+
+## Previous Focus
+
+UC-08 Drive Check-In (Actual Attendance) implemented (2026-06-18) — a notification-and-self-checkin flow, not the meet-up-code design originally sketched in `USE_CASES.md`.
+
+**Design departs from the original UC-08 spec** (per explicit user direction this session): instead of a shared meet-up code shouted at the event, the leader sends an SSE push notification to every "going" member linking to a dedicated `/drive/:driveId/checkin` page where each member self-marks "I'm here" / "I couldn't make it." No email is sent (SSE/bell only, per user request — email was deliberately dropped from the original plan). Check-in is **optional always**, with a UI nudge ("Recommended for large groups") once `going >= 40`. It has no fixed time window — the leader can send/resend the notification any number of times, and members can self-check-in at any time (covers missed pushes / bad connectivity) — the only close condition is the leader marking the drive `isCompleted: true` (the existing Mark Complete action), at which point both the notification button and the member's check-in page close.
+
+**Key files:**
+- `backend/models/rsvp.js` — `checkedIn: 'pending' | 'present' | 'not-present'` (default `'pending'`), `checkedInAt: Date`.
+- `backend/models/drive.js` — `checkInRequestedAt: Date`, re-set on every leader (re)send; doubles as the "has check-in ever been used" flag for analytics.
+- `backend/controllers/driveController.js` — `requestCheckin` (leader-only, blocked once `isCompleted`), `getCheckinStatus` / `submitCheckin` (any member with a `going` RSVP, blocked once `isCompleted`); `getDriveRSVPStatus` extended with a `checkin: {present, notPresent, pending}` breakdown; `getClubAnalytics` extended with `avgAttendanceRate` (present ÷ going, averaged only over drives where `checkInRequestedAt` is set — `null` if check-in was never used for that club).
+- `backend/routes/drives.js` — `POST /:driveId/request-checkin`, `GET /:driveId/checkin-status`, `POST /:driveId/checkin`.
+- `frontend/src/pages/DriveCheckIn.jsx` — new standalone page at `/drive/:driveId/checkin`; loading/closed/already-answered/choice states, "Change my answer" link.
+- `frontend/src/pages/ClubDetail.jsx` — drive modal gets a "Drive Check-In" section: leader sees Send/Resend + present/not-present/pending count tiles; non-leader "going" members see a "Check In to This Drive" button. Gated only by `!selectedDrive.isCompleted` (deliberately **not** gated by drive date, since check-in is meant to be used on/after drive day even if the leader marks completion later).
+- `frontend/src/pages/UserSettings.jsx` (ClubAnalytics view) — 4th `DetailCard` "Attendance Rate" with a new `AttendanceBar`, rendered only when `avgAttendanceRate !== null` for that club (grid expands from 3 to 4 columns).
+- `frontend/src/components/ui/notification-panel.jsx` — new `DRIVE_CHECKIN_REQUEST` type (sky `MapPin` icon); clicking this specific notification type navigates to the check-in page (the only notification type with click-to-navigate behavior so far — all others just mark-as-read).
+
+**Verification:** `frontend/tests/e2e/drive-checkin.spec.ts` — 15 API-level Playwright tests (serial), all passing: permission checks (leader-only send, going-RSVP-only self-checkin), resend-without-limit, re-answer, analytics `avgAttendanceRate` computation, and the completed-drive close behavior on both endpoints. Screenshots in `frontend/tests/e2e/screenshots/checkin-*.png` (leader send/results, member button/page/confirmed states).
+
+---
+
+## Previous Focus
+
 UC-27 docs reconciliation + UC-29 Password Strength Indicator + Password Reuse Prevention implemented (2026-06-17).
 
 **UC-27 (404 page) was already implemented in a prior session (commit `26de41d`)** — this session only updated `USE_CASES.md` to move it from the pending Index into the Implemented table, and re-verified it manually via Playwright (both logged-out and logged-in CTA states render correctly; screenshots in `frontend/tests/e2e/screenshots/verify-404-logged-out.png` / `verify-404-logged-in.png`).

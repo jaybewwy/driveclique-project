@@ -40,7 +40,7 @@ app.use(morgan(':method :url :status :res[content-length]b :response-time ms', {
 // iOS Capacitor uses 'capacitor://localhost'; Android uses 'http://localhost'.
 const _allowedOrigins = process.env.NODE_ENV === 'production'
   ? [process.env.ALLOWED_ORIGIN_WEB, 'capacitor://localhost', 'http://localhost'].filter(Boolean)
-  : ['http://localhost:5173', 'http://localhost:3000', 'capacitor://localhost', 'http://localhost'];
+  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:8081', 'capacitor://localhost', 'http://localhost'];
 
 app.use(cors({
   origin: (origin, callback) => {

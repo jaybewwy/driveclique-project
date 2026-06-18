@@ -1,5 +1,78 @@
 # DriveClique - Progress
 
+## Session: React Native (Expo) Mobile App — Phase 1 + start of Phase 2 (2026-06-18)
+
+### What Was Built
+
+A brand-new React Native codebase at `mobile/` (Expo, Expo Router, NativeWind, JavaScript), separate from the existing Capacitor-wrapped web build. Plan documented in `REACT_NATIVE_PLAN.md` (repo root). This session covered Phase 1 (foundation: auth + secure-token storage + ported API layer) and the start of Phase 2 (Dashboard, My Clubs, Find Club, Club Detail with RSVP, Create Club, Settings, Drive Check-In screen).
+
+| Layer | File | Change |
+|-------|------|--------|
+| Project | `mobile/` | New Expo SDK 56 project (`create-expo-app`), Expo Router as entry (`"main": "expo-router/entry"`), dark theme `app.json` (`userInterfaceStyle: "dark"`, scheme `driveclique` for deep links) |
+| Styling | `mobile/tailwind.config.js`, `mobile/babel.config.js`, `mobile/metro.config.js` | NativeWind v4 wired through Metro + Babel; `darkMode: "class"` set deliberately (see Active Context — `media` mode throws on web) |
+| API layer | `mobile/src/services/api.js` | Ported from `frontend/src/services/api.js` near-1:1 — same `authAPI`/`clubsAPI`/`drivesAPI`/`reportsAPI`, same 401-refresh-retry interceptor logic, async token reads |
+| Storage | `mobile/src/services/storage.js` | `expo-secure-store` for tokens (native), falls back to `AsyncStorage`/localStorage only on `Platform.OS === 'web'` since SecureStore has no web backend in SDK 56 |
+| Hooks | `mobile/src/hooks/useAuth.js`, `useClubs.js` | Ported from the web hooks of the same name and shape |
+| Auth screens | `mobile/app/(auth)/*.jsx` | Login, Register (with the same advisory password-strength bar as web), ForgotPassword, ResetPassword, VerifyEmail (token read via `useLocalSearchParams` for deep links) |
+| Tab screens | `mobile/app/(tabs)/*.jsx` | Dashboard (upcoming drives across all clubs), My Clubs, Find Club (debounced search), Settings (profile fields + logout; full settings deferred to Phase 5) |
+| Stack screens | `mobile/app/club/[clubId].jsx`, `club/create.jsx`, `drive/[driveId]/checkin.jsx`, `+not-found.jsx` | Club detail with per-drive RSVP buttons (going/maybe/not-going) and join/request-to-join; Create Club with public/private picker; Check-In screen mirroring `DriveCheckIn.jsx`'s loading/closed/answered/choice states |
+| Backend | `backend/server.js` | Added `http://localhost:8081` to the dev-only CORS allowlist (Expo's web dev port) — additive, dev-mode only, does not affect native app requests (no CORS enforcement off-browser) |
+
+### Dependency/tooling issues hit and fixed
+
+All four were nested-module resolution problems from `npm install --legacy-peer-deps` hoisting packages under `node_modules/expo/node_modules/...` instead of the project root, where Metro's Babel transform couldn't find them:
+1. `babel-preset-expo` not found → explicitly added as a top-level devDependency.
+2. `react-native-worklets/plugin` not found → reanimated v4 split worklets into its own peer package; installed explicitly via `expo install`.
+3. `expo-linking` / `@expo/metro-runtime` not found → expo-router peer deps were missing; installed explicitly.
+4. `ExpoSecureStore.default.getValueWithKeyAsync is not a function` on web → SecureStore's web build is a stub (`{}`); added the `storage.js` web fallback described above.
+
+### Verification
+
+No Android/iOS emulator available in this environment, so verification used **Expo web preview + Playwright** (the project's existing E2E tool) instead of Maestro/Detox: registered a new user (`@mail.com` domain, per the existing email-verifier constraint) → landed on Dashboard → navigated all 4 tabs → created a club → landed on its detail page showing the leader badge → logged out → logged back in with the same credentials → confirmed the created club persisted. Zero browser console errors and zero uncaught page errors in the final run. This validates the API layer, auth flow, and navigation; it does **not** validate native-only behavior (push notifications, native date pickers, camera/image picker) — those need a real device/emulator pass before Phase 6.
+
+### Design Decisions
+
+- **Separate codebase, not a port of Capacitor** — Capacitor wraps the web DOM bundle in a WebView; this is real RN components with no WebView, matching the user's explicit choice of "true React Native rewrite" over extending Capacitor.
+- **Expo over bare RN CLI** — EAS Build gives cloud Android/iOS builds with no local Xcode/Android Studio needed, important on a Windows-only dev machine.
+- **NativeWind over StyleSheet** — reuses the dollar value of `DESIGN_SYSTEM.md`'s existing Tailwind tokens instead of hand-translating every class to a JS style object.
+- **Push notifications deferred to Phase 6, not built yet** — `authAPI.registerPushToken` exists in `mobile/src/services/api.js` as a forward-reference to the planned `POST /api/auth/push-token` endpoint, but that backend route does not exist yet; calling it today would 404.
+
+---
+
+## Session: UC-08 Drive Check-In (Actual Attendance) (2026-06-18)
+
+### What Was Built
+
+UC-08 implemented with a design that diverges from the original spec in `USE_CASES.md` per explicit user direction during planning: no shared meet-up check-in code, no email. Instead — a push (SSE) notification + dedicated self-checkin page, fully optional, closing only when the leader marks the drive completed.
+
+| Layer | File | Change |
+|-------|------|--------|
+| Model | `backend/models/rsvp.js` | Added `checkedIn: 'pending' \| 'present' \| 'not-present'` (default `'pending'`), `checkedInAt: Date` |
+| Model | `backend/models/drive.js` | Added `checkInRequestedAt: Date` — re-set on every leader send/resend |
+| Controller | `backend/controllers/driveController.js` | Added `requestCheckin` (leader-only, blocked once `isCompleted`), `getCheckinStatus`, `submitCheckin` (any `going` member, blocked once `isCompleted`); extended `getDriveRSVPStatus` with a `checkin: {present, notPresent, pending}` breakdown + `checkInRequestedAt`; extended `getClubAnalytics` with `avgAttendanceRate` |
+| Route | `backend/routes/drives.js` | `POST /:driveId/request-checkin`, `GET /:driveId/checkin-status`, `POST /:driveId/checkin` |
+| API service | `frontend/src/services/api.js` | `drivesAPI.requestCheckin`, `getCheckinStatus`, `submitCheckin` |
+| Page | `frontend/src/pages/DriveCheckIn.jsx` | New — `/drive/:driveId/checkin`; loading / closed / already-answered / choice states |
+| Routing | `frontend/src/App.jsx` | Registered `/drive/:driveId/checkin` as a protected, lazy-loaded route |
+| ClubDetail | `frontend/src/pages/ClubDetail.jsx` | Drive modal: leader gets Send/Resend Check-In button + 40+ "Recommended" badge + present/not-present/pending tiles; non-leader "going" members get a "Check In to This Drive" button. Gated only by `!selectedDrive.isCompleted` |
+| Analytics | `frontend/src/pages/UserSettings.jsx` | New `AttendanceBar` + 4th `DetailCard` "Attendance Rate", shown only when a club has `avgAttendanceRate !== null` (grid expands 3→4 cols) |
+| Notifications | `frontend/src/components/ui/notification-panel.jsx` | New `DRIVE_CHECKIN_REQUEST` type (sky `MapPin` icon); clicking it navigates to the check-in page — the first notification type with click-to-navigate behavior |
+| Test | `frontend/tests/e2e/drive-checkin.spec.ts` | New 15-test Playwright suite (API-level, serial) — all passing |
+
+### Design Decisions
+
+- **No shared check-in code, no email** — both were in earlier plan drafts; the user simplified to push notification + self-service page only, since SMTP latency/reliability isn't a concern for a same-day "are you here" check.
+- **`checkedIn` is a 3-state enum, not boolean** — distinguishes "never responded" from "responded absent," which a boolean can't do without an extra null-check convention.
+- **No time window — closes only on `isCompleted`** — matches the user's explicit requirement that members with bad connectivity at the meet can still self-check-in later, and the leader can resend as many times as needed, with the *only* hard stop being the existing "Mark Drive Completed" action.
+- **`avgAttendanceRate` averages only over drives where check-in was used** (`checkInRequestedAt` set) — a club that never uses the feature shows no attendance card at all (`null`), rather than misleadingly reporting 0%.
+- **Self-checkin not gated by whether a notification was ever sent** — covers members who missed the push notification (bad connection, app closed) per explicit user requirement; they can still find the drive on the club page and check in directly.
+
+### Screenshots
+
+`frontend/tests/e2e/screenshots/checkin-leader-send-notification.png`, `checkin-leader-results.png`, `checkin-member-button.png`, `checkin-member-page.png`, `checkin-member-confirmed.png`.
+
+---
+
 ## Session: UC-29 Password Strength Indicator + Password Reuse Prevention (2026-06-17)
 
 ### What Was Built

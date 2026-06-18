@@ -20,6 +20,7 @@ const CreateClub   = lazy(() => import('./pages/CreateClub'));
 const FindClub     = lazy(() => import('./pages/FindClub'));
 const Profile      = lazy(() => import('./pages/Profile'));
 const UserSettings = lazy(() => import('./pages/UserSettings'));
+const DriveCheckIn = lazy(() => import('./pages/DriveCheckIn'));
 const NotFound     = lazy(() => import('./pages/NotFound'));
 
 const PageSpinner = () => (
@@ -55,6 +56,7 @@ function AppRoutes() {
         <Route path="/find-club"    element={isAuthenticated ? <FindClub     user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/profile"      element={isAuthenticated ? <Profile      user={user} onLogout={logout} onUpdateUser={updateUser} /> : <Navigate to="/login" replace />} />
         <Route path="/settings"     element={isAuthenticated ? <UserSettings user={user} onLogout={logout} onUpdateUser={updateUser} /> : <Navigate to="/login" replace />} />
+        <Route path="/drive/:driveId/checkin" element={isAuthenticated ? <DriveCheckIn user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         {/* Legacy alias kept so old nav links don't silently redirect to /dashboard */}
         <Route path="/analytics"    element={<Navigate to="/settings" replace />} />
 
