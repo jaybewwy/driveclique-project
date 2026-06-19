@@ -518,7 +518,7 @@ const ClubsAnalytics = () => {
 
       {!loading && !error && analytics.length > 0 && (
         <div className="space-y-6">
-          {analytics.map(({ club, totalDrives, completedDrives, cancelledDrives, completionRate, avgRSVPRate, avgAttendanceRate, mostPopularDrive, mostActiveMember }) => (
+          {analytics.map(({ club, totalDrives, completedDrives, cancelledDrives, completionRate, avgRSVPRate, avgAttendanceRate, avgDriveRating, mostPopularDrive, mostActiveMember }) => (
             <div
               key={club._id}
               className="glass-card rounded-3xl p-6 hover:border-white/[0.12] hover:-translate-y-0.5 transition-all duration-200"
@@ -559,7 +559,11 @@ const ClubsAnalytics = () => {
               </div>
 
               {/* Detail cards row */}
-              <div className={`grid grid-cols-1 sm:grid-cols-2 ${avgAttendanceRate !== null ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-3`}>
+              <div className={`grid grid-cols-1 sm:grid-cols-2 ${
+                ["lg:grid-cols-3", "lg:grid-cols-4", "lg:grid-cols-5"][
+                  [avgAttendanceRate !== null, avgDriveRating !== null].filter(Boolean).length
+                ]
+              } gap-3`}>
                 <DetailCard icon={Star} label="Most Popular Drive" accent="text-yellow-400">
                   {mostPopularDrive ? (
                     <>
@@ -613,6 +617,17 @@ const ClubsAnalytics = () => {
                     <span className="text-3xl font-bold text-purple-400">{avgAttendanceRate}%</span>
                     <AttendanceBar rate={avgAttendanceRate} />
                     <p className="text-xs text-zinc-600 mt-1">Checked in vs. "going" RSVPs</p>
+                  </DetailCard>
+                )}
+
+                {avgDriveRating !== null && (
+                  <DetailCard icon={Star} label="Avg Drive Rating" accent="text-yellow-400">
+                    <div className="flex items-center gap-1.5">
+                      <Star size={20} className="text-yellow-400 fill-yellow-400" />
+                      <span className="text-3xl font-bold text-yellow-400">{avgDriveRating.toFixed(1)}</span>
+                      <span className="text-xs text-zinc-500">/ 5</span>
+                    </div>
+                    <p className="text-xs text-zinc-600 mt-1">From member ratings on completed drives</p>
                   </DetailCard>
                 )}
               </div>

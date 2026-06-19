@@ -2,6 +2,24 @@
 
 ## Current Focus
 
+UC-25 Post-Drive Rating & Feedback implemented (2026-06-18) — the last item on the USE_CASES.md pending list (UC-25 was previously marked "Low/Low" and unimplemented).
+
+Members who RSVP'd `going` to a drive can submit a 1–5 star rating + optional 200-char comment once the leader marks that drive completed. The average is visible to all club members on the drive's modal; the leader's per-club analytics card (`/settings` → Club Analytics) shows an `avgDriveRating` summary across all rated drives.
+
+**Key files:**
+- `backend/models/driveRating.js` — new model, `{ drive, user, stars (1–5), comment (≤200 chars) }`, unique index `{ drive, user }` (one rating per member per drive; resubmitting overwrites via `findOneAndUpdate({ upsert: true })` rather than separate create/edit branches).
+- `backend/controllers/driveController.js` — `submitRating` (guards: `drive.isCompleted` + a `going` RSVP, else 400/403) and `getDriveRatings` (any club member; returns `average`, `count`, `ratings[]`, and the requester's own `myRating` for form pre-fill). `getClubAnalytics` extended with a 4th batch query (`DriveRating.find` over the club's drive IDs) producing `avgDriveRating`, following the exact same "`null` if the club has never used the feature" convention already established by UC-08's `avgAttendanceRate`.
+- `backend/routes/drives.js` — `POST /:driveId/ratings`, `GET /:driveId/ratings`.
+- `frontend/src/pages/ClubDetail.jsx` — new "Rate this Drive" section in the drive modal, gated on `selectedDrive.isCompleted`; 5-star clickable row (hover preview) + comment textarea for `going` members, read-only average for everyone else. Wired into `handleDriveClick` (which now also fetches ratings when the drive is completed) — and, while doing so, the two other drive-modal entry points ("View All" + "Past Events" list rows) were switched from setting `selectedDrive` directly to calling `handleDriveClick`, so they now also fetch RSVP/rating data consistently (previously they opened the modal with stale/empty RSVP state).
+- `frontend/src/pages/UserSettings.jsx` (ClubAnalytics view) — new "Avg Drive Rating" `DetailCard`, shown only when `avgDriveRating !== null`; the detail-card grid column count is now computed from how many of the two optional cards (Attendance Rate, Avg Drive Rating) are present (3/4/5 columns).
+- `frontend/src/services/api.js` — `drivesAPI.submitRating(driveId, stars, comment)`, `drivesAPI.getDriveRatings(driveId)`.
+
+**Verified:** `frontend/tests/e2e/drive-rating.spec.ts` — 14 API-level Playwright tests (serial), all passing, run alongside the existing `drive-checkin.spec.ts` with no regressions. UI verified via a throwaway screenshot script (`frontend/tests/e2e/rating-screenshots.spec.ts`, kept for re-use per the existing `checkin-screenshots.spec.ts` precedent) — screenshots in `frontend/tests/e2e/screenshots/rating-*.png` confirm the star input, submitted state, and the leader's analytics card all render correctly with zero console errors.
+
+---
+
+## Previous Focus
+
 Brand logo replaced across both apps (2026-06-18). The user supplied a real logo — a red/black "D" monogram on a light background (`frontend/src/assets/brand-source/DriveClique-Logo-source.jpg`, the original JPG) — to replace the placeholder Car-icon-in-gradient-box mark used everywhere since the original build.
 
 **Scope was explicitly limited to the logo swap only** — the user separately flagged an upcoming light-mode-default + dark-mode-toggle project, but chose (via AskUserQuestion) to defer that and do only the logo swap this session.

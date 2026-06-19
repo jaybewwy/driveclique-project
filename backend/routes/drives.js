@@ -16,7 +16,9 @@ const {
   getClubAnalytics,
   requestCheckin,
   getCheckinStatus,
-  submitCheckin
+  submitCheckin,
+  submitRating,
+  getDriveRatings
 } = require('../controllers/driveController');
 
 // All routes require authentication
@@ -210,6 +212,36 @@ router.post(
     present: { required: true, type: 'boolean' }
   }),
   submitCheckin
+);
+
+/**
+ * @route   POST /api/drives/:driveId/ratings
+ * @desc    Submit or update a star rating + optional comment for a completed drive
+ * @access  Private (members with a 'going' RSVP, only after the drive is completed)
+ */
+router.post(
+  '/:driveId/ratings',
+  validateParams({
+    driveId: { required: true, objectId: true }
+  }),
+  validateInput({
+    stars: { required: true, type: 'number', min: 1, max: 5 },
+    comment: { type: 'string', maxLength: 200 }
+  }),
+  submitRating
+);
+
+/**
+ * @route   GET /api/drives/:driveId/ratings
+ * @desc    Get all ratings for a drive, average/count, and the requester's own rating
+ * @access  Private (any member of the drive's club)
+ */
+router.get(
+  '/:driveId/ratings',
+  validateParams({
+    driveId: { required: true, objectId: true }
+  }),
+  getDriveRatings
 );
 
 module.exports = router;

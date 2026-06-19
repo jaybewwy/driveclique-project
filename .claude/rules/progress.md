@@ -1,5 +1,34 @@
 # DriveClique - Progress
 
+## Session: UC-25 Post-Drive Rating & Feedback (2026-06-18)
+
+### What Was Built
+
+The last pending use case in `USE_CASES.md` — once a leader marks a drive completed, members who RSVP'd `going` can submit a 1–5 star rating plus an optional 200-character comment. The average is shown to all club members, and a leader-facing "Avg Drive Rating" card was added to the per-club analytics page.
+
+| Layer | File | Change |
+|-------|------|--------|
+| Model | `backend/models/driveRating.js` | New — `{ drive, user, stars (1–5), comment (≤200 chars) }`, unique index `{ drive, user }` |
+| Controller | `backend/controllers/driveController.js` | Added `submitRating` (`going` RSVP + `isCompleted` required; `findOneAndUpdate({ upsert: true })` handles both first-submit and edit) and `getDriveRatings` (any club member; returns `average`, `count`, `ratings[]`, `myRating`) |
+| Analytics | `backend/controllers/driveController.js` (`getClubAnalytics`) | New batch query + in-memory `driveRatingMap`; `avgDriveRating` is the average of each rated drive's own average, `null` (not `0`) for clubs never rated — matches the `avgAttendanceRate` convention from UC-08 |
+| Routes | `backend/routes/drives.js` | `POST /api/drives/:driveId/ratings` (validates `stars` 1–5, `comment` ≤200), `GET /api/drives/:driveId/ratings` |
+| API service | `frontend/src/services/api.js` | `drivesAPI.submitRating(driveId, stars, comment)`, `drivesAPI.getDriveRatings(driveId)` |
+| ClubDetail | `frontend/src/pages/ClubDetail.jsx` | New "Rate this Drive" section in the drive modal (gated on `selectedDrive.isCompleted`): 5-star clickable row with hover preview + comment textarea for `going` members, read-only average for everyone else. `handleDriveClick` now also fetches ratings when the drive is completed; the "View All" and "Past Events" list rows were switched to call `handleDriveClick` instead of setting `selectedDrive` directly, so they pick up RSVP/rating data consistently (a pre-existing gap they previously had) |
+| Analytics UI | `frontend/src/pages/UserSettings.jsx` (ClubAnalytics view) | New `DetailCard` "Avg Drive Rating" (★ rating /5), shown only when `avgDriveRating !== null`; detail-card grid now scales 3→4→5 columns depending on how many of the two optional cards are present |
+| Test | `frontend/tests/e2e/drive-rating.spec.ts` | New 14-test Playwright suite (API-level, serial) — all passing alongside the existing `drive-checkin.spec.ts` (29/29 combined, no regressions) |
+
+### Design Decisions
+
+- **Upsert instead of separate create/edit code paths** — `findOneAndUpdate({ drive, user }, { stars, comment }, { upsert: true })` means "submit" and "edit my rating" are the same call; the unique index guarantees one rating per member per drive.
+- **Average visible to all members, not just attendees** — unlike check-in counts (leader-only), a drive's average rating is harmless to show non-attendees and gives leaders useful signal regardless of who's looking.
+- **No moderation/edit-by-leader UI, no SSE/email reminders** — neither was in the original UC-25 spec (unlike UC-14's report system or UC-04's reminder scheduler), so neither was built.
+
+### Screenshots
+
+`frontend/tests/e2e/screenshots/rating-before-member-form.png`, `rating-after-member-submitted.png`, `rating-leader-analytics-card.png` — captured via a throwaway script (`frontend/tests/e2e/rating-screenshots.spec.ts`, kept for re-use per the `checkin-screenshots.spec.ts` precedent).
+
+---
+
 ## Session: Brand Logo Replacement (2026-06-18)
 
 ### What Was Built

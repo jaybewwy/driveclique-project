@@ -2,6 +2,7 @@ const Drive = require('../models/drive');
 const Club = require('../models/club');
 const RSVP = require('../models/rsvp');
 const User = require('../models/user');
+const DriveRating = require('../models/driveRating');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { notify } = require('../services/notificationEmitter');
 const { sendEmail, emailTemplates } = require('../services/emailService');
@@ -665,6 +666,11 @@ const getClubAnalytics = asyncHandler(async (req, res) => {
     .select('drive user checkedIn')
     .lean();
 
+  // Batch query 3b: all drive ratings for those drives
+  const ratings = await DriveRating.find({ drive: { $in: driveIds } })
+    .select('drive stars')
+    .lean();
+
   // Batch query 4: user info for most active member display
   const rsvpUserIds = [...new Set(rsvps.map(r => r.user.toString()))];
   const users = await User.find({ _id: { $in: rsvpUserIds } })
@@ -672,6 +678,18 @@ const getClubAnalytics = asyncHandler(async (req, res) => {
     .lean();
 
   const userMap = new Map(users.map(u => [u._id.toString(), u]));
+
+  // Build driveRatingMap: driveId -> { sum, count }
+  const driveRatingMap = new Map();
+  ratings.forEach(rating => {
+    const driveStr = rating.drive.toString();
+    if (!driveRatingMap.has(driveStr)) {
+      driveRatingMap.set(driveStr, { sum: 0, count: 0 });
+    }
+    const entry = driveRatingMap.get(driveStr);
+    entry.sum += rating.stars;
+    entry.count++;
+  });
 
   // Build driveGoingMap: driveId -> { count, present, userIds[] }
   const driveGoingMap = new Map();
@@ -752,6 +770,18 @@ const getClubAnalytics = asyncHandler(async (req, res) => {
       avgAttendanceRate = Math.round((totalRate / checkedInDrives.length) * 100);
     }
 
+    // avgDriveRating: average of each rated drive's own average star value,
+    // over drives that have at least one rating (null if the club has never been rated)
+    const ratedDrives = clubDrives.filter(d => driveRatingMap.has(d._id.toString()));
+    let avgDriveRating = null;
+    if (ratedDrives.length > 0) {
+      const totalStars = ratedDrives.reduce((sum, drive) => {
+        const entry = driveRatingMap.get(drive._id.toString());
+        return sum + entry.sum / entry.count;
+      }, 0);
+      avgDriveRating = Math.round((totalStars / ratedDrives.length) * 10) / 10;
+    }
+
     return {
       club: { _id: club._id, name: club.name, memberCount },
       totalDrives,
@@ -760,6 +790,7 @@ const getClubAnalytics = asyncHandler(async (req, res) => {
       completionRate,
       avgRSVPRate,
       avgAttendanceRate,
+      avgDriveRating,
       mostPopularDrive,
       mostActiveMember
     };
@@ -865,6 +896,75 @@ const submitCheckin = asyncHandler(async (req, res) => {
   res.json({ success: true, checkedIn: rsvp.checkedIn });
 });
 
+/**
+ * Submit (or update) a star rating + optional comment for a completed drive
+ * @route POST /api/drives/:driveId/ratings
+ * @access Private (members with a 'going' RSVP, only after the drive is completed)
+ */
+const submitRating = asyncHandler(async (req, res) => {
+  const { driveId } = req.params;
+  const { stars, comment } = req.body;
+  const userId = req.user.id;
+
+  const drive = await Drive.findById(driveId);
+  if (!drive) {
+    throw new AppError('Drive not found', 404);
+  }
+  if (!drive.isCompleted) {
+    throw new AppError('Ratings can only be submitted after the drive is completed', 400);
+  }
+
+  const rsvp = await RSVP.findOne({ drive: driveId, user: userId, status: 'going' });
+  if (!rsvp) {
+    throw new AppError('Only members RSVPed as "going" can rate this drive', 403);
+  }
+
+  const rating = await DriveRating.findOneAndUpdate(
+    { drive: driveId, user: userId },
+    { stars, comment: comment || '' },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+
+  res.json({ success: true, rating });
+});
+
+/**
+ * Get all ratings for a drive, plus the average/count and the requester's own rating
+ * @route GET /api/drives/:driveId/ratings
+ * @access Private (any member of the drive's club)
+ */
+const getDriveRatings = asyncHandler(async (req, res) => {
+  const { driveId } = req.params;
+  const userId = req.user.id;
+
+  const drive = await Drive.findById(driveId);
+  if (!drive) {
+    throw new AppError('Drive not found', 404);
+  }
+
+  const club = await Club.findById(drive.club).select('members');
+  if (!club) {
+    throw new AppError('Club not found', 404);
+  }
+  if (!club.members.some(m => m.toString() === userId)) {
+    throw new AppError('You must be a member of this club to view ratings', 403);
+  }
+
+  const ratings = await DriveRating.find({ drive: driveId })
+    .populate('user', 'username name')
+    .sort({ createdAt: -1 })
+    .lean();
+
+  const count = ratings.length;
+  const average = count > 0
+    ? Math.round((ratings.reduce((sum, r) => sum + r.stars, 0) / count) * 10) / 10
+    : null;
+
+  const myRating = ratings.find(r => r.user._id.toString() === userId) || null;
+
+  res.json({ success: true, average, count, ratings, myRating });
+});
+
 module.exports = {
   createDrive,
   getClubDrives,
@@ -879,5 +979,7 @@ module.exports = {
   getClubAnalytics,
   requestCheckin,
   getCheckinStatus,
-  submitCheckin
+  submitCheckin,
+  submitRating,
+  getDriveRatings
 };

@@ -204,6 +204,8 @@ export const drivesAPI = {
   requestCheckin: (driveId) => api.post(`/drives/${driveId}/request-checkin`),
   getCheckinStatus: (driveId) => api.get(`/drives/${driveId}/checkin-status`),
   submitCheckin: (driveId, present) => api.post(`/drives/${driveId}/checkin`, { present }),
+  submitRating: (driveId, stars, comment) => api.post(`/drives/${driveId}/ratings`, { stars, comment }),
+  getDriveRatings: (driveId) => api.get(`/drives/${driveId}/ratings`),
 };
 
 export const reportsAPI = {

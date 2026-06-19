@@ -19,6 +19,7 @@ import {
   Crown,
   Users,
   Flag,
+  Star,
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
@@ -71,6 +72,14 @@ const ClubDetail = ({ user, onLogout }) => {
   const [checkInRequestedAt, setCheckInRequestedAt] = useState(null);
   const [isSendingCheckin, setIsSendingCheckin] = useState(false);
   const [checkinSentMessage, setCheckinSentMessage] = useState('');
+
+  // Drive rating state (modal-scoped — reset when modal closes)
+  const [driveRatingSummary, setDriveRatingSummary] = useState({ average: null, count: 0 });
+  const [ratingStars, setRatingStars] = useState(0);
+  const [ratingHoverStars, setRatingHoverStars] = useState(0);
+  const [ratingComment, setRatingComment] = useState('');
+  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
+  const [ratingMessage, setRatingMessage] = useState('');
 
   // Persistent per-drive RSVP counts (survive modal close, used by drive cards)
   const [driveRSVPCounts, setDriveRSVPCounts] = useState({});
@@ -181,6 +190,9 @@ const ClubDetail = ({ user, onLogout }) => {
     setSelectedDrive(drive);
     // Fetch RSVP data for this drive
     await fetchDriveRSVPData(drive._id);
+    if (drive.isCompleted) {
+      await fetchDriveRatings(drive._id);
+    }
     setShowDriveModal(true);
   };
 
@@ -193,6 +205,27 @@ const ClubDetail = ({ user, onLogout }) => {
     setCheckinCounts({ present: 0, notPresent: 0, pending: 0 });
     setCheckInRequestedAt(null);
     setCheckinSentMessage('');
+    setDriveRatingSummary({ average: null, count: 0 });
+    setRatingStars(0);
+    setRatingHoverStars(0);
+    setRatingComment('');
+    setRatingMessage('');
+  };
+
+  // Fetch the average rating + the current user's own rating (if any) for a completed drive
+  const fetchDriveRatings = async (driveId) => {
+    try {
+      const response = await drivesAPI.getDriveRatings(driveId);
+      if (response.data?.success) {
+        setDriveRatingSummary({ average: response.data.average, count: response.data.count });
+        if (response.data.myRating) {
+          setRatingStars(response.data.myRating.stars);
+          setRatingComment(response.data.myRating.comment || '');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching drive ratings:', error);
+    }
   };
 
   // Fetch RSVP data for a drive (counts + current user's status)
@@ -245,6 +278,23 @@ const ClubDetail = ({ user, onLogout }) => {
     } finally {
       setIsSendingCheckin(false);
       setTimeout(() => setCheckinSentMessage(''), 4000);
+    }
+  };
+
+  // Member submits (or updates) their star rating for a completed drive
+  const handleSubmitRating = async () => {
+    if (!selectedDrive || isSubmittingRating || ratingStars === 0) return;
+    setIsSubmittingRating(true);
+    setRatingMessage('');
+    try {
+      await drivesAPI.submitRating(selectedDrive._id, ratingStars, ratingComment);
+      setRatingMessage('Thanks for rating this drive!');
+      await fetchDriveRatings(selectedDrive._id);
+    } catch (error) {
+      setRatingMessage(error.response?.data?.message || 'Failed to submit rating');
+    } finally {
+      setIsSubmittingRating(false);
+      setTimeout(() => setRatingMessage(''), 3000);
     }
   };
 
@@ -1205,8 +1255,7 @@ const ClubDetail = ({ user, onLogout }) => {
                 <div
                   key={drive._id}
                   onClick={() => {
-                    setSelectedDrive(drive);
-                    setShowDriveModal(true);
+                    handleDriveClick(drive);
                     closeAllDrivesModal();
                   }}
                   className="bg-black rounded-2xl p-4 cursor-pointer hover:bg-zinc-800 transition"
@@ -1373,8 +1422,7 @@ const ClubDetail = ({ user, onLogout }) => {
                   key={drive._id}
                   onClick={() => {
                     if (!(isMember || isLeader)) return;
-                    setSelectedDrive(drive);
-                    setShowDriveModal(true);
+                    handleDriveClick(drive);
                     setShowPastEventsModal(false);
                   }}
                   className={`bg-black rounded-2xl p-4 transition ${isMember || isLeader ? 'cursor-pointer hover:bg-zinc-800' : 'cursor-default opacity-80'}`}
@@ -1759,6 +1807,74 @@ const ClubDetail = ({ user, onLogout }) => {
                     >
                       Check In to This Drive
                     </button>
+                  )}
+                </div>
+              )}
+
+              {/* Rate this Drive (UC-25) — attendees can rate once the drive is completed;
+                  the average is visible to all club members. */}
+              {selectedDrive.isCompleted && (
+                <div className="border-t border-zinc-700 pt-6">
+                  <h3 className="text-lg font-semibold mb-3">Rate this Drive</h3>
+
+                  {driveRatingSummary.count > 0 && (
+                    <div className="flex items-center gap-2 mb-4 text-zinc-300">
+                      <Star size={18} className="text-yellow-400 fill-yellow-400" />
+                      <span className="font-semibold">{driveRatingSummary.average}</span>
+                      <span className="text-xs text-zinc-500">
+                        ({driveRatingSummary.count} rating{driveRatingSummary.count === 1 ? '' : 's'})
+                      </span>
+                    </div>
+                  )}
+
+                  {userRSVP === 'going' ? (
+                    <>
+                      <div className="flex items-center gap-1 mb-4">
+                        {[1, 2, 3, 4, 5].map((value) => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setRatingStars(value)}
+                            onMouseEnter={() => setRatingHoverStars(value)}
+                            onMouseLeave={() => setRatingHoverStars(0)}
+                            className="transition"
+                          >
+                            <Star
+                              size={28}
+                              className={
+                                value <= (ratingHoverStars || ratingStars)
+                                  ? 'text-yellow-400 fill-yellow-400'
+                                  : 'text-zinc-700'
+                              }
+                            />
+                          </button>
+                        ))}
+                      </div>
+                      <textarea
+                        value={ratingComment}
+                        onChange={(e) => setRatingComment(e.target.value.slice(0, 200))}
+                        placeholder="Add an optional comment (max 200 characters)"
+                        className="w-full bg-black border border-zinc-700 rounded-xl p-3 text-sm text-zinc-300 resize-none mb-1"
+                        rows={3}
+                        maxLength={200}
+                      />
+                      <p className="text-xs text-zinc-500 text-right mb-4">{ratingComment.length}/200</p>
+                      <button
+                        type="button"
+                        onClick={handleSubmitRating}
+                        disabled={isSubmittingRating || ratingStars === 0}
+                        className="w-full bg-zinc-800 hover:bg-yellow-900/30 text-white hover:text-yellow-400 border border-zinc-700 hover:border-yellow-600 py-3 rounded-2xl font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isSubmittingRating ? 'Submitting...' : 'Submit Rating'}
+                      </button>
+                      {ratingMessage && (
+                        <p className="text-sm text-zinc-400 text-center mt-3">{ratingMessage}</p>
+                      )}
+                    </>
+                  ) : (
+                    driveRatingSummary.count === 0 && (
+                      <p className="text-sm text-zinc-500">No ratings yet for this drive.</p>
+                    )
                   )}
                 </div>
               )}
