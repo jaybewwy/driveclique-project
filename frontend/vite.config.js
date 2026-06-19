@@ -11,7 +11,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icons/**'],
+      includeAssets: ['favicon.png', 'favicon-32.png', 'logo-mark.png', 'icons/**'],
       manifest: {
         name: 'DriveClique',
         short_name: 'DriveClique',

@@ -1,5 +1,36 @@
 # DriveClique - Progress
 
+## Session: Brand Logo Replacement (2026-06-18)
+
+### What Was Built
+
+Replaced the placeholder "Car icon in a red/orange gradient box" mark with the user's real logo (a red/black "D" monogram) everywhere it appears in both the web frontend and the new mobile app, plus all app-icon/favicon/splash assets for both.
+
+| Layer | File | Change |
+|-------|------|--------|
+| Asset pipeline | (scratch, not in repo) | Installed `sharp` in a temp npm project (no image tool was otherwise available) to chroma-key the JPG's off-white background to transparency, auto-crop to the mark's bounding box, and composite that onto white/transparent canvases at the sizes each app already references |
+| New source | `frontend/src/assets/brand-source/DriveClique-Logo-source.jpg` | The original logo JPG the user provided, moved out of `public/` (it shouldn't be served as a static asset) into a source folder |
+| New asset | `frontend/public/logo-mark.png`, `frontend/src/assets/logo-mark.png`, `mobile/src/assets/logo-mark.png` | Transparent, tightly-cropped mark — used inline by the new `Logo` components |
+| Regenerated | `frontend/public/icons/*.png`, `frontend/public/favicon.png`, `frontend/public/favicon-32.png` | Real branded icons (opaque white background, mark at a maskable-safe 62% scale for the 192/512 sizes flagged `purpose: maskable` in the PWA manifest, 76% for the rest) |
+| Regenerated | `mobile/assets/icon.png`, `android-icon-foreground.png`, `android-icon-background.png`, `android-icon-monochrome.png`, `favicon.png`, `splash-icon.png` | Same brand mark adapted per Expo/Android's icon conventions — opaque main icon, transparent foreground + solid white background for the Android adaptive icon, black-silhouette monochrome for Android 13+ themed icons, and a pre-composited white-chip-on-transparent splash image |
+| New component | `frontend/src/components/ui/Logo.jsx`, `mobile/src/components/ui/Logo.jsx` | Shared `<Logo size={n} />` — white rounded chip containing the mark at ~68% scale. **The chip is load-bearing, not decorative**: the mark's black ring is nearly invisible directly on this app's `zinc-950` backgrounds (confirmed by compositing the bare mark onto a dark backdrop and inspecting it) |
+| Replaced | `frontend/src/components/NavBar.jsx`, `login-form.jsx` (×2), `register-form.jsx` (×2), `pages/NotFound.jsx`; `mobile/app/(auth)/login.jsx`, `register.jsx` | All 8 inline `bg-gradient-to-br ... <Car/>` logo badges swapped for `<Logo />` |
+| Config | `frontend/index.html` | Favicon link switched from the old `favicon.svg` (car-themed vector, no equivalent for the new mark) to the new PNG favicons |
+| Config | `mobile/app.json` | `adaptiveIcon.backgroundColor` → `#ffffff`; added explicit `expo-splash-screen` plugin config pointing at `splash-icon.png` |
+
+### Bugs found and fixed along the way (not requested, but would have broken the change)
+
+1. **`frontend/package.json`'s `build:capacitor` script ran `scripts/generate-icons.js` before every build** — that script overwrites `public/icons/*` with solid red-square placeholders. Left wired up, it would have silently destroyed the new real icons on the very next Capacitor build. Removed it from `build:capacitor` and deleted the now-pointless standalone `generate-icons` npm script; left the file itself in place with a loud warning comment, since it's still useful as a historical reference for the icon size list.
+2. **Both `.gitignore` files (root and `frontend/`) blanket-ignore `*.png`** (intentionally, to keep the ~17MB Playwright screenshots folder out of git) — this was *also* silently excluding every real brand asset just added. Without fixing this, a fresh `git clone` would build and run with zero logo anywhere (broken NavBar icon, broken favicon, broken app icons, broken splash). Added explicit `!`-negated exceptions for the specific brand-asset paths only — verified before/after with `git status --ignored` that exactly the intended files are un-ignored and the screenshots folder is still excluded.
+
+### Design Decisions
+
+- **White chip, not a recolored mark** — the user chose this explicitly (via AskUserQuestion) over "use the mark as-is" after being shown the contrast problem; it also means the same asset works unmodified once light mode (a separate, deferred project) ships.
+- **Two safe-zone scales for app icons (76% vs 62%)** — generic app icons (favicon, apple-touch-icon) can use more of the canvas since nothing crops them; PWA-maskable and Android-adaptive icons get OS-cropped to a circle/squircle, so their content must stay inside a smaller safe zone or risk having the ring clipped off.
+- **Logo swap scoped to just the mark, not the "Drive"/"Clique" wordmark treatment** — the user's source image was an icon-only mark with no typography; the existing two-tone "Drive" (white) + "Clique" (gradient) text next to it was left exactly as-is, since changing it wasn't requested and the existing treatment still reads correctly next to the new icon.
+
+---
+
 ## Session: React Native (Expo) Mobile App — Phase 1 + start of Phase 2 (2026-06-18)
 
 ### What Was Built

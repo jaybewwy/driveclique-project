@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Car, Lock, User, ArrowRight } from 'lucide-react';
+import { Lock, User, ArrowRight } from 'lucide-react';
 import { authAPI } from '../../services/api';
+import Logo from './Logo';
 
 /* Shared input row style */
 const inputRow =
@@ -74,9 +75,7 @@ export default function LoginForm({ onLogin }) {
         <div className="absolute inset-0 flex flex-col justify-between p-10 lg:p-14">
           {/* Top logo */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-red-600 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-500/30">
-              <Car className="w-4.5 h-4.5 text-white" />
-            </div>
+            <Logo size={36} />
             <div className="flex items-center gap-1">
               <span className="text-lg font-bold text-white tracking-tight">Drive</span>
               <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">Clique</span>
@@ -107,9 +106,7 @@ export default function LoginForm({ onLogin }) {
 
         {/* Mobile logo */}
         <div className="flex items-center gap-3 mb-10 md:hidden">
-          <div className="w-9 h-9 bg-gradient-to-br from-red-600 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-500/30">
-            <Car className="w-4.5 h-4.5 text-white" />
-          </div>
+          <Logo size={36} />
           <div className="flex items-center gap-1">
             <span className="text-xl font-bold text-white">Drive</span>
             <span className="text-xl font-bold bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">Clique</span>

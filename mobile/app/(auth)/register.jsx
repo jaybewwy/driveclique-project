@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Link, useRouter } from "expo-router";
-import { Car } from "lucide-react-native";
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
 import { useAuth, getErrorMessage } from "../../src/hooks/useAuth";
 import TextField from "../../src/components/ui/TextField";
 import GradientButton from "../../src/components/ui/GradientButton";
+import Logo from "../../src/components/ui/Logo";
 
 const getPasswordStrength = (pwd) => {
   if (!pwd) return 0;
@@ -61,8 +61,8 @@ export default function Register() {
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1 bg-zinc950">
       <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 48, paddingBottom: 48 }}>
         <View className="items-center mb-8">
-          <View className="w-14 h-14 rounded-2xl items-center justify-center mb-4 bg-accentRed">
-            <Car color="#fff" size={28} />
+          <View className="mb-4">
+            <Logo size={56} />
           </View>
           <Text className="text-white text-2xl font-bold">Find your tribe.</Text>
           <Text className="text-zinc400 mt-1 text-center">Start your journey.</Text>

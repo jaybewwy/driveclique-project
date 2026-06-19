@@ -15,7 +15,7 @@
     "android": {
       "package": "com.driveclique.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#09090b",
+        "backgroundColor": "#ffffff",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -29,7 +29,15 @@
       "expo-router",
       "expo-secure-store",
       "expo-font",
-      "expo-splash-screen",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 240,
+          "resizeMode": "contain",
+          "backgroundColor": "#09090b"
+        }
+      ],
       [
         "expo-notifications",
         {

@@ -40,11 +40,19 @@ dist-ssr
 *.tiff
 # SVG files are vector source art and are intentionally tracked
 
+# Real brand assets (logo mark, app icons, splash) ARE tracked despite the
+# blanket *.png rule above — without them the app ships with no logo at all.
+!public/logo-mark.png
+!public/favicon.png
+!public/favicon-32.png
+!src/assets/logo-mark.png
+!src/assets/brand-source/
+!src/assets/brand-source/*.jpg
+!public/icons/
+!public/icons/*.png
+
 # ── XML config / resource files ─────────────────────────────────────────────
 *.xml
-
-# ── Generated mobile icons ───────────────────────────────────────────────────
-public/icons/
 
 # ── Capacitor native projects (auto-generated) ───────────────────────────────
 # To restore:  npx cap add android && npx cap add ios && npx cap sync

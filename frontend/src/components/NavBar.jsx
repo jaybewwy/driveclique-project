@@ -1,9 +1,10 @@
-import { Car, Search, Home, Users, Settings, Bell, Menu, X, LogOut } from "lucide-react";
+import { Search, Home, Users, Settings, Bell, Menu, X, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useRef } from "react";
 import { useNotifications } from "../hooks/useNotifications";
 import UserDropdown from "./ui/user-dropdown";
 import NotificationPanel from "./ui/notification-panel";
+import Logo from "./ui/Logo";
 
 const getInitials = (user) => {
   if (user?.firstName && user?.lastName)
@@ -57,10 +58,10 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate("/dashboard")}
-            className="w-8 h-8 bg-gradient-to-br from-red-600 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-500/30 hover:shadow-red-500/50 hover:scale-105 active:scale-95 transition-all duration-200"
+            className="hover:scale-105 active:scale-95 transition-all duration-200"
             aria-label="Go to dashboard"
           >
-            <Car className="w-4 h-4 text-white" />
+            <Logo size={32} />
           </button>
           <button
             onClick={() => navigate("/dashboard")}

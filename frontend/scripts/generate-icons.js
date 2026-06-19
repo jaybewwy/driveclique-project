@@ -5,9 +5,10 @@
  *
  * Run:  node scripts/generate-icons.js
  *
- * IMPORTANT: Replace these with your real branded icons before app store submission.
- * Use a 1024x1024 source logo and export via https://realfavicongenerator.net
- * or https://appicon.co for the full iOS set.
+ * WARNING: public/icons/* now contains the real DriveClique brand icons
+ * (generated from the logo mark, not placeholders). Do NOT run this script —
+ * it will overwrite them with solid red squares. It is kept only for
+ * reference/history and is no longer wired into any npm script.
  */
 
 import { deflateSync } from 'zlib';

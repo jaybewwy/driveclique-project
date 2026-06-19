@@ -57,11 +57,25 @@ backend/test-api.js
 *.tiff
 # SVG files are vector source art and are intentionally tracked
 
+# Real brand assets (logo mark, app icons, splash) ARE tracked despite the
+# blanket *.png rule above — without them the app ships with no logo at all.
+!frontend/public/logo-mark.png
+!frontend/public/favicon.png
+!frontend/public/favicon-32.png
+!frontend/src/assets/logo-mark.png
+!frontend/src/assets/brand-source/
+!frontend/src/assets/brand-source/*.jpg
+!frontend/public/icons/
+!frontend/public/icons/*.png
+!mobile/assets/
+!mobile/assets/*.png
+!mobile/src/assets/
+!mobile/src/assets/logo-mark.png
+
 # ── XML config / resource files ───────────────────────────────────────────────
 *.xml
 
-# ── Generated mobile icons ────────────────────────────────────────────────────
-frontend/public/icons/
+# ── Generated mobile icons (re-included above — see brand assets note) ────────
 
 # ── Capacitor native projects (auto-generated, not needed in git) ─────────────
 # To restore:  cd frontend && npx cap add android && npx cap add ios && npx cap sync

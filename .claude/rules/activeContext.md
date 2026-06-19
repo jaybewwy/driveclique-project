@@ -2,6 +2,31 @@
 
 ## Current Focus
 
+Brand logo replaced across both apps (2026-06-18). The user supplied a real logo — a red/black "D" monogram on a light background (`frontend/src/assets/brand-source/DriveClique-Logo-source.jpg`, the original JPG) — to replace the placeholder Car-icon-in-gradient-box mark used everywhere since the original build.
+
+**Scope was explicitly limited to the logo swap only** — the user separately flagged an upcoming light-mode-default + dark-mode-toggle project, but chose (via AskUserQuestion) to defer that and do only the logo swap this session.
+
+**Processing pipeline (no image-editing tool existed in this environment — `sharp` was installed into a scratch npm project to do it):**
+1. Chroma-keyed the off-white (~`rgb(242,242,242)`) JPG background to transparency (threshold + linear-interpolated edge alpha for anti-aliasing), then auto-cropped to the mark's bounding box.
+2. From that transparent master, generated: a tightly-cropped transparent mark (`logo-mark.png`, for inline UI use), an opaque white-background app-icon master at two safe-zone scales (76% standard, 62% for maskable/adaptive icons — W3C maskable icons and Android adaptive icons both need content within a smaller safe circle), a black-silhouette monochrome version (for Android 13+ themed icons), and a pre-composited "white rounded chip + mark on transparent" splash variant.
+3. Resized the masters down into every exact filename/size the two apps already reference (`frontend/public/icons/*`, `frontend/public/favicon*.png`, `mobile/assets/*.png`).
+
+**Critical finding — the black ring nearly disappears on the app's dark (`zinc-950`) backgrounds.** Verified by compositing the bare transparent mark onto a dark backdrop and visually inspecting it. This is *why* the user's own answer to "how should the logo handle dark surfaces" (white chip, asked via AskUserQuestion) was correct, not just a style preference — the mark is genuinely illegible without it.
+
+**Key files:**
+- `frontend/src/components/ui/Logo.jsx`, `mobile/src/components/ui/Logo.jsx` — new shared `<Logo size={n} />` components; both render a white rounded square containing the transparent mark PNG at ~68% scale. Every brand-logo spot in both apps now renders through this component instead of inline `bg-gradient-to-br ... <Car />` markup.
+- Replaced in 6 frontend spots — `NavBar.jsx`, `login-form.jsx` (×2: desktop panel + mobile header), `register-form.jsx` (×2), `NotFound.jsx` — and 2 mobile screens — `app/(auth)/login.jsx`, `app/(auth)/register.jsx`. The `Car` lucide import was removed from each file only after confirming (via grep) it had no other use in that file.
+- `frontend/index.html` — favicon switched from `favicon.svg` (old car-themed vector) to `favicon-32.png` + `favicon.png` (no vector source exists for the new mark).
+- `mobile/app.json` — `adaptiveIcon.backgroundColor` changed `#09090b` → `#ffffff` (matches the new white `android-icon-background.png`); added an explicit `expo-splash-screen` plugin config pointing at `splash-icon.png` (was previously just the bare plugin name with Expo defaults).
+- **`frontend/package.json`** — removed `node scripts/generate-icons.js &&` from `build:capacitor`, and deleted the standalone `generate-icons` script entirely. That script *regenerates placeholder red-square icons*, which would have silently overwritten the new real icons on the next Capacitor build. `scripts/generate-icons.js` itself is kept only for history, with a loud warning comment added at the top — it is no longer wired into anything.
+- **Both `.gitignore` files (root and `frontend/`)** had a blanket `*.png` rule (to keep ~17MB of Playwright screenshots out of git) that was *also silently excluding the real brand assets*. Added explicit `!`-negated carve-outs for `public/logo-mark.png`, `public/favicon*.png`, `public/icons/*.png`, `src/assets/logo-mark.png`, `src/assets/brand-source/*.jpg`, and (root-level) `mobile/assets/*.png` + `mobile/src/assets/logo-mark.png`. Verified with `git status --ignored` before and after — this would otherwise have meant a fresh clone of the repo ships with zero logo anywhere.
+
+**Verification:** Both dev servers restarted (frontend Vite + Expo web preview) and screenshotted via Playwright at `/login`, `/register`, and the 404 page on web, and `/login`/`/register` on the mobile Expo web preview — confirmed the white chip renders correctly on dark backgrounds in both apps, zero console/page errors.
+
+---
+
+## Previous Focus
+
 True React Native (Expo) mobile app started (2026-06-18) — new `mobile/` project at the repo root, separate codebase from the existing Capacitor wrapper (`frontend/android/`, `frontend/ios/`), built to the plan in `REACT_NATIVE_PLAN.md`.
 
 **This is a from-scratch rewrite, not a port of the Capacitor build.** Capacitor wraps the Vite/React **web** bundle in a native WebView; `mobile/` instead uses real React Native components (Expo Router, NativeWind, no WebView) talking to the same Express backend over the same REST API — zero backend changes except a planned (not yet built) push-token endpoint for Phase 6.

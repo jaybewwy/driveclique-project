@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Car, User, Mail, Lock, ArrowRight } from 'lucide-react';
+import { User, Mail, Lock, ArrowRight } from 'lucide-react';
 import { authAPI } from '../../services/api';
 import { LocationSearch } from './location-search';
+import Logo from './Logo';
 
 const inputRow =
   "flex items-center w-full bg-white/[0.06] border border-white/[0.10] h-11 rounded-2xl overflow-hidden px-4 gap-3 " +
@@ -81,9 +82,7 @@ export default function RegisterForm({ onRegister }) {
 
         <div className="absolute inset-0 flex flex-col justify-between p-10 lg:p-14">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-red-600 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-500/30">
-              <Car className="w-4.5 h-4.5 text-white" />
-            </div>
+            <Logo size={36} />
             <div className="flex items-center gap-1">
               <span className="text-lg font-bold text-white tracking-tight">Drive</span>
               <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">Clique</span>
@@ -112,9 +111,7 @@ export default function RegisterForm({ onRegister }) {
 
         {/* Mobile logo */}
         <div className="flex items-center gap-3 mb-8 md:hidden">
-          <div className="w-9 h-9 bg-gradient-to-br from-red-600 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-500/30">
-            <Car className="w-4.5 h-4.5 text-white" />
-          </div>
+          <Logo size={36} />
           <div className="flex items-center gap-1">
             <span className="text-xl font-bold text-white">Drive</span>
             <span className="text-xl font-bold bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">Clique</span>
