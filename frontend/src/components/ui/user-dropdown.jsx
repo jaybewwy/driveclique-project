@@ -1,6 +1,5 @@
-import { useState } from "react";
 import {
-  User, Users, Search, Settings, Bell, Car,
+  User, Users, Search, Settings, Bell,
   Zap, Moon, HelpCircle, ExternalLink, LogOut,
   Calendar, PlusCircle,
 } from "lucide-react";

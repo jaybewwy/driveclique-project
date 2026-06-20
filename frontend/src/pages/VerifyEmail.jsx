@@ -99,7 +99,7 @@ const VerifyEmail = () => {
           {user ? (
             <button
               onClick={async () => {
-                try { await authAPI.resendVerification(); } catch {}
+                try { await authAPI.resendVerification(); } catch { /* best-effort resend, ignore failures */ }
                 navigate('/dashboard');
               }}
               className="w-full bg-red-600 hover:bg-red-700 py-4 rounded-2xl font-semibold text-lg transition mb-3"
