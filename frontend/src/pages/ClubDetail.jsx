@@ -20,6 +20,7 @@ import {
   Users,
   Flag,
   Star,
+  Navigation,
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
@@ -28,6 +29,8 @@ import { compressImage } from "../utils/imageCompressor";
 import { clubsAPI, drivesAPI, authAPI } from "../services/api";
 import { DriveSchedulerPicker } from "../components/ui/drive-scheduler-picker";
 import { LocationSearch } from "../components/ui/location-search";
+import { DriveMapPicker } from "../components/ui/drive-map-picker";
+import { DriveMapPreview } from "../components/ui/drive-map-preview";
 
 const ClubDetail = ({ user, onLogout }) => {
   const { clubId } = useParams();
@@ -91,6 +94,7 @@ const ClubDetail = ({ user, onLogout }) => {
     date: '',
     time: '',
     location: '',
+    coordinates: null,
     description: '',
     image: ''
   });
@@ -369,6 +373,7 @@ const ClubDetail = ({ user, onLogout }) => {
       date: new Date(drive.date).toISOString().split('T')[0],
       time: drive.time || '',
       location: drive.location || '',
+      coordinates: drive.coordinates || null,
       description: drive.description || '',
     });
     setSelectedDrive(drive);
@@ -542,7 +547,7 @@ const ClubDetail = ({ user, onLogout }) => {
 
   // Schedule Drive handlers
   const openScheduleDriveModal = () => {
-    setScheduleForm({ name: '', date: '', time: '', location: '', description: '', image: '' });
+    setScheduleForm({ name: '', date: '', time: '', location: '', coordinates: null, description: '', image: '' });
     setDriveImagePreview('');
     setSelectedDate(null);
     setValidationError(null);
@@ -551,7 +556,7 @@ const ClubDetail = ({ user, onLogout }) => {
 
   const closeScheduleDriveModal = () => {
     setShowScheduleDriveModal(false);
-    setScheduleForm({ name: '', date: '', time: '', location: '', description: '', image: '' });
+    setScheduleForm({ name: '', date: '', time: '', location: '', coordinates: null, description: '', image: '' });
     setDriveImagePreview('');
     setValidationError(null);
   };
@@ -624,6 +629,7 @@ const ClubDetail = ({ user, onLogout }) => {
         date: getFormattedDate(),
         time: scheduleForm.time,
         location: scheduleForm.location,
+        coordinates: scheduleForm.coordinates || undefined,
         description: scheduleForm.description || ''
       });
       if (response.data?.success) {
@@ -1528,12 +1534,21 @@ const ClubDetail = ({ user, onLogout }) => {
 
               <div>
                 <label className="block text-sm text-zinc-400 mb-2">Location</label>
-                <input
-                  type="text"
+                <LocationSearch
                   value={editFormData.location || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, location: e.target.value })}
-                  className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-600"
+                  onChange={(v) => setEditFormData({ ...editFormData, location: v })}
+                  onSelect={({ lat, lng }) => setEditFormData({ ...editFormData, coordinates: { lat, lng } })}
                 />
+                {editFormData.coordinates?.lat && (
+                  <div className="mt-3 space-y-1">
+                    <DriveMapPicker
+                      lat={editFormData.coordinates.lat}
+                      lng={editFormData.coordinates.lng}
+                      onChange={(coords) => setEditFormData({ ...editFormData, coordinates: coords })}
+                    />
+                    <p className="text-[11px] text-zinc-500">Drag the pin to fine-tune the exact meeting point.</p>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -1613,6 +1628,20 @@ const ClubDetail = ({ user, onLogout }) => {
                   </div>
                 )}
               </div>
+
+              {selectedDrive.coordinates?.lat && (
+                <div className="space-y-2">
+                  <DriveMapPreview lat={selectedDrive.coordinates.lat} lng={selectedDrive.coordinates.lng} />
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${selectedDrive.coordinates.lat},${selectedDrive.coordinates.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 bg-zinc-800 hover:bg-zinc-700 py-2.5 rounded-xl text-sm font-medium transition"
+                  >
+                    <Navigation size={16} /> Get Directions
+                  </a>
+                </div>
+              )}
 
               {selectedDrive.image && (
                 <img
@@ -2166,14 +2195,21 @@ const ClubDetail = ({ user, onLogout }) => {
                 <label className="block text-sm font-medium text-zinc-300 mb-3">
                   Location <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  name="location"
+                <LocationSearch
                   value={scheduleForm.location}
-                  onChange={handleScheduleFormChange}
-                  className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-red-600 transition"
-                  placeholder="e.g. Mountain View Parking Lot, 123 Main St"
+                  onChange={(v) => { setScheduleForm(prev => ({ ...prev, location: v })); setValidationError(null); }}
+                  onSelect={({ lat, lng }) => setScheduleForm(prev => ({ ...prev, coordinates: { lat, lng } }))}
                 />
+                {scheduleForm.coordinates?.lat && (
+                  <div className="mt-3 space-y-1">
+                    <DriveMapPicker
+                      lat={scheduleForm.coordinates.lat}
+                      lng={scheduleForm.coordinates.lng}
+                      onChange={(coords) => setScheduleForm(prev => ({ ...prev, coordinates: coords }))}
+                    />
+                    <p className="text-[11px] text-zinc-500">Drag the pin to fine-tune the exact meeting point.</p>
+                  </div>
+                )}
               </div>
 
               {/* Description */}

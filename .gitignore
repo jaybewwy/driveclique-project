@@ -40,6 +40,10 @@ test-results/
 
 
 # Misc
+# (*.md below also intentionally keeps the memory-bank working docs —
+#  .claude/rules/activeContext.md and .claude/rules/progress.md — out of
+#  GitHub; they're fast-moving local session notes, not repo documentation.
+#  Untracked via `git rm --cached` once; this rule keeps them untracked.)
 *.md
 *.bak
 *.tmp
@@ -56,6 +60,8 @@ backend/test-api.js
 *.bmp
 *.tiff
 # SVG files are vector source art and are intentionally tracked
+# Playwright documentation screenshots (e.g. tests/e2e/screenshots/map-*.png)
+# stay ignored here too — they're regenerated per-session, not repo assets.
 
 # Real brand assets (logo mark, app icons, splash) ARE tracked despite the
 # blanket *.png rule above — without them the app ships with no logo at all.

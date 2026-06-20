@@ -7,13 +7,26 @@ const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { notify } = require('../services/notificationEmitter');
 const { sendEmail, emailTemplates } = require('../services/emailService');
 
+// Shared validation for the optional drive meeting-point pin (UC-23)
+function validateCoordinates(coordinates) {
+  if (!coordinates) return;
+  const { lat, lng } = coordinates;
+  if (
+    typeof lat !== 'number' || typeof lng !== 'number' ||
+    Math.abs(lat) > 90 || Math.abs(lng) > 180
+  ) {
+    throw new AppError('Invalid coordinates', 400);
+  }
+}
+
 /**
  * Create a new Drive/Event
  * @route POST /api/drives
  * @access Private (Club Leaders only)
  */
 const createDrive = asyncHandler(async (req, res) => {
-  const { clubId, name, date, time, location, description, difficulty, maxAttendees, image } = req.body;
+  const { clubId, name, date, time, location, description, difficulty, maxAttendees, image, coordinates } = req.body;
+  validateCoordinates(coordinates);
 
   // Validate clubId is provided
   if (!clubId) {
@@ -43,6 +56,7 @@ const createDrive = asyncHandler(async (req, res) => {
     date,
     time,
     location,
+    coordinates: coordinates || undefined,
     description,
     difficulty: difficulty || 'Medium',
     maxAttendees: maxAttendees || 100,
@@ -444,8 +458,9 @@ const getDriveAttendees = asyncHandler(async (req, res) => {
  */
 const updateDrive = asyncHandler(async (req, res) => {
   const { driveId } = req.params;
-  const { name, date, time, location, description, difficulty, maxAttendees, isCompleted, image } = req.body;
+  const { name, date, time, location, description, difficulty, maxAttendees, isCompleted, image, coordinates } = req.body;
   const leaderId = req.user.id;
+  validateCoordinates(coordinates);
 
   // Find drive with club info
   const drive = await Drive.findById(driveId).populate('club');
@@ -463,6 +478,7 @@ const updateDrive = asyncHandler(async (req, res) => {
   if (date !== undefined) drive.date = date;
   if (time !== undefined) drive.time = time;
   if (location !== undefined) drive.location = location;
+  if (coordinates !== undefined) drive.coordinates = coordinates || undefined;
   if (description !== undefined) drive.description = description;
   if (difficulty !== undefined) drive.difficulty = difficulty;
   if (maxAttendees !== undefined) drive.maxAttendees = maxAttendees;

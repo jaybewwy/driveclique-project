@@ -60,12 +60,14 @@ function isoToCountryName(code) {
  * geolocation (cached in sessionStorage after the first call).
  *
  * Props
- *   value       string           — controlled value
- *   onChange    (string) => void — called on keystroke and on selection
- *   countryCode string           — optional ISO 3166-1 alpha-2 override (e.g. 'us')
- *                                  bypasses auto-detection when provided
+ *   value       string                      — controlled value
+ *   onChange    (string) => void            — called on keystroke and on selection
+ *   onSelect    ({label,lat,lng}) => void   — optional; fires only on suggestion click,
+ *                                             with the geocoded coordinates (UC-23)
+ *   countryCode string                      — optional ISO 3166-1 alpha-2 override (e.g. 'us')
+ *                                             bypasses auto-detection when provided
  */
-export function LocationSearch({ value, onChange, countryCode: propCountryCode }) {
+export function LocationSearch({ value, onChange, onSelect, countryCode: propCountryCode }) {
   const [query, setQuery]             = useState(value || '');
   const [suggestions, setSuggestions] = useState([]);
   const [open, setOpen]               = useState(false);
@@ -125,11 +127,12 @@ export function LocationSearch({ value, onChange, countryCode: propCountryCode }
           const state   = r.address?.state;
           const country = r.address?.country;
           if (!city || !country) return null;
-          return [city, state, country].filter(Boolean).join(', ');
+          const label = [city, state, country].filter(Boolean).join(', ');
+          return { label, lat: Number(r.lat), lng: Number(r.lon) };
         })
-        .filter(label => {
-          if (!label || seen.has(label)) return false;
-          seen.add(label);
+        .filter(result => {
+          if (!result || seen.has(result.label)) return false;
+          seen.add(result.label);
           return true;
         })
         .slice(0, 6);
@@ -163,9 +166,10 @@ export function LocationSearch({ value, onChange, countryCode: propCountryCode }
     debounceRef.current = setTimeout(() => runSearch(val), 350);
   };
 
-  const handleSelect = (label) => {
-    setQuery(label);
-    onChange(label);
+  const handleSelect = (result) => {
+    setQuery(result.label);
+    onChange(result.label);
+    if (onSelect) onSelect(result);
     setOpen(false);
     setSuggestions([]);
     setNoResults(false);
@@ -215,16 +219,16 @@ export function LocationSearch({ value, onChange, countryCode: propCountryCode }
         <ul className="absolute z-50 top-[calc(100%+6px)] left-0 right-0 bg-zinc-950/95 backdrop-blur-xl border border-white/[0.08] rounded-2xl overflow-hidden shadow-glass-lg">
           {suggestions.length > 0 ? (
             <>
-              {suggestions.map((label) => (
-                <li key={label}>
+              {suggestions.map((result) => (
+                <li key={result.label}>
                   <button
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => handleSelect(label)}
+                    onClick={() => handleSelect(result)}
                     className="w-full px-4 py-2.5 text-left text-sm text-zinc-300 hover:bg-white/[0.06] hover:text-white transition-colors flex items-center gap-2"
                   >
                     <MapPin className="w-3 h-3 text-zinc-500 shrink-0" />
-                    {label}
+                    {result.label}
                   </button>
                 </li>
               ))}

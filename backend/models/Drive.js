@@ -15,9 +15,15 @@ const DriveSchema = new mongoose.Schema({
     required: true 
   },
   time: String,
-  location: { 
-    type: String, 
-    required: true 
+  location: {
+    type: String,
+    required: true
+  },
+  // Optional precise meeting-point pin (UC-23) — geocoded from `location` via
+  // Nominatim, then draggable to fine-tune. Absent for legacy drives.
+  coordinates: {
+    lat: { type: Number, min: -90, max: 90 },
+    lng: { type: Number, min: -180, max: 180 },
   },
   description: String,
   difficulty: { 

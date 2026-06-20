@@ -39,6 +39,8 @@ dist-ssr
 *.bmp
 *.tiff
 # SVG files are vector source art and are intentionally tracked
+# Playwright documentation screenshots (e.g. tests/e2e/screenshots/map-*.png)
+# stay ignored here too — they're regenerated per-session, not repo assets.
 
 # Real brand assets (logo mark, app icons, splash) ARE tracked despite the
 # blanket *.png rule above — without them the app ships with no logo at all.
