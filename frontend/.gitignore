@@ -53,6 +53,10 @@ dist-ssr
 !public/icons/
 !public/icons/*.png
 
+# Playwright fixture image (avatar-propagation-screenshots.spec.ts uploads this
+# file) — needs to be a tracked repo asset, not regenerated per-run.
+!tests/e2e/fixtures-avatar-test.png
+
 # ── XML config / resource files ─────────────────────────────────────────────
 *.xml
 

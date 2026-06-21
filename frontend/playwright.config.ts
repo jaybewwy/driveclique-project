@@ -8,6 +8,11 @@ export default defineConfig({
   },
   fullyParallel: true,
   retries: 0,
+  // The free GitHub-hosted runner has 2 CPU cores; fullyParallel's default
+  // worker count overwhelms it (Vite dev server + Express + Mongo all
+  // competing with several Chromium instances), producing widespread
+  // navigation timeouts that don't reproduce locally. Serialize in CI only.
+  workers: process.env.CI ? 1 : undefined,
   reporter: [['list']],
   use: {
     headless: true,
