@@ -20,15 +20,15 @@ const {
   changePassword,
 } = require('../controllers/authController');
 
+const isDev = process.env.NODE_ENV === 'development';
+
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
+  windowMs: isDev ? 60 * 1000 : 15 * 60 * 1000,   // 1 min in dev, 15 min in prod
+  max: isDev ? 100 : 10,
   message: { success: false, message: 'Too many login attempts. Please try again in 15 minutes.' },
   standardHeaders: true,
   legacyHeaders: false
 });
-
-const isDev = process.env.NODE_ENV === 'development';
 
 const registerLimiter = rateLimit({
   windowMs: isDev ? 60 * 1000 : 60 * 60 * 1000,   // 1 min in dev, 1 hr in prod
@@ -102,8 +102,8 @@ router.put(
   '/profile',
   protect,
   validateInput({
-    name: { type: 'string', minLength: 1, maxLength: 100 },
-    bio: { type: 'string', minLength: 1, maxLength: 500 },
+    name: { type: 'string', maxLength: 100 },
+    bio: { type: 'string', maxLength: 500 },
     avatar: { type: 'string' }, // URL, could add pattern validation
     useDisplayName: { type: 'boolean' },
     car: {
