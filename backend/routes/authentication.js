@@ -32,7 +32,8 @@ const loginLimiter = rateLimit({
 
 const registerLimiter = rateLimit({
   windowMs: isDev ? 60 * 1000 : 60 * 60 * 1000,   // 1 min in dev, 1 hr in prod
-  max: isDev ? 50 : 5,
+  max: isDev ? 500 : 5,   // dev cap raised generously — Playwright's fullyParallel run registers
+                          // many accounts per minute across worker processes
   message: { success: false, message: 'Too many accounts created from this IP. Please try again in an hour.' },
   standardHeaders: true,
   legacyHeaders: false
@@ -40,7 +41,7 @@ const registerLimiter = rateLimit({
 
 const forgotPasswordLimiter = rateLimit({
   windowMs: isDev ? 60 * 1000 : 60 * 60 * 1000,   // 1 min in dev, 1 hr in prod
-  max: isDev ? 10 : 3,
+  max: isDev ? 50 : 3,
   message: { success: false, message: 'Too many password reset requests. Please try again in an hour.' },
   standardHeaders: true,
   legacyHeaders: false
@@ -48,7 +49,7 @@ const forgotPasswordLimiter = rateLimit({
 
 const resendVerificationLimiter = rateLimit({
   windowMs: isDev ? 60 * 1000 : 60 * 60 * 1000,   // 1 min in dev, 1 hr in prod
-  max: isDev ? 10 : 3,
+  max: isDev ? 50 : 3,
   message: { success: false, message: 'Too many verification requests. Please try again in an hour.' },
   standardHeaders: true,
   legacyHeaders: false
