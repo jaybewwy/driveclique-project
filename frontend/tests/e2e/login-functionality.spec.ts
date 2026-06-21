@@ -27,7 +27,7 @@ test.describe('Login Functionality Tests', () => {
   test('Register and Login flow', async ({ page }) => {
     const testUser = {
       username: `testuser_${Date.now()}`,
-      email: `testuser_${Date.now()}@example.com`,
+      email: `testuser_${Date.now()}@mail.com`,
       password: 'TestPass123!',
     };
 
@@ -36,6 +36,8 @@ test.describe('Login Functionality Tests', () => {
     await expect(page).toHaveURL(`${baseUrl}/register`);
 
     // Step 2: Fill in registration form
+    await page.getByPlaceholder('First').fill('Test');
+    await page.getByPlaceholder('Last').fill('User');
     await page.getByPlaceholder('Username').fill(testUser.username);
     await page.getByPlaceholder('Email address').fill(testUser.email);
     await page.getByPlaceholder('Password').fill(testUser.password);
@@ -72,13 +74,15 @@ test.describe('Login Functionality Tests', () => {
   test('Profile data loads after login', async ({ page }) => {
     const testUser = {
       username: `profiletest_${Date.now()}`,
-      email: `profiletest_${Date.now()}@example.com`,
+      email: `profiletest_${Date.now()}@mail.com`,
       password: 'TestPass123!',
       displayName: 'Test User',
     };
 
     // Register
     await page.goto(`${baseUrl}/register`);
+    await page.getByPlaceholder('First').fill('Test');
+    await page.getByPlaceholder('Last').fill('User');
     await page.getByPlaceholder('Username').fill(testUser.username);
     await page.getByPlaceholder('Email address').fill(testUser.email);
     await page.getByPlaceholder('Password').fill(testUser.password);
@@ -105,12 +109,14 @@ test.describe('Login Functionality Tests', () => {
   test('Clubs data loads after login', async ({ page }) => {
     const testUser = {
       username: `clubtest_${Date.now()}`,
-      email: `clubtest_${Date.now()}@example.com`,
+      email: `clubtest_${Date.now()}@mail.com`,
       password: 'TestPass123!',
     };
 
     // Register
     await page.goto(`${baseUrl}/register`);
+    await page.getByPlaceholder('First').fill('Test');
+    await page.getByPlaceholder('Last').fill('User');
     await page.getByPlaceholder('Username').fill(testUser.username);
     await page.getByPlaceholder('Email address').fill(testUser.email);
     await page.getByPlaceholder('Password').fill(testUser.password);
@@ -133,12 +139,14 @@ test.describe('Login Functionality Tests', () => {
   test('Find Clubs page loads', async ({ page }) => {
     const testUser = {
       username: `findtest_${Date.now()}`,
-      email: `findtest_${Date.now()}@example.com`,
+      email: `findtest_${Date.now()}@mail.com`,
       password: 'TestPass123!',
     };
 
     // Register
     await page.goto(`${baseUrl}/register`);
+    await page.getByPlaceholder('First').fill('Test');
+    await page.getByPlaceholder('Last').fill('User');
     await page.getByPlaceholder('Username').fill(testUser.username);
     await page.getByPlaceholder('Email address').fill(testUser.email);
     await page.getByPlaceholder('Password').fill(testUser.password);
@@ -169,7 +177,7 @@ test.describe('Login Functionality Tests', () => {
     await page.getByRole('button', { name: /Sign In/i }).click();
 
     // Should show error message
-    await expect(page.getByText(/Login failed/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/Invalid username or password/i)).toBeVisible({ timeout: 10000 });
     
     // Should stay on login page
     await expect(page).toHaveURL(`${baseUrl}/login`);

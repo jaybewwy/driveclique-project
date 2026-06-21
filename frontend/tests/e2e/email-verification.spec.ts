@@ -8,10 +8,12 @@ const API  = 'http://localhost:5000/api';
 async function registerUser(page: any, suffix = Date.now()) {
   const user = {
     username: `evtest_${suffix}`,
-    email:    `evtest_${suffix}@example.com`,
+    email:    `evtest_${suffix}@mail.com`,
     password: 'TestPass123!',
   };
   await page.goto(`${BASE}/register`);
+  await page.getByPlaceholder('First').fill('Test');
+  await page.getByPlaceholder('Last').fill('User');
   await page.getByPlaceholder('Username').fill(user.username);
   await page.getByPlaceholder('Email address').fill(user.email);
   await page.getByPlaceholder('Password').fill(user.password);
@@ -29,7 +31,7 @@ test.describe('Email verification — registration state', () => {
     const res = await request.post(`${API}/auth/register`, {
       data: {
         username: `evapi_${suffix}`,
-        email: `evapi_${suffix}@example.com`,
+        email: `evapi_${suffix}@mail.com`,
         password: 'TestPass123!',
       },
     });
@@ -45,7 +47,7 @@ test.describe('Email verification — registration state', () => {
     await request.post(`${API}/auth/register`, {
       data: {
         username: `evlogin_${suffix}`,
-        email: `evlogin_${suffix}@example.com`,
+        email: `evlogin_${suffix}@mail.com`,
         password: 'TestPass123!',
       },
     });
@@ -78,7 +80,7 @@ test.describe('Email verification — dashboard banner', () => {
       }));
     });
     await page.goto(`${BASE}/dashboard`);
-    await expect(page.getByText(/Verify your email address/i)).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText(/Please verify your email/i)).toBeVisible({ timeout: 8000 });
     await expect(page.getByRole('button', { name: /Resend email/i })).toBeVisible();
   });
 
@@ -99,7 +101,7 @@ test.describe('Email verification — dashboard banner', () => {
     await page.goto(`${BASE}/dashboard`);
     // Give page time to settle, then confirm banner is absent
     await page.waitForTimeout(1000);
-    await expect(page.getByText(/Verify your email address/i)).not.toBeVisible();
+    await expect(page.getByText(/Please verify your email/i)).not.toBeVisible();
   });
 
   test('"Resend email" button shows "Sent!" feedback when API succeeds', async ({ page }) => {
@@ -226,7 +228,7 @@ test.describe('Email verification — API security', () => {
     // Register a fresh user to get a valid token
     const suffix = Date.now();
     const regRes = await request.post(`${API}/auth/register`, {
-      data: { username: `rsnd_${suffix}`, email: `rsnd_${suffix}@example.com`, password: 'TestPass123!' },
+      data: { username: `rsnd_${suffix}`, email: `rsnd_${suffix}@mail.com`, password: 'TestPass123!' },
     });
     const { token } = (await regRes.json());
     const res = await request.post(`${API}/auth/resend-verification`, {
@@ -258,7 +260,7 @@ test.describe('Email verification — full flow', () => {
     const suffix = Date.now();
     // Step 1: Register
     const regRes = await request.post(`${API}/auth/register`, {
-      data: { username: `fullev_${suffix}`, email: `fullev_${suffix}@example.com`, password: 'TestPass123!' },
+      data: { username: `fullev_${suffix}`, email: `fullev_${suffix}@mail.com`, password: 'TestPass123!' },
     });
     expect(regRes.status()).toBe(201);
     const { user: regUser, token } = await regRes.json();

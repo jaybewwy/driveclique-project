@@ -8,10 +8,12 @@ const API  = 'http://localhost:5000/api';
 async function registerUser(page: any, suffix = Date.now()) {
   const user = {
     username: `fptest_${suffix}`,
-    email:    `fptest_${suffix}@example.com`,
+    email:    `fptest_${suffix}@mail.com`,
     password: 'TestPass123!',
   };
   await page.goto(`${BASE}/register`);
+  await page.getByPlaceholder('First').fill('Test');
+  await page.getByPlaceholder('Last').fill('User');
   await page.getByPlaceholder('Username').fill(user.username);
   await page.getByPlaceholder('Email address').fill(user.email);
   await page.getByPlaceholder('Password').fill(user.password);

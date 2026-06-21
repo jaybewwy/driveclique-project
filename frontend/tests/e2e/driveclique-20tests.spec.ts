@@ -12,6 +12,8 @@ function randomString(len = 8) {
 async function registerUser(page: any, user: { username: string; email: string; password: string }) {
   await page.goto(`${baseUrl}/register`);
 
+  await page.getByPlaceholder('First').fill('Test');
+  await page.getByPlaceholder('Last').fill('User');
   await page.getByPlaceholder('Username').fill(user.username);
   await page.getByPlaceholder('Password').fill(user.password);
   await page.getByPlaceholder('Email address').fill(user.email);

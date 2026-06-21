@@ -57,6 +57,8 @@ async function screenshot(page: Page, name: string) {
 
 async function register(page: Page, u: { username: string; email: string; password: string }) {
   await page.goto(`${BASE}/register`);
+  await page.getByPlaceholder('First').fill('Test');
+  await page.getByPlaceholder('Last').fill('User');
   await page.getByPlaceholder('Username').fill(u.username);
   await page.getByPlaceholder('Password').fill(u.password);
   await page.getByPlaceholder('Email address').fill(u.email);

@@ -17,6 +17,8 @@ async function registerUser(page: any, user: { username: string; email: string; 
   await page.goto(`${baseUrl}/register`, { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle');
   
+  await page.getByPlaceholder('First').fill('Test');
+  await page.getByPlaceholder('Last').fill('User');
   await page.getByPlaceholder('Username').fill(user.username);
   await page.getByPlaceholder('Password').fill(user.password);
   await page.getByPlaceholder('Email address').fill(user.email);
