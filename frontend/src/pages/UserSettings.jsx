@@ -649,7 +649,7 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
   const [saving, setSaving]     = useState(false);
   const [message, setMessage]   = useState({ type: "", text: "" });
   const [formData, setFormData] = useState({
-    firstName: "", lastName: "", username: "", email: "", location: "",
+    firstName: "", lastName: "", username: "", email: "", location: "", name: "", useDisplayName: false,
   });
   const [usernameChangedAt, setUsernameChangedAt] = useState(null);
   const [canChangeUsername, setCanChangeUsername] = useState(true);
@@ -690,6 +690,8 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
             username:  u.username  || "",
             email:     u.email     || "",
             location:  u.location  || "",
+            name:      u.name      || "",
+            useDisplayName: u.useDisplayName || false,
           });
           setUsernameChangedAt(u.usernameChangedAt || null);
           applyCooldown(u.usernameChangedAt || null);
@@ -699,8 +701,14 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
       .finally(() => setLoading(false));
   }, [navigate]);
 
-  const handleChange = (e) =>
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    if (name === "name" && formData.useDisplayName) {
+      setFormData(prev => ({ ...prev, [name]: value, useDisplayName: false }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
 
   const handleChangeUsername = async () => {
     if (!newUsername.trim()) return;
@@ -726,6 +734,12 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
 
   const handleSave = async (e) => {
     e.preventDefault();
+
+    if (formData.useDisplayName && !formData.name.trim()) {
+      setMessage({ type: "error", text: "Please enter a display name before enabling 'Show Display Name'." });
+      return;
+    }
+
     setSaving(true);
     setMessage({ type: "", text: "" });
     try {
@@ -733,6 +747,8 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
         firstName: formData.firstName,
         lastName:  formData.lastName,
         location:  formData.location,
+        name:      formData.name,
+        useDisplayName: formData.useDisplayName,
       });
       if (res.data.success) {
         setMessage({ type: "success", text: "Profile updated successfully!" });
@@ -849,6 +865,49 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
                 className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 transition-colors"
               />
             </div>
+          </div>
+
+          {/* Display Name */}
+          <div>
+            <label htmlFor="pv-display-name" className="block text-sm font-medium text-zinc-300 mb-2">
+              Display Name
+            </label>
+            <input
+              id="pv-display-name"
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              placeholder="John Doe"
+              className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 transition-colors"
+            />
+            <p className="text-xs text-zinc-500 mt-1">
+              This name will be shown to other users if you enable the option below.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between bg-black rounded-xl p-4">
+            <div>
+              <div className="text-sm font-medium text-zinc-300">Show Display Name</div>
+              <div className="text-xs text-zinc-500 mt-1">
+                Use your display name instead of username on Dashboard and member lists
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={formData.useDisplayName}
+              onClick={() => setFormData(prev => ({ ...prev, useDisplayName: !prev.useDisplayName }))}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                formData.useDisplayName ? "bg-red-600" : "bg-zinc-700"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  formData.useDisplayName ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
           </div>
 
           {/* Username */}

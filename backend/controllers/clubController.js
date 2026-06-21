@@ -75,8 +75,8 @@ const getClubById = asyncHandler(async (req, res) => {
   const { clubId } = req.params;
 
   const club = await Club.findById(clubId)
-    .populate('leader', 'username email avatar name useDisplayName car')
-    .populate('members', 'username email avatar name useDisplayName car')
+    .populate('leader', 'username email avatar name useDisplayName cars')
+    .populate('members', 'username email avatar name useDisplayName cars')
     .lean();
 
   if (!club) {
@@ -95,8 +95,8 @@ const getClubByInviteCode = asyncHandler(async (req, res) => {
   const { inviteCode } = req.params;
 
   const club = await Club.findOne({ inviteCode })
-    .populate('leader', 'username email avatar name useDisplayName car')
-    .populate('members', 'username email avatar name useDisplayName car')
+    .populate('leader', 'username email avatar name useDisplayName cars')
+    .populate('members', 'username email avatar name useDisplayName cars')
     .lean();
 
   if (!club) {
@@ -594,7 +594,7 @@ const transferOwnership = asyncHandler(async (req, res) => {
 
   const updated = await Club.findById(clubId)
     .populate('leader', 'username email avatar name useDisplayName')
-    .populate('members', 'username email avatar name useDisplayName car')
+    .populate('members', 'username email avatar name useDisplayName cars')
     .lean();
 
   res.json({ success: true, message: 'Ownership transferred successfully', club: updated });

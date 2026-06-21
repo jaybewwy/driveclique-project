@@ -24,6 +24,28 @@ const isPasswordReused = async (plainPassword, user) => {
   return false;
 };
 
+const MAX_CARS = 5;
+const MAX_PHOTOS_PER_CAR = 4;
+
+/** Caps car/photo counts and ensures exactly one car is flagged primary (if any exist) */
+const normalizeCars = (cars) => {
+  const trimmed = cars.slice(0, MAX_CARS).map(car => ({
+    year: car.year || '',
+    make: car.make || '',
+    model: car.model || '',
+    color: car.color || '',
+    nickname: car.nickname || '',
+    photos: Array.isArray(car.photos) ? car.photos.slice(0, MAX_PHOTOS_PER_CAR) : [],
+    isPrimary: !!car.isPrimary
+  }));
+
+  const primaryIndex = trimmed.findIndex(car => car.isPrimary);
+  return trimmed.map((car, i) => ({
+    ...car,
+    isPrimary: trimmed.length === 0 ? false : i === (primaryIndex === -1 ? 0 : primaryIndex)
+  }));
+};
+
 /** Short-lived access token (15 min) */
 const generateAccessToken = (userId) =>
   jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
@@ -91,7 +113,7 @@ const getProfile = asyncHandler(async (req, res) => {
  * @access Private
  */
 const updateProfile = asyncHandler(async (req, res) => {
-  const { name, bio, avatar, car, useDisplayName, firstName, lastName, location } = req.body;
+  const { name, bio, avatar, cars, useDisplayName, firstName, lastName, location } = req.body;
 
   const user = await User.findById(req.user.id);
 
@@ -112,13 +134,11 @@ const updateProfile = asyncHandler(async (req, res) => {
   if (location    !== undefined) user.location  = location;
   if (useDisplayName !== undefined) user.useDisplayName = normalizedUseDisplayName;
 
-  if (car !== undefined) {
-    user.car = {
-      year: car.year || '',
-      make: car.make || '',
-      model: car.model || '',
-      color: car.color || ''
-    };
+  if (cars !== undefined) {
+    if (!Array.isArray(cars)) {
+      throw new AppError('cars must be an array', 400);
+    }
+    user.cars = normalizeCars(cars);
   }
 
   await user.save();
@@ -136,7 +156,7 @@ const updateProfile = asyncHandler(async (req, res) => {
       location:  user.location,
       bio: user.bio,
       avatar: user.avatar,
-      car: user.car,
+      cars: user.cars,
       role: user.role,
       useDisplayName: user.useDisplayName
     }

@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Car, User, Camera, X, Save, MapPin } from "lucide-react";
+import { Car, User, Camera, X, Save, MapPin, Plus, Trash2, Star, Pencil } from "lucide-react";
 import { authAPI, getErrorMessage } from "../services/api";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 import { compressImage } from "../utils/imageCompressor";
-import { LocationSearch } from "../components/ui/location-search";
+
+const MAX_CARS = 5;
+const MAX_PHOTOS_PER_CAR = 4;
+const emptyCar = () => ({ year: "", make: "", model: "", color: "", nickname: "", photos: [], isPrimary: false });
 
 const Profile = ({ onLogout, onUpdateUser }) => {
   const navigate = useNavigate();
@@ -22,20 +25,12 @@ const Profile = ({ onLogout, onUpdateUser }) => {
     bio: "",
     avatar: "",
     location: "",
-    carYear: "",
-    carMake: "",
-    carModel: "",
-    carColor: "",
+    cars: [],
     useDisplayName: false
   });
   const [previewAvatar, setPreviewAvatar] = useState("");
   const [avatarFileName, setAvatarFileName] = useState("");
-
-  // Account deletion state
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deletePassword, setDeletePassword] = useState('');
-  const [deleteError, setDeleteError] = useState('');
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [expandedCarIndex, setExpandedCarIndex] = useState(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -53,10 +48,7 @@ const Profile = ({ onLogout, onUpdateUser }) => {
             bio:       userData.bio       || "",
             avatar:    userData.avatar    || "",
             location:  userData.location  || "",
-            carYear:   userData.car?.year  || "",
-            carMake:   userData.car?.make  || "",
-            carModel:  userData.car?.model || "",
-            carColor:  userData.car?.color || "",
+            cars:      userData.cars      || [],
             useDisplayName: userData.useDisplayName || false
           });
         }
@@ -74,12 +66,7 @@ const Profile = ({ onLogout, onUpdateUser }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    // If changing the display name, automatically turn off the toggle
-    if (name === "name" && formData.useDisplayName) {
-      setFormData(prev => ({ ...prev, [name]: value, useDisplayName: false }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleAvatarUpload = async (e) => {
@@ -97,52 +84,80 @@ const Profile = ({ onLogout, onUpdateUser }) => {
     }
   };
 
-  const handleDeleteAccount = async () => {
-    if (!deletePassword) return;
-    setIsDeleting(true);
-    setDeleteError('');
+  const handleAddCar = () => {
+    if (formData.cars.length >= MAX_CARS) return;
+    setFormData(prev => ({
+      ...prev,
+      cars: [...prev.cars, { ...emptyCar(), isPrimary: prev.cars.length === 0 }]
+    }));
+    setExpandedCarIndex(formData.cars.length);
+  };
+
+  const handleRemoveCar = (index) => {
+    setFormData(prev => {
+      const cars = prev.cars.filter((_, i) => i !== index);
+      const removedWasPrimary = prev.cars[index]?.isPrimary;
+      if (removedWasPrimary && cars.length > 0 && !cars.some(c => c.isPrimary)) {
+        cars[0] = { ...cars[0], isPrimary: true };
+      }
+      return { ...prev, cars };
+    });
+    setExpandedCarIndex(null);
+  };
+
+  const handleCarFieldChange = (index, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      cars: prev.cars.map((c, i) => (i === index ? { ...c, [field]: value } : c))
+    }));
+  };
+
+  const handleSetPrimaryCar = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      cars: prev.cars.map((c, i) => ({ ...c, isPrimary: i === index }))
+    }));
+  };
+
+  const handleCarPhotoUpload = async (index, e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const remainingSlots = MAX_PHOTOS_PER_CAR - formData.cars[index].photos.length;
+    const filesToAdd = files.slice(0, remainingSlots);
     try {
-      await authAPI.deleteAccount(deletePassword);
-      // Clear session then redirect — account is gone
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('driveclique_user');
-      onLogout();
-      navigate('/login');
-    } catch (err) {
-      setDeleteError(err.response?.data?.message || 'Failed to delete account. Please try again.');
-    } finally {
-      setIsDeleting(false);
+      const compressed = await Promise.all(filesToAdd.map(file => compressImage(file)));
+      setFormData(prev => ({
+        ...prev,
+        cars: prev.cars.map((c, i) =>
+          i === index ? { ...c, photos: [...c.photos, ...compressed.map(r => r.compressedData)] } : c
+        )
+      }));
+    } catch (error) {
+      console.error('Error compressing car photo:', error);
+      setMessage({ type: 'error', text: 'Failed to process photo. Please try again.' });
     }
+  };
+
+  const handleRemoveCarPhoto = (carIndex, photoIndex) => {
+    setFormData(prev => ({
+      ...prev,
+      cars: prev.cars.map((c, i) =>
+        i === carIndex ? { ...c, photos: c.photos.filter((_, pi) => pi !== photoIndex) } : c
+      )
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Client-side validation
-    if (formData.useDisplayName && !formData.name.trim()) {
-      setMessage({ type: "error", text: "Please enter a display name before enabling 'Show Display Name'." });
-      return;
-    }
 
     setSaving(true);
     setMessage({ type: "", text: "" });
 
     try {
       const response = await authAPI.updateProfile({
-        firstName: formData.firstName,
-        lastName:  formData.lastName,
-        name:      formData.name,
-        bio:       formData.bio,
-        avatar:    formData.avatar,
-        location:  formData.location,
-        useDisplayName: formData.useDisplayName,
-        car: {
-          year:  formData.carYear,
-          make:  formData.carMake,
-          model: formData.carModel,
-          color: formData.carColor
-        }
+        bio:    formData.bio,
+        avatar: formData.avatar,
+        cars:   formData.cars
       });
 
       if (response.data.success) {
@@ -152,6 +167,8 @@ const Profile = ({ onLogout, onUpdateUser }) => {
           onUpdateUser(updatedUser);
         }
         setUser(updatedUser);
+        setFormData(prev => ({ ...prev, cars: updatedUser.cars || [] }));
+        setExpandedCarIndex(null);
         // Clear the avatar file name after successful save
         setAvatarFileName("");
         setPreviewAvatar("");
@@ -201,42 +218,37 @@ const Profile = ({ onLogout, onUpdateUser }) => {
             {/* Profile Picture and Bio Section */}
             <div className="bg-zinc-900 rounded-3xl p-6">
               <h2 className="text-xl font-semibold mb-6">Profile Picture & Bio</h2>
-              <div className="space-y-6">
+              <div className="flex gap-6">
                 {/* Profile Picture */}
-                <div className="flex justify-center">
-                  <div className="flex-shrink-0">
-                    <div className="w-32 h-32 rounded-full bg-zinc-700 overflow-hidden relative">
-                      {(previewAvatar || formData.avatar) ? (
-                        <img src={previewAvatar || formData.avatar} alt="Profile" className="w-full h-full object-cover" />
-                      ) : (
-                        <User className="w-full h-full p-8 text-zinc-500" />
-                      )}
-                      <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition cursor-pointer rounded-full">
-                        <Camera className="w-8 h-8 text-white" />
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleAvatarUpload}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-                    {avatarFileName && (
-                      <p className="text-xs text-zinc-500 text-center mt-2 truncate max-w-[128px]">
-                        {avatarFileName}
-                      </p>
+                <div className="flex-shrink-0">
+                  <div className="w-32 h-32 rounded-full bg-zinc-700 overflow-hidden relative">
+                    {(previewAvatar || formData.avatar) ? (
+                      <img src={previewAvatar || formData.avatar} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-full h-full p-8 text-zinc-500" />
                     )}
-                    <p className="text-xs text-zinc-500 text-center mt-1">
-                      Upload a picture
-                    </p>
+                    <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition cursor-pointer rounded-full">
+                      <Camera className="w-8 h-8 text-white" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                      />
+                    </label>
                   </div>
+                  {avatarFileName && (
+                    <p className="text-xs text-zinc-500 text-center mt-2 truncate max-w-[128px]">
+                      {avatarFileName}
+                    </p>
+                  )}
+                  <p className="text-xs text-zinc-500 text-center mt-1">
+                    Upload a picture
+                  </p>
                 </div>
 
                 {/* Bio */}
-                <div>
-                  <label className="block text-sm font-medium text-zinc-300 mb-2">
-                    Bio
-                  </label>
+                <div className="flex-1">
                   <textarea
                     name="bio"
                     value={formData.bio}
@@ -253,194 +265,184 @@ const Profile = ({ onLogout, onUpdateUser }) => {
               </div>
             </div>
 
-            {/* Personal Information */}
+            {/* My Garage */}
             <div className="bg-zinc-900 rounded-3xl p-6">
-              <h2 className="text-xl font-semibold mb-6">Personal Information</h2>
-              <div className="space-y-4">
-
-                {/* First name + Last name */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="firstName" className="block text-sm font-medium text-zinc-300 mb-2">
-                      First Name
-                    </label>
-                    <input
-                      id="firstName"
-                      type="text"
-                      name="firstName"
-                      value={formData.firstName}
-                      onChange={handleChange}
-                      placeholder="Jay"
-                      className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="lastName" className="block text-sm font-medium text-zinc-300 mb-2">
-                      Last Name
-                    </label>
-                    <input
-                      id="lastName"
-                      type="text"
-                      name="lastName"
-                      value={formData.lastName}
-                      onChange={handleChange}
-                      placeholder="Wells"
-                      className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600"
-                    />
-                  </div>
-                </div>
-
-                {/* Location */}
-                <div>
-                  <label className="block text-sm font-medium text-zinc-300 mb-2">
-                    Location
-                  </label>
-                  <LocationSearch
-                    value={formData.location}
-                    onChange={(val) => setFormData(prev => ({ ...prev, location: val }))}
-                  />
-                  <p className="text-xs text-zinc-500 mt-1">Used to suggest nearby clubs.</p>
-                </div>
-
-                <div>
-                  <label htmlFor="display-name" className="block text-sm font-medium text-zinc-300 mb-2">
-                    Display Name
-                  </label>
-                  <input
-                    id="display-name"
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    placeholder="John Doe"
-                    className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600"
-                  />
-                  <p className="text-xs text-zinc-500 mt-1">
-                    This name will be shown to other users if you enable the option below.
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between bg-black rounded-xl p-4">
-                  <div>
-                    <div className="text-sm font-medium text-zinc-300">Show Display Name</div>
-                    <div className="text-xs text-zinc-500 mt-1">
-                      Use your display name instead of username on Dashboard and member lists
-                    </div>
-                  </div>
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-xl font-semibold">My Garage</h2>
+                {formData.cars.length < MAX_CARS && (
                   <button
                     type="button"
-                    role="switch"
-                    aria-checked={formData.useDisplayName}
-                    onClick={() => setFormData(prev => ({ ...prev, useDisplayName: !prev.useDisplayName }))}
-                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      formData.useDisplayName ? 'bg-red-600' : 'bg-zinc-700'
-                    }`}
+                    onClick={handleAddCar}
+                    className="flex items-center gap-1.5 text-sm text-red-400 hover:text-red-300 transition-colors"
                   >
-                    <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        formData.useDisplayName ? 'translate-x-5' : 'translate-x-0'
-                      }`}
-                    />
+                    <Plus size={16} /> Add Car
                   </button>
-                </div>
-
-                <div>
-                  <label htmlFor="username" className="block text-sm font-medium text-zinc-300 mb-2">
-                    Username
-                  </label>
-                  <input
-                    id="username"
-                    type="text"
-                    name="username"
-                    value={formData.username}
-                    disabled
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-zinc-500 cursor-not-allowed"
-                  />
-                  <p className="text-xs text-zinc-500 mt-1">Username cannot be changed.</p>
-                </div>
-
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-zinc-300 mb-2">
-                    Email
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    disabled
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-zinc-500 cursor-not-allowed"
-                  />
-                  <p className="text-xs text-zinc-500 mt-1">Email cannot be changed.</p>
-                </div>
-
+                )}
               </div>
-            </div>
-
-            {/* Car Information */}
-            <div className="bg-zinc-900 rounded-3xl p-6">
-              <h2 className="text-xl font-semibold mb-6">Car Information</h2>
               <p className="text-zinc-400 text-sm mb-6">
-                Add your car details to show fellow enthusiasts what you drive.
+                Add up to {MAX_CARS} cars and showcase photos of each. Your primary car is shown to other members.
               </p>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label htmlFor="carYear" className="block text-sm font-medium text-zinc-300 mb-2">
-                    Year
-                  </label>
-                  <input
-                    id="carYear"
-                    type="text"
-                    name="carYear"
-                    value={formData.carYear}
-                    onChange={handleChange}
-                    placeholder="2020"
-                    className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600"
-                  />
+
+              {formData.cars.length === 0 ? (
+                <div className="bg-black rounded-xl p-6 text-center">
+                  <Car className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
+                  <p className="text-zinc-500 text-sm">No cars yet. Click "Add Car" to add your first vehicle.</p>
                 </div>
-                <div>
-                  <label htmlFor="carMake" className="block text-sm font-medium text-zinc-300 mb-2">
-                    Make
-                  </label>
-                  <input
-                    id="carMake"
-                    type="text"
-                    name="carMake"
-                    value={formData.carMake}
-                    onChange={handleChange}
-                    placeholder="Toyota"
-                    className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600"
-                  />
+              ) : (
+                <div className="space-y-3">
+                  {formData.cars.map((car, index) => {
+                    const isExpanded = expandedCarIndex === index;
+                    const title = [car.year, car.make, car.model].filter(Boolean).join(" ") || "Unnamed Car";
+                    return (
+                      <div key={index} className="bg-black rounded-xl overflow-hidden">
+                        {/* Collapsed summary row */}
+                        <div className="flex items-center gap-3 p-4">
+                          <div className="w-12 h-12 rounded-lg bg-zinc-800 overflow-hidden flex-shrink-0">
+                            {car.photos[0] ? (
+                              <img src={car.photos[0]} alt={title} className="w-full h-full object-cover" />
+                            ) : (
+                              <Car className="w-full h-full p-2.5 text-zinc-600" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium truncate">{title}</p>
+                              {car.isPrimary && (
+                                <span className="flex items-center gap-1 text-[10px] font-medium text-amber-400 bg-amber-900/30 px-2 py-0.5 rounded-full flex-shrink-0">
+                                  <Star size={10} className="fill-amber-400" /> Primary
+                                </span>
+                              )}
+                            </div>
+                            {car.nickname && <p className="text-xs text-zinc-500 truncate">"{car.nickname}"</p>}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setExpandedCarIndex(isExpanded ? null : index)}
+                            className="p-2 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors flex-shrink-0"
+                            aria-label="Edit car"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCar(index)}
+                            className="p-2 rounded-lg hover:bg-red-900/30 text-zinc-400 hover:text-red-400 transition-colors flex-shrink-0"
+                            aria-label="Remove car"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+
+                        {/* Expanded edit form */}
+                        {isExpanded && (
+                          <div className="px-4 pb-4 space-y-4 border-t border-zinc-800 pt-4">
+                            <div className="grid grid-cols-3 gap-3">
+                              <div>
+                                <label className="block text-xs font-medium text-zinc-400 mb-1.5">Year</label>
+                                <input
+                                  type="text"
+                                  value={car.year}
+                                  onChange={(e) => handleCarFieldChange(index, "year", e.target.value)}
+                                  placeholder="2020"
+                                  className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-red-600"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-zinc-400 mb-1.5">Make</label>
+                                <input
+                                  type="text"
+                                  value={car.make}
+                                  onChange={(e) => handleCarFieldChange(index, "make", e.target.value)}
+                                  placeholder="Toyota"
+                                  className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-red-600"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-zinc-400 mb-1.5">Model</label>
+                                <input
+                                  type="text"
+                                  value={car.model}
+                                  onChange={(e) => handleCarFieldChange(index, "model", e.target.value)}
+                                  placeholder="GR86"
+                                  className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-red-600"
+                                />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-medium text-zinc-400 mb-1.5">Color</label>
+                                <input
+                                  type="text"
+                                  value={car.color}
+                                  onChange={(e) => handleCarFieldChange(index, "color", e.target.value)}
+                                  placeholder="Red"
+                                  className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-red-600"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-zinc-400 mb-1.5">Nickname</label>
+                                <input
+                                  type="text"
+                                  value={car.nickname}
+                                  onChange={(e) => handleCarFieldChange(index, "nickname", e.target.value)}
+                                  placeholder="The Beast"
+                                  maxLength={50}
+                                  className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-red-600"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Photos */}
+                            <div>
+                              <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+                                Photos ({car.photos.length}/{MAX_PHOTOS_PER_CAR})
+                              </label>
+                              <div className="grid grid-cols-4 gap-2">
+                                {car.photos.map((photo, photoIndex) => (
+                                  <div key={photoIndex} className="relative aspect-square rounded-lg overflow-hidden bg-zinc-800 group">
+                                    <img src={photo} alt="" className="w-full h-full object-cover" />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveCarPhoto(index, photoIndex)}
+                                      className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition"
+                                      aria-label="Remove photo"
+                                    >
+                                      <X className="w-5 h-5 text-white" />
+                                    </button>
+                                  </div>
+                                ))}
+                                {car.photos.length < MAX_PHOTOS_PER_CAR && (
+                                  <label className="aspect-square rounded-lg border-2 border-dashed border-zinc-700 hover:border-zinc-600 flex flex-col items-center justify-center cursor-pointer transition-colors">
+                                    <Camera className="w-5 h-5 text-zinc-500 mb-1" />
+                                    <span className="text-[10px] text-zinc-500">Add</span>
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      multiple
+                                      onChange={(e) => handleCarPhotoUpload(index, e)}
+                                      className="hidden"
+                                    />
+                                  </label>
+                                )}
+                              </div>
+                            </div>
+
+                            {!car.isPrimary && (
+                              <button
+                                type="button"
+                                onClick={() => handleSetPrimaryCar(index)}
+                                className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-amber-400 transition-colors"
+                              >
+                                <Star size={14} /> Set as primary car
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-                <div>
-                  <label htmlFor="carModel" className="block text-sm font-medium text-zinc-300 mb-2">
-                    Model
-                  </label>
-                  <input
-                    id="carModel"
-                    type="text"
-                    name="carModel"
-                    value={formData.carModel}
-                    onChange={handleChange}
-                    placeholder="GR86"
-                    className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600"
-                  />
-                </div>
-              </div>
-              <div className="mt-4">
-                <label htmlFor="carColor" className="block text-sm font-medium text-zinc-300 mb-2">
-                  Color
-                </label>
-                <input
-                  id="carColor"
-                  type="text"
-                  name="carColor"
-                  value={formData.carColor}
-                  onChange={handleChange}
-                  placeholder="Red"
-                  className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600"
-                />
-              </div>
+              )}
             </div>
 
             {/* Action Buttons */}
@@ -463,21 +465,6 @@ const Profile = ({ onLogout, onUpdateUser }) => {
               </button>
             </div>
           </form>
-
-          {/* Danger Zone */}
-          <div className="mt-8 border-t border-zinc-800 pt-8">
-            <h2 className="text-lg font-semibold text-red-500 mb-1">Danger Zone</h2>
-            <p className="text-zinc-500 text-sm mb-4">
-              Once you delete your account, there is no going back. Please be certain.
-            </p>
-            <button
-              type="button"
-              onClick={() => { setShowDeleteModal(true); setDeletePassword(''); setDeleteError(''); }}
-              className="border border-red-600 text-red-500 hover:bg-red-600 hover:text-white px-6 py-2.5 rounded-2xl text-sm font-medium transition-all duration-200"
-            >
-              Delete Account
-            </button>
-          </div>
         </div>
 
         {/* Right Sidebar - Profile Preview */}
@@ -504,77 +491,25 @@ const Profile = ({ onLogout, onUpdateUser }) => {
             {formData.bio && (
               <p className="text-zinc-400 text-sm mb-4">{formData.bio}</p>
             )}
-            {(formData.carYear || formData.carMake || formData.carModel) && (
-              <div className="bg-black rounded-xl p-3">
-                <div className="flex items-center justify-center gap-2 text-sm">
-                  <Car size={16} className="text-red-500" />
-                  <span className="font-medium">
-                    {[formData.carYear, formData.carMake, formData.carModel].filter(Boolean).join(" ")}
-                  </span>
+            {(() => {
+              const primaryCar = formData.cars.find(c => c.isPrimary) || formData.cars[0];
+              return primaryCar && (primaryCar.year || primaryCar.make || primaryCar.model) && (
+                <div className="bg-black rounded-xl overflow-hidden">
+                  {primaryCar.photos[0] && (
+                    <img src={primaryCar.photos[0]} alt="" className="w-full h-24 object-cover" />
+                  )}
+                  <div className="flex items-center justify-center gap-2 text-sm p-3">
+                    <Car size={16} className="text-red-500" />
+                    <span className="font-medium">
+                      {[primaryCar.year, primaryCar.make, primaryCar.model].filter(Boolean).join(" ")}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         </div>
       </div>
-
-      {/* Delete Account Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 rounded-3xl p-6 max-w-md w-full border border-zinc-800 shadow-2xl">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 bg-red-600/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                <X className="w-5 h-5 text-red-500" />
-              </div>
-              <h2 className="text-xl font-bold">Delete Account</h2>
-            </div>
-
-            <p className="text-zinc-400 text-sm mb-3">This will permanently:</p>
-            <ul className="text-zinc-400 text-sm mb-5 space-y-1 list-disc list-inside">
-              <li>Delete your account and profile</li>
-              <li>Remove you from all clubs</li>
-              <li>Cancel all your future RSVPs</li>
-            </ul>
-            <p className="text-zinc-500 text-xs mb-5 bg-zinc-800/50 rounded-xl px-4 py-3 border border-zinc-700/50">
-              This action <span className="text-white font-semibold">cannot be undone</span>. Enter your password to confirm.
-            </p>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-zinc-300 mb-2">Password</label>
-              <input
-                type="password"
-                value={deletePassword}
-                onChange={e => { setDeletePassword(e.target.value); setDeleteError(''); }}
-                placeholder="Enter your password"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-sm placeholder-zinc-500 focus:outline-none focus:border-red-500 transition"
-                onKeyDown={e => e.key === 'Enter' && !isDeleting && handleDeleteAccount()}
-              />
-              {deleteError && (
-                <p className="text-red-400 text-sm mt-2">{deleteError}</p>
-              )}
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowDeleteModal(false)}
-                disabled={isDeleting}
-                className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-3 rounded-2xl font-medium text-sm transition disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteAccount}
-                disabled={isDeleting || !deletePassword}
-                className="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-2xl font-medium text-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isDeleting ? 'Deleting…' : 'Delete My Account'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

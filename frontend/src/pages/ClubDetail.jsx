@@ -1352,11 +1352,14 @@ const ClubDetail = ({ user, onLogout }) => {
                         {member.useDisplayName && member.name ? member.name : member.username}
                       </p>
                       <p className="text-sm text-zinc-500">@{member.username}</p>
-                      {member.car && (member.car.year || member.car.make || member.car.model) && (
-                        <p className="text-xs text-zinc-500 flex items-center gap-1 mt-1">
-                          {member.car.year} {member.car.make} {member.car.model}
-                        </p>
-                      )}
+                      {(() => {
+                        const primaryCar = member.cars?.find(c => c.isPrimary) || member.cars?.[0];
+                        return primaryCar && (primaryCar.year || primaryCar.make || primaryCar.model) && (
+                          <p className="text-xs text-zinc-500 flex items-center gap-1 mt-1">
+                            {primaryCar.year} {primaryCar.make} {primaryCar.model}
+                          </p>
+                        );
+                      })()}
                     </div>
 
                     {memberIsLeader ? (

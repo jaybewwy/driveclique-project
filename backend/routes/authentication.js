@@ -107,21 +107,22 @@ router.put(
     bio: { type: 'string', maxLength: 500 },
     avatar: { type: 'string' }, // URL, could add pattern validation
     useDisplayName: { type: 'boolean' },
-    car: {
-      type: 'object',
+    cars: {
+      type: 'array',
       custom: (value) => {
-        if (value && typeof value === 'object') {
-          if (value.year && (typeof value.year !== 'string' || value.year.length > 4)) {
-            return 'Invalid car year';
-          }
-          if (value.make && (typeof value.make !== 'string' || value.make.length > 50)) {
-            return 'Invalid car make';
-          }
-          if (value.model && (typeof value.model !== 'string' || value.model.length > 50)) {
-            return 'Invalid car model';
-          }
-          if (value.color && (typeof value.color !== 'string' || value.color.length > 30)) {
-            return 'Invalid car color';
+        if (!Array.isArray(value)) return null;
+        if (value.length > 5) return 'You can have at most 5 cars';
+        for (const car of value) {
+          if (!car || typeof car !== 'object') return 'Each car must be an object';
+          if (car.year && (typeof car.year !== 'string' || car.year.length > 4)) return 'Invalid car year';
+          if (car.make && (typeof car.make !== 'string' || car.make.length > 50)) return 'Invalid car make';
+          if (car.model && (typeof car.model !== 'string' || car.model.length > 50)) return 'Invalid car model';
+          if (car.color && (typeof car.color !== 'string' || car.color.length > 30)) return 'Invalid car color';
+          if (car.nickname && (typeof car.nickname !== 'string' || car.nickname.length > 50)) return 'Invalid car nickname';
+          if (car.photos !== undefined) {
+            if (!Array.isArray(car.photos)) return 'Car photos must be an array';
+            if (car.photos.length > 4) return 'Each car can have at most 4 photos';
+            if (car.photos.some(p => typeof p !== 'string' || p.length > 300000)) return 'Invalid car photo';
           }
         }
         return null;

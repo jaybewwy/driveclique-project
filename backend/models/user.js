@@ -44,23 +44,17 @@ const UserSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
-  car: {
-    year: {
-      type: String,
-      trim: true
-    },
-    make: {
-      type: String,
-      trim: true
-    },
-    model: {
-      type: String,
-      trim: true
-    },
-    color: {
-      type: String,
-      trim: true
-    }
+  cars: {
+    type: [{
+      year: { type: String, trim: true },
+      make: { type: String, trim: true },
+      model: { type: String, trim: true },
+      color: { type: String, trim: true },
+      nickname: { type: String, trim: true, maxlength: 50 },
+      photos: { type: [String], default: [] },
+      isPrimary: { type: Boolean, default: false }
+    }],
+    default: []
   },
   role: { 
     type: String, 
