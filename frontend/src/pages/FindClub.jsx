@@ -6,6 +6,7 @@ import { Car, MapPin, Lock, Globe, Users, Calendar, X, Search, Sparkles, ArrowRi
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 import ReportModal from "../components/ui/ReportModal";
+import { MobileDrawerButton } from "../components/ui/MobileDrawer";
 
 const FindClub = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ const FindClub = ({ user, onLogout }) => {
   const [actionError, setActionError]   = useState("");
   const [actionSuccess, setActionSuccess] = useState("");
   const [reportTarget, setReportTarget] = useState(null);
+  const [mobilePopularOpen, setMobilePopularOpen] = useState(false);
 
   useEffect(() => {
     clubsAPI.searchPage(undefined, 1, 50)
@@ -343,7 +345,25 @@ const FindClub = ({ user, onLogout }) => {
         </div>
 
         {/* Right sidebar */}
-        <div className="w-72 hidden xl:flex flex-col p-5 sticky top-[49px] h-[calc(100vh-49px)] overflow-y-auto gap-5">
+        <MobileDrawerButton onClick={() => setMobilePopularOpen(true)} breakpointClass="xl:hidden" side="right" label="popular clubs" />
+
+        <div
+          className={
+            mobilePopularOpen
+              ? "flex fixed inset-0 z-50 bg-zinc-950 flex-col p-5 pt-16 overflow-y-auto gap-5 xl:inset-auto xl:z-auto xl:bg-transparent xl:w-72 xl:pt-5 xl:sticky xl:top-[49px] xl:h-[calc(100vh-49px)]"
+              : "hidden xl:flex xl:flex-col xl:w-72 xl:p-5 xl:sticky xl:top-[49px] xl:h-[calc(100vh-49px)] xl:overflow-y-auto xl:gap-5"
+          }
+        >
+          {mobilePopularOpen && (
+            <button
+              type="button"
+              onClick={() => setMobilePopularOpen(false)}
+              aria-label="Close popular clubs"
+              className="xl:hidden absolute top-4 right-4 p-2 rounded-lg bg-zinc-900/80 text-zinc-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
 
           {/* Popular clubs */}
           <div>

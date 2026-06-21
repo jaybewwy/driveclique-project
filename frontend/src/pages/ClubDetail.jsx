@@ -31,6 +31,7 @@ import { DriveSchedulerPicker } from "../components/ui/drive-scheduler-picker";
 import { LocationSearch } from "../components/ui/location-search";
 import { DriveMapPicker } from "../components/ui/drive-map-picker";
 import { DriveMapPreview } from "../components/ui/drive-map-preview";
+import { MobileDrawerButton } from "../components/ui/MobileDrawer";
 
 const ClubDetail = ({ user, onLogout }) => {
   const { clubId } = useParams();
@@ -51,6 +52,7 @@ const ClubDetail = ({ user, onLogout }) => {
   const [showAllDrivesModal, setShowAllDrivesModal] = useState(false);
   const [showPastEventsModal, setShowPastEventsModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
+  const [mobileInfoOpen, setMobileInfoOpen] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState({});
@@ -975,7 +977,25 @@ const ClubDetail = ({ user, onLogout }) => {
           )}
         </div>
 
-        <div className="w-56 lg:w-64 xl:w-72 2xl:w-80 flex-none hidden lg:flex flex-col p-3 xl:p-5 2xl:p-6 sticky top-16 h-[calc(100vh-4rem)] overflow-hidden">
+        <MobileDrawerButton onClick={() => setMobileInfoOpen(true)} breakpointClass="lg:hidden" side="right" label="club info" />
+
+        <div
+          className={
+            mobileInfoOpen
+              ? "flex fixed inset-0 z-50 bg-zinc-950 flex-col p-5 pt-16 overflow-y-auto lg:inset-auto lg:z-auto lg:bg-transparent lg:flex-none lg:w-56 xl:w-72 2xl:w-80 lg:p-3 xl:p-5 2xl:p-6 lg:pt-3 xl:pt-5 2xl:pt-6 lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:overflow-hidden"
+              : "hidden lg:flex lg:flex-col lg:flex-none lg:w-56 xl:w-72 2xl:w-80 lg:p-3 xl:p-5 2xl:p-6 lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:overflow-hidden"
+          }
+        >
+          {mobileInfoOpen && (
+            <button
+              type="button"
+              onClick={() => setMobileInfoOpen(false)}
+              aria-label="Close club info"
+              className="lg:hidden absolute top-4 right-4 p-2 rounded-lg bg-zinc-900/80 text-zinc-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
           <h3 className="font-semibold mb-2 xl:mb-4 text-sm xl:text-base">Club Info</h3>
 
           <div className="bg-zinc-900 rounded-xl xl:rounded-2xl p-3 xl:p-4 space-y-2 xl:space-y-4">

@@ -1,17 +1,50 @@
 import { useState, useEffect } from "react";
-import { Home, User, Users, Search, Sparkles, TrendingUp, Calendar } from "lucide-react";
+import { Home, User, Users, Search, ChevronRight } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { drivesAPI } from "../services/api";
 import { useClubs } from "../hooks/useClubs";
+import { MobileDrawerButton, MobileDrawer } from "./ui/MobileDrawer";
+
+const SectionLabel = ({ children }) => (
+  <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500 px-3 mb-2">{children}</p>
+);
+
+const NavItem = ({ icon: Icon, label, active, badge, onClick }) => (
+  <div
+    onClick={onClick}
+    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 ${
+      active
+        ? "bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-lg shadow-red-900/30"
+        : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
+    }`}
+  >
+    <Icon className={`w-[18px] h-[18px] ${active ? "text-white" : "text-zinc-500"}`} />
+    <span className={`text-sm flex-1 ${active ? "font-semibold" : ""}`}>{label}</span>
+    {typeof badge === "number" && badge > 0 && (
+      <span
+        className={`text-[11px] font-semibold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center ${
+          active ? "bg-white/20 text-white" : "bg-zinc-800 text-zinc-300"
+        }`}
+      >
+        {badge}
+      </span>
+    )}
+  </div>
+);
 
 const Sidebar = ({ user }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { clubs: userClubs } = useClubs();
   const [scheduledDrivesCount, setScheduledDrivesCount] = useState(0);
-  const [hoveredItem, setHoveredItem] = useState(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const displayName = user?.useDisplayName && user?.name ? user.name : user?.username;
+
+  const goTo = (path) => {
+    navigate(path);
+    setMobileOpen(false);
+  };
 
   const sortedClubs = [...userClubs].sort((a, b) => {
     const aIsLeader = a.leader === user?._id || a.leader?._id === user?._id;
@@ -40,208 +73,133 @@ const Sidebar = ({ user }) => {
       .catch(() => {});
   }, [userClubs]);
 
-  const sidebarItems = [
-    {
-      id: "home",
-      label: "Home",
-      icon: Home,
-      path: "/dashboard",
-      gradient: "from-blue-500/20 to-blue-600/20",
-      activeGradient: "from-blue-500/30 to-blue-600/30",
-    },
-    {
-      id: "profile",
-      label: "Profile",
-      icon: User,
-      path: "/profile",
-      gradient: "from-purple-500/20 to-purple-600/20",
-      activeGradient: "from-purple-500/30 to-purple-600/30",
-    },
-    {
-      id: "my-clubs",
-      label: "My Clubs",
-      icon: Users,
-      path: "/my-clubs",
-      gradient: "from-orange-500/20 to-orange-600/20",
-      activeGradient: "from-orange-500/30 to-orange-600/30",
-    },
-    {
-      id: "find-club",
-      label: "Find Clubs",
-      icon: Search,
-      path: "/find-club",
-      gradient: "from-green-500/20 to-green-600/20",
-      activeGradient: "from-green-500/30 to-green-600/30",
-    },
-  ];
+  const isActive = (path) => location.pathname === path;
 
-  const isActive = (path) => {
-    if (path === "/dashboard") {
-      return location.pathname === "/dashboard";
-    }
-    return location.pathname === path;
-  };
+  const content = (
+    <>
+      <div className="flex-1 overflow-y-auto space-y-6">
+        {/* Main */}
+        <div>
+          <SectionLabel>Main</SectionLabel>
+          <div className="space-y-1">
+            <NavItem
+              icon={Home}
+              label="Home"
+              active={isActive("/dashboard")}
+              badge={scheduledDrivesCount}
+              onClick={() => goTo("/dashboard")}
+            />
+            <NavItem icon={User} label="Profile" active={isActive("/profile")} onClick={() => goTo("/profile")} />
+          </div>
+        </div>
+
+        {/* Clubs */}
+        <div>
+          <SectionLabel>Clubs</SectionLabel>
+          <div className="space-y-1">
+            <NavItem
+              icon={Users}
+              label="My Clubs"
+              active={isActive("/my-clubs")}
+              badge={userClubs.length}
+              onClick={() => goTo("/my-clubs")}
+            />
+            <NavItem
+              icon={Search}
+              label="Find Clubs"
+              active={isActive("/find-club")}
+              onClick={() => goTo("/find-club")}
+            />
+          </div>
+        </div>
+
+        {/* Your Clubs shortcuts - hidden on My Clubs page */}
+        {userClubs.length > 0 && location.pathname !== "/my-clubs" && (
+          <div>
+            <div className="flex items-center justify-between px-3 mb-2">
+              <SectionLabel>Your Clubs</SectionLabel>
+              <button
+                onClick={() => goTo("/my-clubs")}
+                className="text-zinc-500 hover:text-white transition-colors flex items-center -mb-2"
+                aria-label="View all clubs"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="space-y-1">
+              {sortedClubs.slice(0, sortedClubs.length > 3 ? 3 : 5).map((club) => (
+                <div
+                  key={club._id}
+                  onClick={() => goTo(`/club/${club._id}`)}
+                  className="flex items-center gap-3 px-3 py-2 hover:bg-zinc-900/50 rounded-xl cursor-pointer transition-all duration-200 group"
+                >
+                  <div className="w-7 h-7 rounded-lg flex-shrink-0 overflow-hidden ring-1 ring-zinc-700/30 group-hover:ring-zinc-600/50 transition-all duration-300">
+                    {club.avatar ? (
+                      <img
+                        src={club.avatar}
+                        alt={club.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center">
+                        <span className="text-white font-bold text-[10px]">
+                          {club.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-sm text-zinc-400 truncate flex-1 group-hover:text-zinc-200 transition-colors">
+                    {club.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* User card pinned to bottom */}
+      {displayName && (
+        <div
+          onClick={() => goTo("/profile")}
+          className="flex items-center gap-3 px-3 py-3 mt-4 bg-zinc-900 rounded-2xl border border-zinc-800/50 hover:border-zinc-700/50 cursor-pointer transition-all duration-300 flex-shrink-0"
+        >
+          <div className="relative">
+            <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-zinc-700/30">
+              {user?.avatar ? (
+                <img src={user.avatar} alt={displayName} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center">
+                  <User className="w-4 h-4 text-zinc-400" />
+                </div>
+              )}
+            </div>
+            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-zinc-900" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm truncate text-white">{displayName}</p>
+            <p className="text-xs text-zinc-500 truncate">@{user?.username}</p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-zinc-600" />
+        </div>
+      )}
+    </>
+  );
 
   return (
-    <div className="w-60 xl:w-64 2xl:w-72 flex-none hidden xl:flex flex-col border-r border-zinc-800/50 p-3 xl:p-4 sticky top-16 h-[calc(100vh-4rem)] overflow-hidden bg-black/20">
-      {/* User Info Section */}
-      {displayName && (
-        <div className="relative group mb-6">
-          <div className="flex items-center gap-3 px-4 py-4 bg-gradient-to-br from-zinc-900/80 to-zinc-900/40 backdrop-blur-sm rounded-2xl border border-zinc-800/50 hover:border-zinc-700/50 transition-all duration-300">
-            <div className="relative">
-              <div className="w-10 h-10 rounded-xl overflow-hidden ring-2 ring-zinc-700/30 group-hover:ring-red-500/30 transition-all duration-300">
-                {user?.avatar ? (
-                  <img src={user.avatar} alt={displayName} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center">
-                    <User className="w-5 h-5 text-zinc-400" />
-                  </div>
-                )}
-              </div>
-              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-zinc-900" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm truncate text-white">{displayName}</p>
-              <p className="text-xs text-zinc-500 truncate">@{user?.username}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Navigation Items */}
-      <div className="space-y-1.5 mb-6">
-        {sidebarItems.map((item) => {
-          const Icon = item.icon;
-          const active = isActive(item.path);
-          const isHovered = hoveredItem === item.id;
-          
-          return (
-            <div
-              key={item.id}
-              onClick={() => navigate(item.path)}
-              onMouseEnter={() => setHoveredItem(item.id)}
-              onMouseLeave={() => setHoveredItem(null)}
-              className={`relative flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all duration-300 group ${
-                active 
-                  ? `bg-gradient-to-r ${item.activeGradient} border border-zinc-700/30` 
-                  : `hover:bg-zinc-900/50 hover:border border-zinc-800/30`
-              }`}
-            >
-              {active && (
-                <div className={`absolute inset-0 bg-gradient-to-r ${item.gradient} rounded-xl -z-10 blur-sm opacity-50`} />
-              )}
-              <div className={`relative p-1.5 rounded-lg transition-all duration-300 ${
-                active 
-                  ? 'bg-zinc-800/50' 
-                  : isHovered 
-                    ? 'bg-zinc-800/30' 
-                    : ''
-              }`}>
-                <Icon
-                  className={`w-5 h-5 transition-all duration-300 ${
-                    active 
-                      ? 'text-white' 
-                      : 'text-zinc-500 group-hover:text-zinc-300'
-                  }`}
-                />
-              </div>
-              <span className={`text-sm transition-all duration-300 ${
-                active ? 'font-semibold text-white' : 'text-zinc-400 group-hover:text-zinc-200'
-              }`}>
-                {item.label}
-              </span>
-              {active && (
-                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-gradient-to-r from-red-500 to-orange-500" />
-              )}
-            </div>
-          );
-        })}
+    <>
+      {/* Desktop sidebar */}
+      <div className="w-60 xl:w-64 2xl:w-72 flex-none hidden xl:flex flex-col border-r border-zinc-800/50 p-3 xl:p-4 sticky top-16 h-[calc(100vh-4rem)] overflow-hidden bg-black/20">
+        {content}
       </div>
 
-      {/* Quick Stats - Hidden on My Clubs page */}
-      {location.pathname !== "/my-clubs" && (
-        <div className="mb-6 p-4 bg-gradient-to-br from-zinc-900/50 to-zinc-900/20 rounded-2xl border border-zinc-800/30">
-          <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-            <TrendingUp className="w-3 h-3" />
-            Quick Stats
-          </h3>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="p-2 bg-zinc-800/30 rounded-lg">
-              <p className="text-lg font-bold text-white">{userClubs.length}</p>
-              <p className="text-xs text-zinc-500">Clubs</p>
-            </div>
-            <div className="p-2 bg-zinc-800/30 rounded-lg">
-              <p className="text-lg font-bold text-white">{scheduledDrivesCount}</p>
-              <p className="text-xs text-zinc-500">Events</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Your Clubs Section - Hidden on My Clubs page */}
-      {userClubs.length > 0 && location.pathname !== "/my-clubs" && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between px-4 mb-3">
-            <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
-              <Sparkles className="w-3 h-3" />
-              Your Clubs
-            </h3>
-            <button 
-              onClick={() => navigate("/my-clubs")}
-              className="text-xs text-zinc-500 hover:text-white transition-colors"
-            >
-              View All
-            </button>
-          </div>
-          <div className="space-y-1">
-            {sortedClubs.slice(0, sortedClubs.length > 3 ? 3 : 5).map((club, index) => (
-              <div
-                key={club._id}
-                onClick={() => navigate(`/club/${club._id}`)}
-                className="flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-900/50 rounded-xl cursor-pointer transition-all duration-200 group"
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
-                <div className="w-8 h-8 rounded-lg flex-shrink-0 overflow-hidden ring-1 ring-zinc-700/30 group-hover:ring-zinc-600/50 transition-all duration-300">
-                  {club.avatar ? (
-                    <img
-                      src={club.avatar}
-                      alt={club.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center">
-                      <span className="text-white font-bold text-xs">
-                        {club.name.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <span className="text-sm text-zinc-400 truncate flex-1 group-hover:text-zinc-200 transition-colors">
-                  {club.name}
-                </span>
-                <div className="w-1.5 h-1.5 rounded-full bg-zinc-700 group-hover:bg-red-500 transition-colors opacity-0 group-hover:opacity-100" />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Upgrade Card */}
-      <div className="relative overflow-hidden p-4 bg-gradient-to-br from-red-500/10 to-orange-500/10 rounded-2xl border border-red-500/20 mt-auto">
-        <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-red-500/20 to-orange-500/20 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
-        <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-red-400" />
-          Premium
-        </h3>
-        <p className="text-xs text-zinc-400 mb-3">
-          Unlock exclusive features and analytics
-        </p>
-        <button className="w-full py-2 px-3 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white text-xs font-medium rounded-lg transition-all duration-300 hover:shadow-lg hover:shadow-red-500/25">
-          Upgrade Now
-        </button>
-      </div>
-    </div>
+      {/* Mobile trigger + drawer (shown once the desktop sidebar is hidden below xl) */}
+      <MobileDrawerButton onClick={() => setMobileOpen(true)} breakpointClass="xl:hidden" side="left" label="navigation" />
+      <MobileDrawer isOpen={mobileOpen} onClose={() => setMobileOpen(false)} side="left">
+        <div className="flex flex-col h-full">{content}</div>
+      </MobileDrawer>
+    </>
   );
 };
 

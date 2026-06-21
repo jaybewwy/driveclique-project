@@ -10,146 +10,136 @@ import {
 import NavBar from "../components/NavBar";
 import { drivesAPI, authAPI, getErrorMessage } from "../services/api";
 import { LocationSearch } from "../components/ui/location-search";
+import { MobileDrawerButton, MobileDrawer } from "../components/ui/MobileDrawer";
 
 /* ─── Sidebar ─────────────────────────────────────────────────────────── */
+
+const SidebarSectionLabel = ({ children }) => (
+  <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500 px-3 mb-2">{children}</p>
+);
+
+const SidebarNavItem = ({ icon: Icon, label, active, onClick }) => (
+  <div
+    onClick={onClick}
+    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 ${
+      active
+        ? "bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-lg shadow-red-900/30"
+        : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
+    }`}
+  >
+    <Icon className={`w-[18px] h-[18px] ${active ? "text-white" : "text-zinc-500"}`} />
+    <span className={`text-sm flex-1 ${active ? "font-semibold" : ""}`}>{label}</span>
+  </div>
+);
 
 const AnalyticsSidebar = ({ user, activeView, onViewChange }) => {
   const navigate = useNavigate();
   const [analyticsOpen, setAnalyticsOpen] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const displayName = user?.useDisplayName && user?.name ? user.name : user?.username;
 
-  return (
-    <div className="w-60 xl:w-64 2xl:w-72 flex-none hidden xl:flex flex-col border-r border-zinc-800/50 p-3 xl:p-4 sticky top-16 h-[calc(100vh-4rem)] overflow-hidden bg-black/20">
-      {/* User info */}
-      {displayName && (
-        <div className="relative group mb-6">
-          <div className="flex items-center gap-3 px-4 py-4 bg-gradient-to-br from-zinc-900/80 to-zinc-900/40 backdrop-blur-sm rounded-2xl border border-zinc-800/50 hover:border-zinc-700/50 transition-all duration-300">
-            <div className="relative">
-              <div className="w-10 h-10 rounded-xl overflow-hidden ring-2 ring-zinc-700/30 group-hover:ring-red-500/30 transition-all duration-300">
-                {user?.avatar ? (
-                  <img src={user.avatar} alt={displayName} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center">
-                    <UserIcon className="w-5 h-5 text-zinc-400" />
-                  </div>
-                )}
-              </div>
-              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-zinc-900" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm truncate text-white">{displayName}</p>
-              <p className="text-xs text-zinc-500 truncate">@{user?.username}</p>
-            </div>
+  const goTo = (path) => {
+    navigate(path);
+    setMobileOpen(false);
+  };
+
+  const onViewChangeAndClose = (view) => {
+    onViewChange(view);
+    setMobileOpen(false);
+  };
+
+  const content = (
+    <>
+      <div className="flex-1 overflow-y-auto space-y-6">
+        {/* Main */}
+        <div>
+          <SidebarSectionLabel>Main</SidebarSectionLabel>
+          <div className="space-y-1">
+            <SidebarNavItem icon={Home} label="Home" onClick={() => goTo("/dashboard")} />
+            <SidebarNavItem
+              icon={UserIcon}
+              label="Profile"
+              active={activeView === "profile"}
+              onClick={() => onViewChangeAndClose("profile")}
+            />
+            <SidebarNavItem icon={Users} label="My Clubs" onClick={() => goTo("/my-clubs")} />
           </div>
         </div>
-      )}
 
-      {/* Standard nav links */}
-      <div className="space-y-1.5 mb-4">
-        <div
-          onClick={() => navigate("/dashboard")}
-          className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 transition-all duration-200 group"
-        >
-          <div className="p-1.5 rounded-lg group-hover:bg-zinc-800/30 transition-all duration-200">
-            <Home className="w-5 h-5" />
-          </div>
-          <span className="text-sm">Home</span>
-        </div>
+        {/* Analytics accordion */}
+        <div>
+          <SidebarSectionLabel>Analytics</SidebarSectionLabel>
+          <button
+            onClick={() => setAnalyticsOpen(v => !v)}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-zinc-900/50 hover:bg-zinc-900 text-zinc-300 transition-all duration-200"
+          >
+            <BarChart2 className="w-[18px] h-[18px] text-red-400" />
+            <span className="text-sm font-medium flex-1 text-left">Menu Level</span>
+            {analyticsOpen
+              ? <ChevronDown className="w-4 h-4 text-zinc-500" />
+              : <ChevronRight className="w-4 h-4 text-zinc-500" />}
+          </button>
 
-        <div
-          onClick={() => onViewChange("profile")}
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all duration-200 group ${
-            activeView === "profile"
-              ? "bg-zinc-800/60 text-white"
-              : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
-          }`}
-        >
-          <div className="p-1.5 rounded-lg group-hover:bg-zinc-800/30 transition-all duration-200">
-            <UserIcon className="w-5 h-5" />
-          </div>
-          <span className="text-sm">Profile</span>
-          {activeView === "profile" && (
-            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-gradient-to-r from-red-500 to-orange-500" />
+          {analyticsOpen && (
+            <div className="mt-1 ml-3 pl-3 border-l border-zinc-800/60 space-y-1">
+              <SidebarNavItem
+                icon={UserIcon}
+                label="Personal"
+                active={activeView === "personal"}
+                onClick={() => onViewChangeAndClose("personal")}
+              />
+              <SidebarNavItem
+                icon={Users}
+                label="Clubs"
+                active={activeView === "clubs"}
+                onClick={() => onViewChangeAndClose("clubs")}
+              />
+            </div>
           )}
         </div>
+      </div>
 
+      {/* User card pinned to bottom */}
+      {displayName && (
         <div
-          onClick={() => navigate("/my-clubs")}
-          className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 transition-all duration-200 group"
+          onClick={() => goTo("/profile")}
+          className="flex items-center gap-3 px-3 py-3 mt-4 bg-zinc-900 rounded-2xl border border-zinc-800/50 hover:border-zinc-700/50 cursor-pointer transition-all duration-300 flex-shrink-0"
         >
-          <div className="p-1.5 rounded-lg group-hover:bg-zinc-800/30 transition-all duration-200">
-            <Users className="w-5 h-5" />
+          <div className="relative">
+            <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-zinc-700/30">
+              {user?.avatar ? (
+                <img src={user.avatar} alt={displayName} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center">
+                  <UserIcon className="w-4 h-4 text-zinc-400" />
+                </div>
+              )}
+            </div>
+            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-zinc-900" />
           </div>
-          <span className="text-sm">My Clubs</span>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm truncate text-white">{displayName}</p>
+            <p className="text-xs text-zinc-500 truncate">@{user?.username}</p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-zinc-600" />
         </div>
+      )}
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <div className="w-60 xl:w-64 2xl:w-72 flex-none hidden xl:flex flex-col border-r border-zinc-800/50 p-3 xl:p-4 sticky top-16 h-[calc(100vh-4rem)] overflow-hidden bg-black/20">
+        {content}
       </div>
 
-      {/* Analytics accordion */}
-      <div className="mb-4">
-        <button
-          onClick={() => setAnalyticsOpen(v => !v)}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-500/20 text-white transition-all duration-200"
-        >
-          <div className="p-1.5 rounded-lg bg-zinc-800/50">
-            <BarChart2 className="w-5 h-5 text-red-400" />
-          </div>
-          <span className="text-sm font-semibold flex-1 text-left">Analytics</span>
-          {analyticsOpen
-            ? <ChevronDown className="w-4 h-4 text-zinc-500" />
-            : <ChevronRight className="w-4 h-4 text-zinc-500" />}
-        </button>
-
-        {analyticsOpen && (
-          <div className="mt-1 ml-4 pl-4 border-l border-zinc-800/60 space-y-0.5">
-            {/* Personal */}
-            <button
-              onClick={() => onViewChange("personal")}
-              className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 ${
-                activeView === "personal"
-                  ? "bg-zinc-800/60 text-white"
-                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
-              }`}
-            >
-              <UserIcon className="w-4 h-4" />
-              <span className="text-sm">Personal</span>
-              {activeView === "personal" && (
-                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-gradient-to-r from-red-500 to-orange-500" />
-              )}
-            </button>
-
-            {/* Clubs */}
-            <button
-              onClick={() => onViewChange("clubs")}
-              className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 ${
-                activeView === "clubs"
-                  ? "bg-zinc-800/60 text-white"
-                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
-              }`}
-            >
-              <Users className="w-4 h-4 text-red-400" />
-              <span className="text-sm">Clubs</span>
-              {activeView === "clubs" && (
-                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-gradient-to-r from-red-500 to-orange-500" />
-              )}
-            </button>
-
-          </div>
-        )}
-      </div>
-
-      {/* Premium card */}
-      <div className="relative overflow-hidden p-4 bg-gradient-to-br from-red-500/10 to-orange-500/10 rounded-2xl border border-red-500/20 mt-auto">
-        <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-red-500/20 to-orange-500/20 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
-        <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-red-400" />
-          Premium
-        </h3>
-        <p className="text-xs text-zinc-400 mb-3">Unlock exclusive features and analytics</p>
-        <button className="w-full py-2 px-3 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white text-xs font-medium rounded-lg transition-all duration-300 hover:shadow-lg hover:shadow-red-500/25">
-          Upgrade Now
-        </button>
-      </div>
-    </div>
+      {/* Mobile trigger + drawer (shown once the desktop sidebar is hidden below xl) */}
+      <MobileDrawerButton onClick={() => setMobileOpen(true)} breakpointClass="xl:hidden" side="left" label="navigation" />
+      <MobileDrawer isOpen={mobileOpen} onClose={() => setMobileOpen(false)} side="left">
+        <div className="flex flex-col h-full">{content}</div>
+      </MobileDrawer>
+    </>
   );
 };
 
