@@ -8,10 +8,10 @@ const MONTH_NAMES = [
 ]
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-// 6:00 AM – 10:00 PM in 30-minute steps
+// 12:00 AM – 11:30 PM (full 24 hours) in 30-minute steps
 function generateTimeSlots() {
   const slots = []
-  for (let h = 6; h <= 22; h++) {
+  for (let h = 0; h <= 23; h++) {
     for (let m = 0; m < 60; m += 30) {
       const pad = (n) => n.toString().padStart(2, '0')
       const ampm = h >= 12 ? 'PM' : 'AM'
