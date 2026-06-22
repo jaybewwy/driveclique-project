@@ -46,7 +46,7 @@ test.describe('Profile Picture Upload', () => {
       // Step 2: Navigate to profile page
       console.log('\nStep 2: Navigating to profile page...');
       await page.goto(`${baseUrl}/profile`, { waitUntil: 'domcontentloaded' });
-      await page.waitForLoadState('networkidle');
+      // networkidle never resolves here — NavBar's SSE stream keeps a connection open.
       await page.waitForTimeout(1000);
       
       // Verify we're on the profile page

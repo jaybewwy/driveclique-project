@@ -29,7 +29,10 @@ async function registerUser(page: any, user: { username: string; email: string; 
 async function logoutUser(page: any) {
   await page.goto(`${baseUrl}/dashboard`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(500);
-  await page.getByRole('button', { name: /Logout/i }).click();
+  await page.getByRole('button', { name: /^[A-Z]{2}$/ }).last().click();
+  await page.getByRole('menuitem', { name: /Log out/i }).click().catch(async () => {
+    await page.getByText(/Log out/i).click();
+  });
   await page.waitForURL(`${baseUrl}/login`, { timeout: 10000 });
   await page.waitForTimeout(500);
 }
@@ -38,7 +41,7 @@ async function createClubViaUI(page: any, clubName: string) {
   await page.goto(`${baseUrl}/create-club`, { waitUntil: 'domcontentloaded' });
   await page.getByPlaceholder('e.g. Southern California Mountain Drivers').fill(clubName);
   await page.getByPlaceholder('What makes your club unique?').fill('Test club for member migration');
-  await page.getByPlaceholder('e.g. Los Angeles, CA').fill('Test City, TC');
+  await page.getByPlaceholder(/Search city or region|Search city in/i).fill('Test City, TC');
   await page.getByRole('button', { name: /Create Club/i }).click();
   await expect(page.getByText(/Club created successfully/i)).toBeVisible({ timeout: 15000 });
   await page.waitForURL(/\/club\/[a-f0-9]{24}/, { timeout: 15000 });
@@ -128,7 +131,7 @@ test.describe('Move Members from TEST CLUB to gr86 club', () => {
         await page.waitForTimeout(500);
         
         // Access TEST CLUB
-        const clubCard = page.locator('.bg-zinc-900.rounded-3xl').filter({ has: page.getByRole('heading', { name: testClubName }) }).first();
+        const clubCard = page.locator('.glass-card').filter({ has: page.getByRole('heading', { name: testClubName }) }).first();
         await clubCard.getByRole('button', { name: /View Club/i }).click();
         await page.waitForURL(/\/club\/[a-f0-9]{24}/, { timeout: 15000 });
         await page.waitForTimeout(500);
@@ -156,8 +159,9 @@ test.describe('Move Members from TEST CLUB to gr86 club', () => {
         // Wait for any navigation that might happen after joining
         await page.waitForTimeout(2000);
         
-        // Navigate to My Clubs and wait for it to load
-        await page.goto(`${baseUrl}/my-clubs`, { waitUntil: 'networkidle' });
+        // Navigate to My Clubs — networkidle never resolves here because the
+        // NavBar's SSE notification stream keeps a connection permanently open.
+        await page.goto(`${baseUrl}/my-clubs`, { waitUntil: 'domcontentloaded' });
         await page.waitForTimeout(2000);
         
         // Verify in My Clubs - look for gr86 club (case-insensitive, partial match)

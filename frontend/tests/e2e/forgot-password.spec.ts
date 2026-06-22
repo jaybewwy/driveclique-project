@@ -322,13 +322,15 @@ test.describe('Full reset flow (DB-level token verification)', () => {
     const suffix = Date.now();
     const user = {
       username:    `fullflow_${suffix}`,
-      email:       `fullflow_${suffix}@example.com`,
+      email:       `fullflow_${suffix}@mail.com`,
       password:    'OldPass123!',
       newPassword: 'NewPass456!',
     };
 
     // Step 1: Register
     await page.goto(`${BASE}/register`);
+    await page.getByPlaceholder('First').fill('Test');
+    await page.getByPlaceholder('Last').fill('User');
     await page.getByPlaceholder('Username').fill(user.username);
     await page.getByPlaceholder('Email address').fill(user.email);
     await page.getByPlaceholder('Password').fill(user.password);
@@ -350,7 +352,12 @@ test.describe('Full reset flow (DB-level token verification)', () => {
 
     // Step 4: Old password still works (reset didn't go through)
     await page.goto(`${BASE}/login`);
-    try { await page.getByRole('button', { name: /Logout/i }).click(); } catch {}
+    try {
+      await page.getByRole('button', { name: /^[A-Z]{2}$/ }).last().click();
+      await page.getByRole('menuitem', { name: /Log out/i }).click().catch(async () => {
+        await page.getByText(/Log out/i).click();
+      });
+    } catch {}
     await page.goto(`${BASE}/login`);
     await page.getByPlaceholder('Username').fill(user.username);
     await page.getByPlaceholder('Password').fill(user.password);

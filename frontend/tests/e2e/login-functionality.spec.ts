@@ -53,7 +53,10 @@ test.describe('Login Functionality Tests', () => {
     await expect(page.getByPlaceholder(/What's the plan\?/i)).toBeVisible({ timeout: 10000 });
 
     // Step 6: Logout
-    await page.getByRole('button', { name: /Logout/i }).click();
+    await page.getByRole('button', { name: /^[A-Z]{2}$/ }).last().click();
+    await page.getByRole('menuitem', { name: /Log out/i }).click().catch(async () => {
+      await page.getByText(/Log out/i).click();
+    });
     await page.waitForURL(`${baseUrl}/login`, { timeout: 10000 });
     await expect(page).toHaveURL(`${baseUrl}/login`);
 
@@ -89,12 +92,9 @@ test.describe('Login Functionality Tests', () => {
     await page.getByRole('button', { name: /Create Account/i }).click();
     await page.waitForURL(`${baseUrl}/dashboard`, { timeout: 15000 });
 
-    // Go to profile page
-    await page.goto(`${baseUrl}/profile`);
-    await expect(page).toHaveURL(`${baseUrl}/profile`);
-
-    // Wait for profile to load
-    await expect(page.getByRole('heading', { name: /My Profile/i })).toBeVisible({ timeout: 10000 });
+    // Username/Email moved from /profile to the /settings "Profile" view in a later session
+    await page.goto(`${baseUrl}/settings`);
+    await page.getByText('Profile', { exact: true }).first().click();
 
     // Verify username is displayed (disabled field)
     await expect(page.getByLabel('Username')).toHaveValue(testUser.username);

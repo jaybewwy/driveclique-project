@@ -903,7 +903,7 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
           {/* Username */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-zinc-300">Username</label>
+              <label htmlFor="pv-username" className="text-sm font-medium text-zinc-300">Username</label>
               {canChangeUsername && !editingUsername && (
                 <button
                   type="button"
@@ -952,6 +952,7 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
               </div>
             ) : (
               <input
+                id="pv-username"
                 type="text"
                 value={formData.username}
                 disabled

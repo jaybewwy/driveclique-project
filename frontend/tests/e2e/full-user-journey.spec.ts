@@ -68,7 +68,10 @@ async function register(page: Page, u: { username: string; email: string; passwo
 }
 
 async function logout(page: Page) {
-  await page.getByRole('button', { name: /Logout/i }).click().catch(() => {});
+  await page.getByRole('button', { name: /^[A-Z]{2}$/ }).last().click().catch(() => {});
+  await page.getByRole('menuitem', { name: /Log out/i }).click().catch(async () => {
+    await page.getByText(/Log out/i).click().catch(() => {});
+  });
   await page.waitForURL(`${BASE}/login`, { timeout: 10_000 }).catch(() => {});
 }
 
@@ -76,7 +79,7 @@ async function createClub(page: Page, name: string): Promise<string> {
   await page.goto(`${BASE}/create-club`);
   await page.getByPlaceholder('e.g. Southern California Mountain Drivers').fill(name);
   await page.getByPlaceholder('What makes your club unique?').fill('Journey test club');
-  await page.getByPlaceholder('e.g. Los Angeles, CA').fill('Journey City, JC');
+  await page.getByPlaceholder(/Search city or region|Search city in/i).fill('Journey City, JC');
   await page.getByRole('button', { name: /Create Club/i }).click();
   await expect(page.getByText(/Club created successfully/i)).toBeVisible({ timeout: 10_000 });
   await page.waitForURL(/\/club\/[a-f0-9]{24}/, { timeout: 10_000 });
@@ -107,11 +110,9 @@ async function scheduleDrive(page: Page, clubId: string, driveName: string) {
     .and(page.locator('button:not([disabled])')).first();
   await day15.click({ force: true });
 
-  await page.getByRole('combobox').nth(0).selectOption('10');
-  await page.getByRole('combobox').nth(1).selectOption('00');
-  await page.getByRole('combobox').nth(2).selectOption('AM');
+  await page.getByRole('button', { name: '10:00 AM', exact: true }).click();
 
-  await page.getByPlaceholder('e.g. Mountain View Parking Lot, 123 Main St').fill('Journey Drive Lot');
+  await page.getByPlaceholder(/Search city or region|Search city in/i).fill('Journey Drive Lot');
   await page.getByPlaceholder('Additional details about the drive...').fill('Full journey test drive');
 
   await page.getByRole('button', { name: /Schedule Drive/i }).click();
@@ -183,10 +184,13 @@ test.describe('Full User Journey', () => {
     await register(page, member);
     await page.goto(`${BASE}/find-club`);
     await expect(page.getByRole('heading', { name: /Find Clubs/i })).toBeVisible({ timeout: 10_000 });
-    await page.waitForLoadState('networkidle');
+    // networkidle never resolves on authenticated pages — NavBar's SSE stream
+    // keeps a connection permanently open. Use the timeout below instead.
     await page.waitForTimeout(800);
 
-    const joinBtn = page.locator('button').filter({ hasText: /Join Club/i }).first();
+    // Scope to this test's own club card — parallel workers create similarly-named
+    // public clubs around the same time, so a bare "first Join button" is ambiguous.
+    const joinBtn = page.locator('.glass-card').filter({ hasText: clubName }).getByRole('button', { name: 'Join', exact: true });
     await expect(joinBtn).toBeVisible({ timeout: 10_000 });
     await joinBtn.click();
 
@@ -252,7 +256,7 @@ test.describe('Full User Journey', () => {
     const clubId = await createClub(page, clubName);
     await scheduleDrive(page, clubId, driveName);
 
-    await page.getByRole('button', { name: /Edit Club Details/i }).click();
+    await page.getByRole('button', { name: /Manage Club/i }).click();
     await page.getByRole('button', { name: /Delete Club/i }).click();
     await expect(page.getByRole('heading', { name: /Delete Club/i })).toBeVisible({ timeout: 5_000 });
 
@@ -318,8 +322,9 @@ test.describe('Full User Journey', () => {
     const { leader } = makeUsers();
     await register(page, leader);
 
-    await page.goto(`${BASE}/profile`);
-    await expect(page.getByRole('heading', { name: /My Profile/i })).toBeVisible({ timeout: 10_000 });
+    // Username/Email moved from /profile to the /settings "Profile" view in a later session
+    await page.goto(`${BASE}/settings`);
+    await page.getByText('Profile', { exact: true }).first().click();
     await expect(page.getByLabel('Username')).toHaveValue(leader.username);
     await expect(page.getByLabel('Email')).toHaveValue(leader.email);
     await screenshot(page, '12-profile-page');
@@ -336,7 +341,8 @@ test.describe('Full User Journey', () => {
     await register(page, member);
     await page.goto(`${BASE}/find-club`);
     await expect(page.getByRole('heading', { name: /Find Clubs/i })).toBeVisible({ timeout: 10_000 });
-    await page.waitForLoadState('networkidle');
+    // networkidle never resolves on authenticated pages — NavBar's SSE stream
+    // keeps a connection permanently open. Use the timeout below instead.
     await page.waitForTimeout(800);
 
     await expect(page.locator('h3').filter({ hasText: clubName }).first()).toBeVisible({ timeout: 10_000 });
@@ -361,7 +367,7 @@ test.describe('Full User Journey', () => {
     await page.goto(`${BASE}/club/${clubId}`);
     await expect(page.getByRole('heading', { name: clubName })).toBeVisible({ timeout: 10_000 });
     // For a public club the member sees a "Join Club" button before becoming a member
-    const joinBtn = page.locator('button').filter({ hasText: /Join Club/i }).first();
+    const joinBtn = page.getByRole('button', { name: 'Join', exact: true }).first();
     if (await joinBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await joinBtn.click();
       await page.waitForTimeout(800);
@@ -379,8 +385,8 @@ test.describe('Full User Journey', () => {
 
     await page.goto(`${BASE}/club/${clubId}`);
     // Wait for club page to be fully loaded before interacting
-    await expect(page.getByRole('button', { name: /Edit Club Details/i })).toBeVisible({ timeout: 10_000 });
-    await page.getByRole('button', { name: /Edit Club Details/i }).click();
+    await expect(page.getByRole('button', { name: /Manage Club/i })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: /Manage Club/i }).click();
     await page.getByRole('button', { name: /Delete Club/i }).click();
     await expect(page.getByRole('heading', { name: /Delete Club/i })).toBeVisible({ timeout: 5_000 });
     await page.getByPlaceholder('leader@example.com').fill(leader.email);

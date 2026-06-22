@@ -40,7 +40,7 @@ async function createClub(page: any, clubName: string, description?: string, loc
   await navigateTo(page, '/create-club');
   await page.getByPlaceholder('e.g. Southern California Mountain Drivers').fill(clubName);
   await page.getByPlaceholder('What makes your club unique?').fill(description || 'Test club description for drives');
-  await page.getByPlaceholder('e.g. Los Angeles, CA').fill(location || 'Testville, CA');
+  await page.getByPlaceholder(/Search city or region|Search city in/i).fill(location || 'Testville, CA');
   await page.getByRole('button', { name: /Create Club/i }).click();
   
   await expect(page.getByText(/Club created successfully/i)).toBeVisible({ timeout: 10000 });
@@ -76,7 +76,7 @@ test.describe('DriveClique - end-to-end tests', () => {
     await navigateTo(page, '/create-club');
     await page.getByPlaceholder('e.g. Southern California Mountain Drivers').fill(`Club_${randomString(5)}`);
     await page.getByPlaceholder('What makes your club unique?').fill('Test club description');
-    await page.getByPlaceholder('e.g. Los Angeles, CA').fill('Testville');
+    await page.getByPlaceholder(/Search city or region|Search city in/i).fill('Testville');
     await page.getByRole('button', { name: /Create Club/i }).click();
 
     await expect(page.getByRole('heading', { name: /Club/i }).first()).toBeVisible({ timeout: 20000 });
@@ -126,12 +126,10 @@ test.describe('DriveClique - end-to-end tests', () => {
     await enabledDayButton.click({ force: true });
 
     // Select time using the dropdowns
-    await page.getByRole('combobox').nth(0).selectOption('10'); // Hour
-    await page.getByRole('combobox').nth(1).selectOption('00'); // Minute
-    await page.getByRole('combobox').nth(2).selectOption('AM'); // AM/PM
+    await page.getByRole('button', { name: '10:00 AM', exact: true }).click();
 
     // Fill in location
-    await page.getByPlaceholder('e.g. Mountain View Parking Lot, 123 Main St').fill('Mountain View Parking Lot');
+    await page.getByPlaceholder(/Search city or region|Search city in/i).fill('Mountain View Parking Lot');
 
     // Fill in description
     await page.getByPlaceholder('Additional details about the drive...').fill('A scenic mountain drive');
@@ -166,7 +164,7 @@ test.describe('DriveClique - end-to-end tests', () => {
     await navigateTo(page, '/create-club');
     await page.getByPlaceholder('e.g. Southern California Mountain Drivers').fill(clubName);
     await page.getByPlaceholder('What makes your club unique?').fill('A test club for lifecycle testing');
-    await page.getByPlaceholder('e.g. Los Angeles, CA').fill('Test City, TC');
+    await page.getByPlaceholder(/Search city or region|Search city in/i).fill('Test City, TC');
     await page.getByRole('button', { name: /Create Club/i }).click();
 
     await expect(page.getByText(/Club created successfully/i)).toBeVisible({ timeout: 10000 });
@@ -188,11 +186,9 @@ test.describe('DriveClique - end-to-end tests', () => {
     const enabledDayButton = page.locator('button').filter({ hasText: /^\d+$/ }).and(page.locator('button:not([disabled])')).last();
     await enabledDayButton.click({ force: true });
 
-    await page.getByRole('combobox').nth(0).selectOption('10');
-    await page.getByRole('combobox').nth(1).selectOption('00');
-    await page.getByRole('combobox').nth(2).selectOption('AM');
+    await page.getByRole('button', { name: '10:00 AM', exact: true }).click();
 
-    await page.getByPlaceholder('e.g. Mountain View Parking Lot, 123 Main St').fill('Test Drive Location');
+    await page.getByPlaceholder(/Search city or region|Search city in/i).fill('Test Drive Location');
     await page.getByPlaceholder('Additional details about the drive...').fill('A test drive');
 
     await page.getByRole('button', { name: /Schedule Drive/i }).click();
@@ -201,20 +197,20 @@ test.describe('DriveClique - end-to-end tests', () => {
     await expect(page.getByText(driveName).first()).toBeVisible({ timeout: 10000 });
 
     // Edit club
-    await page.getByRole('button', { name: /Edit Club Details/i }).click();
+    await page.getByRole('button', { name: /Manage Club/i }).click();
     await expect(page.getByRole('heading', { name: /Edit Club/i })).toBeVisible({ timeout: 5000 });
 
     // Update club name using the input field (has label "Club Name")
     await page.getByLabel('Club Name').fill(updatedClubName);
     await page.getByLabel('Description').fill('Updated description');
-    await page.getByLabel('Location').fill('Updated City, UC');
+    await page.getByPlaceholder(/Search city or region|Search city in/i).fill('Updated City, UC');
 
     await page.getByRole('button', { name: /Save Changes/i }).click();
 
     await expect(page.getByRole('heading', { name: updatedClubName })).toBeVisible({ timeout: 10000 });
 
     // Delete club
-    await page.getByRole('button', { name: /Edit Club Details/i }).click();
+    await page.getByRole('button', { name: /Manage Club/i }).click();
     await page.getByRole('button', { name: /Delete Club/i }).click();
     await expect(page.getByRole('heading', { name: /Delete Club/i })).toBeVisible({ timeout: 5000 });
 
@@ -246,7 +242,7 @@ test.describe('DriveClique - end-to-end tests', () => {
     await navigateTo(page, '/create-club');
     await page.getByPlaceholder('e.g. Southern California Mountain Drivers').fill(clubName);
     await page.getByPlaceholder('What makes your club unique?').fill(clubDescription);
-    await page.getByPlaceholder('e.g. Los Angeles, CA').fill(clubLocation);
+    await page.getByPlaceholder(/Search city or region|Search city in/i).fill(clubLocation);
     await page.getByRole('button', { name: /Create Club/i }).click();
 
     await expect(page.getByText(/Club created successfully/i)).toBeVisible({ timeout: 10000 });
@@ -255,8 +251,9 @@ test.describe('DriveClique - end-to-end tests', () => {
     await navigateTo(page, '/find-club');
 
     await expect(page.getByRole('heading', { name: /Find Clubs/i })).toBeVisible({ timeout: 10000 });
-    // Wait for clubs to load
-    await page.waitForLoadState('networkidle');
+    // Wait for clubs to load — networkidle never resolves here because the
+    // NavBar's SSE notification stream keeps a connection permanently open.
+    await page.waitForTimeout(1000);
     await page.waitForTimeout(1000);
     // Use a more specific selector to avoid strict mode violation
     await expect(page.locator('h3').filter({ hasText: clubName }).first()).toBeVisible({ timeout: 10000 });
@@ -280,7 +277,7 @@ test.describe('DriveClique - end-to-end tests', () => {
     await navigateTo(page, '/create-club');
     await page.getByPlaceholder('e.g. Southern California Mountain Drivers').fill(clubName);
     await page.getByPlaceholder('What makes your club unique?').fill(clubDescription);
-    await page.getByPlaceholder('e.g. Los Angeles, CA').fill(clubLocation);
+    await page.getByPlaceholder(/Search city or region|Search city in/i).fill(clubLocation);
     await page.getByRole('button', { name: /Create Club/i }).click();
 
     await expect(page.getByText(/Club created successfully/i)).toBeVisible({ timeout: 10000 });
@@ -293,7 +290,10 @@ test.describe('DriveClique - end-to-end tests', () => {
     const clubId = clubIdMatch![1];
 
     // Logout
-    await page.getByRole('button', { name: /Logout/i }).click().catch(() => {});
+    await page.getByRole('button', { name: /^[A-Z]{2}$/ }).last().click().catch(() => {});
+    await page.getByRole('menuitem', { name: /Log out/i }).click().catch(async () => {
+      await page.getByText(/Log out/i).click().catch(() => {});
+    });
 
     // Register and login as a different user who will join the club
     const user2 = {
@@ -307,12 +307,15 @@ test.describe('DriveClique - end-to-end tests', () => {
     await navigateTo(page, '/find-club');
     await expect(page.getByRole('heading', { name: /Find Clubs/i })).toBeVisible({ timeout: 10000 });
 
-    // Wait for clubs to load
-    await page.waitForLoadState('networkidle');
+    // Wait for clubs to load — networkidle never resolves here because the
+    // NavBar's SSE notification stream keeps a connection permanently open.
+    await page.waitForTimeout(1000);
     await page.waitForTimeout(1000);
 
     // Find and click the "Join Club" button for the club we created
-    const joinButton = page.locator('button').filter({ hasText: /Join Club/i }).first();
+    // Scope to this test's own club card — parallel workers create similarly-named
+    // public clubs around the same time, so a bare "first Join button" is ambiguous.
+    const joinButton = page.locator('.glass-card').filter({ hasText: clubName }).getByRole('button', { name: 'Join', exact: true });
     await expect(joinButton).toBeVisible({ timeout: 10000 });
     await joinButton.click();
 
@@ -324,7 +327,7 @@ test.describe('DriveClique - end-to-end tests', () => {
     await expect(page.getByRole('heading', { name: clubName })).toBeVisible({ timeout: 10000 });
 
     // Verify the user is now a member (should see "View Club" or be able to see club details)
-    await expect(page.getByText(/Members/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/Members/i).first()).toBeVisible({ timeout: 5000 });
   });
 
   test('Negative: Invalid invite code shows error', async ({ page }) => {
@@ -342,14 +345,17 @@ test.describe('DriveClique - end-to-end tests', () => {
     // Create a club first to get to a club page where we can test invite code
     await navigateTo(page, '/create-club');
     await page.getByPlaceholder('e.g. Southern California Mountain Drivers').fill(`TestClub_${randomString(5)}`);
-    await page.getByPlaceholder('What makes your club unique?').fill('Test club');
-    await page.getByPlaceholder('e.g. Los Angeles, CA').fill('Test City');
+    await page.getByPlaceholder('What makes your club unique?').fill('Test club for invite code negative test');
+    await page.getByPlaceholder(/Search city or region|Search city in/i).fill('Test City');
     await page.getByRole('button', { name: /Create Club/i }).click();
     
     await page.waitForURL(/\/club\/[a-f0-9]{24}/, { timeout: 10000 });
     
     // Logout and login as a different user
-    await page.getByRole('button', { name: /Logout/i }).click().catch(() => {});
+    await page.getByRole('button', { name: /^[A-Z]{2}$/ }).last().click().catch(() => {});
+    await page.getByRole('menuitem', { name: /Log out/i }).click().catch(async () => {
+      await page.getByText(/Log out/i).click().catch(() => {});
+    });
     
     const user2 = {
       username: `negtest2_${randomString(6)}`,
