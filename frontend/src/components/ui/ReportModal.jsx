@@ -121,7 +121,7 @@ const ReportModal = ({ targetType, targetId, targetName, onClose }) => {
                 onChange={(e) => setDetails(e.target.value)}
                 maxLength={500}
                 rows={3}
-                placeholder="Describe the issue…"
+                placeholder=""
                 className="w-full bg-white/[0.06] border border-white/[0.08] rounded-2xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 resize-none focus:outline-none focus:border-red-500/40 focus:ring-1 focus:ring-red-500/15 transition-all"
               />
               <p className="text-[11px] text-zinc-600 mt-1 text-right">{details.length}/500</p>

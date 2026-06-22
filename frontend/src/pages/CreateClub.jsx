@@ -186,7 +186,7 @@ const CreateClub = () => {
                   name="maxMembers"
                   value={formData.maxMembers}
                   onChange={handleChange}
-                  placeholder="Leave empty for unlimited"
+                  placeholder=""
                   min="2"
                   className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 pl-12 text-white placeholder-zinc-500 focus:outline-none focus:border-red-600 transition"
                 />

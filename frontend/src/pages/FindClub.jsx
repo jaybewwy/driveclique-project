@@ -194,7 +194,7 @@ const FindClub = ({ user, onLogout }) => {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by club name or location…"
+                placeholder=""
                 className="w-full h-11 bg-white/[0.06] border border-white/[0.08] rounded-2xl pl-11 pr-10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-red-500/40 focus:ring-1 focus:ring-red-500/15 transition-all duration-200"
               />
               {searchQuery && (
