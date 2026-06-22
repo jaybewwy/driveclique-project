@@ -5,7 +5,7 @@ import {
   Car, Star, Award, AlertCircle, Plus,
   Home, User as UserIcon, ChevronDown, ChevronRight,
   MapPin, Clock, XCircle, ThumbsUp, UserCheck,
-  Save, X, ShieldAlert, Pencil, Lock
+  Save, X, Pencil, Lock
 } from "lucide-react";
 import NavBar from "../components/NavBar";
 import { drivesAPI, authAPI, getErrorMessage } from "../services/api";
@@ -631,6 +631,33 @@ const ClubsAnalytics = () => {
 
 /* ─── Profile view ─────────────────────────────────────────────────────── */
 
+const SettingsSection = ({ title, description, children }) => (
+  <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6 lg:gap-10 py-8 border-b border-zinc-800/60 last:border-b-0">
+    <div>
+      <h2 className="text-sm font-semibold text-white">{title}</h2>
+      {description && <p className="text-sm text-zinc-500 mt-1.5 leading-relaxed">{description}</p>}
+    </div>
+    <div className="space-y-5 max-w-xl">{children}</div>
+  </div>
+);
+
+const SettingsField = ({ label, htmlFor, hint, children }) => (
+  <div>
+    {label && (
+      <label htmlFor={htmlFor} className="block text-sm font-medium text-zinc-300 mb-2">
+        {label}
+      </label>
+    )}
+    {children}
+    {hint && <p className="text-xs text-zinc-500 mt-1.5">{hint}</p>}
+  </div>
+);
+
+const settingsInputClass =
+  "w-full bg-black border border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-red-600 transition-colors";
+const settingsInputDisabledClass =
+  "w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-zinc-500 cursor-not-allowed";
+
 const COOLDOWN_DAYS = 60;
 
 const ProfileView = ({ onLogout, onUpdateUser }) => {
@@ -800,18 +827,13 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
   return (
     <div>
       {/* Page header */}
-      <div className="flex items-center gap-3 mb-8">
-        <div className="p-2 bg-gradient-to-br from-red-600 to-orange-600 rounded-xl">
-          <UserIcon size={20} />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold">Profile Settings</h1>
-          <p className="text-sm text-zinc-500">Update your account information</p>
-        </div>
+      <div className="mb-2">
+        <h1 className="text-2xl font-bold">Profile Settings</h1>
+        <p className="text-sm text-zinc-500 mt-1">Manage your personal information, security, and account.</p>
       </div>
 
       {message.text && (
-        <div className={`mb-6 p-4 rounded-2xl ${
+        <div className={`mt-6 p-4 rounded-2xl ${
           message.type === "success"
             ? "bg-green-900/30 border border-green-600"
             : "bg-red-900/30 border border-red-600"
@@ -822,61 +844,55 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
         </div>
       )}
 
-      <form onSubmit={handleSave} className="space-y-6">
-        <div className="glass-card rounded-3xl p-6 space-y-4">
-
+      <form onSubmit={handleSave}>
+        <SettingsSection
+          title="Personal Information"
+          description="Update your name, username, and where you're based."
+        >
           {/* First + Last name */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="pv-firstName" className="block text-sm font-medium text-zinc-300 mb-2">
-                First Name
-              </label>
+            <SettingsField label="First Name" htmlFor="pv-firstName">
               <input
                 id="pv-firstName"
                 type="text"
                 name="firstName"
                 value={formData.firstName}
                 onChange={handleChange}
-                placeholder="Jay"
-                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 transition-colors"
+                placeholder=""
+                className={settingsInputClass}
               />
-            </div>
-            <div>
-              <label htmlFor="pv-lastName" className="block text-sm font-medium text-zinc-300 mb-2">
-                Last Name
-              </label>
+            </SettingsField>
+            <SettingsField label="Last Name" htmlFor="pv-lastName">
               <input
                 id="pv-lastName"
                 type="text"
                 name="lastName"
                 value={formData.lastName}
                 onChange={handleChange}
-                placeholder="Wells"
-                className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 transition-colors"
+                placeholder=""
+                className={settingsInputClass}
               />
-            </div>
+            </SettingsField>
           </div>
 
           {/* Display Name */}
-          <div>
-            <label htmlFor="pv-display-name" className="block text-sm font-medium text-zinc-300 mb-2">
-              Display Name
-            </label>
+          <SettingsField
+            label="Display Name"
+            htmlFor="pv-display-name"
+            hint="This name will be shown to other users if you enable the option below."
+          >
             <input
               id="pv-display-name"
               type="text"
               name="name"
               value={formData.name}
               onChange={handleChange}
-              placeholder="John Doe"
-              className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 transition-colors"
+              placeholder=""
+              className={settingsInputClass}
             />
-            <p className="text-xs text-zinc-500 mt-1">
-              This name will be shown to other users if you enable the option below.
-            </p>
-          </div>
+          </SettingsField>
 
-          <div className="flex items-center justify-between bg-black rounded-xl p-4">
+          <div className="flex items-center justify-between bg-black border border-zinc-800 rounded-xl p-4">
             <div>
               <div className="text-sm font-medium text-zinc-300">Show Display Name</div>
               <div className="text-xs text-zinc-500 mt-1">
@@ -926,9 +942,9 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
                   type="text"
                   value={newUsername}
                   onChange={e => { setNewUsername(e.target.value); setUsernameError(""); }}
-                  placeholder="new_username"
+                  placeholder=""
                   autoFocus
-                  className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 transition-colors"
+                  className={settingsInputClass}
                 />
                 {usernameError && <p className="text-red-400 text-xs">{usernameError}</p>}
                 <div className="flex gap-2">
@@ -956,11 +972,11 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
                 type="text"
                 value={formData.username}
                 disabled
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-zinc-500 cursor-not-allowed"
+                className={settingsInputDisabledClass}
               />
             )}
 
-            <p className="text-xs text-zinc-500 mt-1">
+            <p className="text-xs text-zinc-500 mt-1.5">
               {usernameChangedAt
                 ? `Last changed ${new Date(usernameChangedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}. Can be changed once every 60 days.`
                 : "Can be changed once every 60 days."}
@@ -968,90 +984,70 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
           </div>
 
           {/* Email */}
-          <div>
-            <label htmlFor="pv-email" className="block text-sm font-medium text-zinc-300 mb-2">
-              Email
-            </label>
+          <SettingsField label="Email" htmlFor="pv-email" hint="Email cannot be changed.">
             <input
               id="pv-email"
               type="email"
               name="email"
               value={formData.email}
               disabled
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-zinc-500 cursor-not-allowed"
+              className={settingsInputDisabledClass}
             />
-            <p className="text-xs text-zinc-500 mt-1">Email cannot be changed.</p>
-          </div>
+          </SettingsField>
 
           {/* Location */}
-          <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">Location</label>
+          <SettingsField label="Location" hint="Used to suggest nearby clubs.">
             <LocationSearch
               value={formData.location}
               onChange={(val) => setFormData(prev => ({ ...prev, location: val }))}
             />
-            <p className="text-xs text-zinc-500 mt-1">Used to suggest nearby clubs.</p>
-          </div>
-        </div>
+          </SettingsField>
+        </SettingsSection>
 
-        {/* Save */}
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-orange-600 hover:opacity-90 px-8 py-3 rounded-2xl font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Save size={18} />
-            {saving ? "Saving…" : "Save Changes"}
-          </button>
-        </div>
-
-        {/* Change Password */}
-        <div className="glass-card rounded-3xl p-6 space-y-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Lock className="w-5 h-5 text-zinc-400" />
-            <h2 className="text-base font-semibold text-white">Change Password</h2>
-          </div>
-
+        {/* Security */}
+        <SettingsSection
+          title="Security"
+          description="Update your password. Choose something you haven't used in the last 5 changes."
+        >
           {pwSuccess && (
             <div className="p-3 rounded-xl bg-green-900/30 border border-green-600">
               <p className="text-green-400 text-sm">{pwSuccess}</p>
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">Current Password</label>
+          <SettingsField label="Current Password">
             <input
               type="password"
               value={pwForm.current}
               onChange={e => { setPwForm(p => ({ ...p, current: e.target.value })); setPwError(""); setPwSuccess(""); }}
-              placeholder="Enter current password"
-              className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 transition-colors"
+              placeholder=""
+              className={settingsInputClass}
             />
-          </div>
+          </SettingsField>
 
-          <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">New Password</label>
-            <input
-              type="password"
-              value={pwForm.new}
-              onChange={e => { setPwForm(p => ({ ...p, new: e.target.value })); setPwError(""); setPwSuccess(""); }}
-              placeholder="At least 8 characters"
-              className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 transition-colors"
-            />
-            <p className="text-xs text-zinc-500 mt-1.5">Cannot be the same as any of your last 5 passwords.</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">Confirm New Password</label>
-            <input
-              type="password"
-              value={pwForm.confirm}
-              onChange={e => { setPwForm(p => ({ ...p, confirm: e.target.value })); setPwError(""); setPwSuccess(""); }}
-              placeholder="Re-enter new password"
-              className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 transition-colors"
-              onKeyDown={e => e.key === "Enter" && !changingPw && handleChangePassword()}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <SettingsField
+              label="New Password"
+              hint="Cannot be the same as any of your last 5 passwords."
+            >
+              <input
+                type="password"
+                value={pwForm.new}
+                onChange={e => { setPwForm(p => ({ ...p, new: e.target.value })); setPwError(""); setPwSuccess(""); }}
+                placeholder=""
+                className={settingsInputClass}
+              />
+            </SettingsField>
+            <SettingsField label="Confirm New Password">
+              <input
+                type="password"
+                value={pwForm.confirm}
+                onChange={e => { setPwForm(p => ({ ...p, confirm: e.target.value })); setPwError(""); setPwSuccess(""); }}
+                placeholder=""
+                className={settingsInputClass}
+                onKeyDown={e => e.key === "Enter" && !changingPw && handleChangePassword()}
+              />
+            </SettingsField>
           </div>
 
           {pwError && <p className="text-red-400 text-sm">{pwError}</p>}
@@ -1061,29 +1057,44 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
               type="button"
               onClick={handleChangePassword}
               disabled={changingPw || !pwForm.current || !pwForm.new || !pwForm.confirm}
-              className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-orange-600 hover:opacity-90 px-6 py-2.5 rounded-2xl font-medium text-sm transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-orange-600 hover:opacity-90 px-6 py-2.5 rounded-xl font-medium text-sm transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Lock size={15} />
               {changingPw ? "Updating…" : "Update Password"}
             </button>
           </div>
-        </div>
+        </SettingsSection>
 
         {/* Danger Zone */}
-        <div className="border-t border-zinc-800 pt-8">
-          <div className="flex items-center gap-2 mb-1">
-            <ShieldAlert className="w-5 h-5 text-red-500" />
-            <h2 className="text-lg font-semibold text-red-500">Danger Zone</h2>
-          </div>
-          <p className="text-zinc-500 text-sm mb-4">
-            Once you delete your account, there is no going back. Please be certain.
-          </p>
+        <SettingsSection
+          title="Danger Zone"
+          description="Permanently delete your account and all associated data. This cannot be undone."
+        >
           <button
             type="button"
             onClick={() => { setShowDeleteModal(true); setDeletePassword(""); setDeleteError(""); }}
-            className="border border-red-600 text-red-500 hover:bg-red-600 hover:text-white px-6 py-2.5 rounded-2xl text-sm font-medium transition-all duration-200"
+            className="border border-red-600 text-red-500 hover:bg-red-600 hover:text-white px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-200"
           >
             Delete Account
+          </button>
+        </SettingsSection>
+
+        {/* Bottom action bar */}
+        <div className="flex justify-end gap-3 pt-6">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="px-6 py-3 rounded-xl text-sm font-medium bg-zinc-900 border border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all duration-200"
+          >
+            Go back
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-orange-600 hover:opacity-90 px-8 py-3 rounded-xl font-medium text-sm transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Save size={16} />
+            {saving ? "Saving…" : "Save settings"}
           </button>
         </div>
       </form>
@@ -1115,7 +1126,7 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
                 type="password"
                 value={deletePassword}
                 onChange={e => { setDeletePassword(e.target.value); setDeleteError(""); }}
-                placeholder="Enter your password"
+                placeholder=""
                 className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-sm placeholder-zinc-500 focus:outline-none focus:border-red-500 transition"
                 onKeyDown={e => e.key === "Enter" && !isDeleting && handleDeleteAccount()}
               />

@@ -80,7 +80,7 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
               <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors duration-200 ${searchFocused ? "text-red-400" : "text-zinc-500"}`} />
               <input
                 type="text"
-                placeholder="Search clubs, drives, members…"
+                placeholder=""
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setSearchFocused(false)}
                 className="w-full h-9 bg-white/[0.06] border border-white/[0.08] rounded-full pl-10 pr-4 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-red-500/40 focus:bg-white/[0.09] focus:ring-2 focus:ring-red-500/10 transition-all duration-200"

@@ -877,7 +877,7 @@ const ClubDetail = ({ user, onLogout }) => {
                   <div className="space-y-3">
                     <input
                       type="text"
-                      placeholder="Title (optional)"
+                      placeholder=""
                       value={announcementForm.title}
                       maxLength={100}
                       onChange={e => setAnnouncementForm(f => ({ ...f, title: e.target.value }))}
@@ -885,7 +885,7 @@ const ClubDetail = ({ user, onLogout }) => {
                     />
                     <div className="relative">
                       <textarea
-                        placeholder="Write your announcement..."
+                        placeholder=""
                         value={announcementForm.body}
                         maxLength={1000}
                         rows={4}
@@ -1229,7 +1229,7 @@ const ClubDetail = ({ user, onLogout }) => {
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search by username..."
+                        placeholder=""
                         className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-600"
                       />
                       <Search className="absolute right-3 top-2.5 text-zinc-500 w-4 h-4" />
