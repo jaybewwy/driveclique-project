@@ -1316,7 +1316,7 @@ const ClubDetail = ({ user, onLogout }) => {
               <button
                 type="button"
                 onClick={closeAllDrivesModal}
-                aria-label="Close all drives modal"
+                aria-label="Dismiss drives list"
                 className="text-zinc-400 hover:text-white transition"
               >
                 <X size={24} />
@@ -1385,7 +1385,7 @@ const ClubDetail = ({ user, onLogout }) => {
               <button
                 type="button"
                 onClick={() => setShowMembersModal(false)}
-                aria-label="Close members modal"
+                aria-label="Dismiss members list"
                 className="text-zinc-400 hover:text-white transition"
               >
                 <X size={24} />
@@ -1488,7 +1488,7 @@ const ClubDetail = ({ user, onLogout }) => {
               <button
                 type="button"
                 onClick={() => setShowPastEventsModal(false)}
-                aria-label="Close past events modal"
+                aria-label="Dismiss past drives list"
                 className="text-zinc-400 hover:text-white transition"
               >
                 <X size={24} />
@@ -1569,7 +1569,7 @@ const ClubDetail = ({ user, onLogout }) => {
                   setShowEditModal(false);
                   setSelectedDrive(null);
                 }}
-                aria-label="Close edit drive modal"
+                aria-label="Dismiss drive editor"
                 className="text-zinc-400 hover:text-white transition"
               >
                 <X size={24} />
@@ -1674,7 +1674,7 @@ const ClubDetail = ({ user, onLogout }) => {
               <button
                 type="button"
                 onClick={closeDriveModal}
-                aria-label="Close drive details"
+                aria-label="Dismiss drive details panel"
                 className="text-zinc-400 hover:text-white transition"
               >
                 <X size={24} />
@@ -2013,7 +2013,7 @@ const ClubDetail = ({ user, onLogout }) => {
               <button
                 type="button"
                 onClick={closeClubEditModal}
-                aria-label="Close edit club modal"
+                aria-label="Dismiss club editor"
                 className="text-zinc-400 hover:text-white transition"
               >
                 <X size={24} />
@@ -2229,7 +2229,7 @@ const ClubDetail = ({ user, onLogout }) => {
               <button
                 type="button"
                 onClick={closeScheduleDriveModal}
-                aria-label="Close schedule drive modal"
+                aria-label="Dismiss drive scheduling form"
                 className="text-zinc-400 hover:text-white transition"
               >
                 <X size={24} />
@@ -2385,7 +2385,7 @@ const ClubDetail = ({ user, onLogout }) => {
               <button
                 type="button"
                 onClick={cancelLeaveClub}
-                aria-label="Close leave club dialog"
+                aria-label="Dismiss leave-club confirmation"
                 className="text-zinc-400 hover:text-white transition"
               >
                 <X size={24} />
@@ -2491,7 +2491,7 @@ const ClubDetail = ({ user, onLogout }) => {
                   setDeleteEmail('');
                   setDeleteReason('');
                 }}
-                aria-label="Close delete club dialog"
+                aria-label="Dismiss club deletion form"
                 className="text-zinc-400 hover:text-white transition"
               >
                 <X size={24} />
