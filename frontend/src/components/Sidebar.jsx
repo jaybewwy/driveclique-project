@@ -6,19 +6,20 @@ import { useClubs } from "../hooks/useClubs";
 import { MobileDrawerButton, MobileDrawer } from "./ui/MobileDrawer";
 
 const SectionLabel = ({ children }) => (
-  <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500 px-3 mb-2">{children}</p>
+  <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 px-3 mb-2">{children}</p>
 );
 
 const NavItem = ({ icon: Icon, label, active, badge, onClick }) => (
-  <div
+  <button
+    type="button"
     onClick={onClick}
-    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 ${
+    className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 ${
       active
         ? "bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-lg shadow-red-900/30"
         : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
     }`}
   >
-    <Icon className={`w-[18px] h-[18px] ${active ? "text-white" : "text-zinc-500"}`} />
+    <Icon className={`w-[18px] h-[18px] ${active ? "text-white" : "text-zinc-400"}`} />
     <span className={`text-sm flex-1 ${active ? "font-semibold" : ""}`}>{label}</span>
     {typeof badge === "number" && badge > 0 && (
       <span
@@ -29,7 +30,7 @@ const NavItem = ({ icon: Icon, label, active, badge, onClick }) => (
         {badge}
       </span>
     )}
-  </div>
+  </button>
 );
 
 const Sidebar = ({ user }) => {
@@ -120,7 +121,7 @@ const Sidebar = ({ user }) => {
               <SectionLabel>Your Clubs</SectionLabel>
               <button
                 onClick={() => goTo("/my-clubs")}
-                className="text-zinc-500 hover:text-white transition-colors flex items-center -mb-2"
+                className="text-zinc-400 hover:text-white transition-colors flex items-center -mb-2"
                 aria-label="View all clubs"
               >
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -128,10 +129,11 @@ const Sidebar = ({ user }) => {
             </div>
             <div className="space-y-1">
               {sortedClubs.slice(0, sortedClubs.length > 3 ? 3 : 5).map((club) => (
-                <div
+                <button
+                  type="button"
                   key={club._id}
                   onClick={() => goTo(`/club/${club._id}`)}
-                  className="flex items-center gap-3 px-3 py-2 hover:bg-zinc-900/50 rounded-xl cursor-pointer transition-all duration-200 group"
+                  className="w-full text-left flex items-center gap-3 px-3 py-2 hover:bg-zinc-900/50 rounded-xl cursor-pointer transition-all duration-200 group"
                 >
                   <div className="w-7 h-7 rounded-lg flex-shrink-0 overflow-hidden ring-1 ring-zinc-700/30 group-hover:ring-zinc-600/50 transition-all duration-300">
                     {club.avatar ? (
@@ -152,7 +154,7 @@ const Sidebar = ({ user }) => {
                   <span className="text-sm text-zinc-400 truncate flex-1 group-hover:text-zinc-200 transition-colors">
                     {club.name}
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -161,9 +163,10 @@ const Sidebar = ({ user }) => {
 
       {/* User card pinned to bottom */}
       {displayName && (
-        <div
+        <button
+          type="button"
           onClick={() => goTo("/profile")}
-          className="flex items-center gap-3 px-3 py-3 mt-4 bg-zinc-900 rounded-2xl border border-zinc-800/50 hover:border-zinc-700/50 cursor-pointer transition-all duration-300 flex-shrink-0"
+          className="w-full text-left flex items-center gap-3 px-3 py-3 mt-4 bg-zinc-900 rounded-2xl border border-zinc-800/50 hover:border-zinc-700/50 cursor-pointer transition-all duration-300 flex-shrink-0"
         >
           <div className="relative">
             <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-zinc-700/30">
@@ -179,10 +182,10 @@ const Sidebar = ({ user }) => {
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm truncate text-white">{displayName}</p>
-            <p className="text-xs text-zinc-500 truncate">@{user?.username}</p>
+            <p className="text-xs text-zinc-400 truncate">@{user?.username}</p>
           </div>
-          <ChevronRight className="w-4 h-4 text-zinc-600" />
-        </div>
+          <ChevronRight className="w-4 h-4 text-zinc-400" />
+        </button>
       )}
     </>
   );
@@ -190,9 +193,9 @@ const Sidebar = ({ user }) => {
   return (
     <>
       {/* Desktop sidebar */}
-      <div className="w-60 xl:w-64 2xl:w-72 flex-none hidden xl:flex flex-col border-r border-zinc-800/50 p-3 xl:p-4 sticky top-16 h-[calc(100vh-4rem)] overflow-hidden bg-black/20">
+      <nav aria-label="Main navigation" className="w-60 xl:w-64 2xl:w-72 flex-none hidden xl:flex flex-col border-r border-zinc-800/50 p-3 xl:p-4 sticky top-16 h-[calc(100vh-4rem)] overflow-hidden bg-black/20">
         {content}
-      </div>
+      </nav>
 
       {/* Mobile trigger + drawer (shown once the desktop sidebar is hidden below xl) */}
       <MobileDrawerButton onClick={() => setMobileOpen(true)} breakpointClass="xl:hidden" side="left" label="navigation" />

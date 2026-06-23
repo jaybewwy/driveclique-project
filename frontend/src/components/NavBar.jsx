@@ -77,10 +77,11 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
         {showSearch && (
           <div className="flex-1 max-w-md mx-6 hidden md:block">
             <div className={`relative transition-all duration-200 ${searchFocused ? "scale-[1.01]" : ""}`}>
-              <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors duration-200 ${searchFocused ? "text-red-400" : "text-zinc-500"}`} />
+              <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors duration-200 ${searchFocused ? "text-red-400" : "text-zinc-400"}`} />
               <input
                 type="text"
                 placeholder=""
+                aria-label="Search"
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setSearchFocused(false)}
                 className="w-full h-9 bg-white/[0.06] border border-white/[0.08] rounded-full pl-10 pr-4 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-red-500/40 focus:bg-white/[0.09] focus:ring-2 focus:ring-red-500/10 transition-all duration-200"
@@ -168,7 +169,7 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
               </div>
               <div>
                 <p className="text-white text-sm font-semibold leading-tight">{userDropdownData.name}</p>
-                <p className="text-zinc-500 text-xs leading-tight mt-0.5">{userDropdownData.username}</p>
+                <p className="text-zinc-400 text-xs leading-tight mt-0.5">{userDropdownData.username}</p>
               </div>
             </div>
 
@@ -183,7 +184,7 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
                 onClick={() => { navigate(path); setShowMobileMenu(false); }}
                 className="w-full flex items-center gap-3 px-4 py-3 text-zinc-300 hover:text-white hover:bg-white/[0.06] rounded-xl transition-all duration-200"
               >
-                <Icon className="w-4.5 h-4.5 text-zinc-500" />
+                <Icon className="w-4.5 h-4.5 text-zinc-400" />
                 <span className="text-sm font-medium">{label}</span>
               </button>
             ))}

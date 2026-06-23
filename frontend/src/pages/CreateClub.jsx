@@ -4,6 +4,7 @@ import { ArrowLeft, Lock, FileText, Globe, Users } from "lucide-react";
 import { clubsAPI, getErrorMessage } from "../services/api";
 import { LocationSearch } from "../components/ui/location-search";
 import { useClubs } from "../hooks/useClubs";
+import { trackEvent } from "../services/analytics";
 
 const CreateClub = () => {
   const navigate = useNavigate();
@@ -49,6 +50,7 @@ const CreateClub = () => {
 
       if (response.data.success) {
         addClub(response.data.club);
+        trackEvent('CLUB_CREATED', { clubId: response.data.club._id });
         setSuccess("Club created successfully! Redirecting to club page...");
         setFormData({ name: "", description: "", location: "", maxMembers: "", isPrivate: false });
         setTimeout(() => {
@@ -63,7 +65,7 @@ const CreateClub = () => {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
+    <div id="main-content" role="main" className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
       <div className="w-full max-w-2xl">
         <div className="mb-8">
           <button
@@ -92,11 +94,12 @@ const CreateClub = () => {
 
           <form onSubmit={handleSubmit} className="space-y-8">
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-3">
+              <label htmlFor="create-club-name" className="block text-sm font-medium text-zinc-300 mb-3">
                 Club Name <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <input
+                  id="create-club-name"
                   type="text"
                   name="name"
                   value={formData.name}
@@ -104,15 +107,16 @@ const CreateClub = () => {
                   placeholder="e.g. Southern California Mountain Drivers"
                   className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 pl-12 text-white placeholder-zinc-500 focus:outline-none focus:border-red-600 transition"
                 />
-                <FileText className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
+                <FileText className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={20} />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-3">
+              <label htmlFor="create-club-description" className="block text-sm font-medium text-zinc-300 mb-3">
                 Description <span className="text-red-500">*</span>
               </label>
               <textarea
+                id="create-club-description"
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
@@ -123,10 +127,11 @@ const CreateClub = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-3">
+              <label htmlFor="create-club-location" className="block text-sm font-medium text-zinc-300 mb-3">
                 Location
               </label>
               <LocationSearch
+                id="create-club-location"
                 value={formData.location}
                 onChange={(val) => setFormData({ ...formData, location: val })}
               />
@@ -134,9 +139,9 @@ const CreateClub = () => {
 
             {/* Club Visibility */}
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-3">
+              <p className="block text-sm font-medium text-zinc-300 mb-3">
                 Club Visibility
-              </label>
+              </p>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
@@ -153,7 +158,7 @@ const CreateClub = () => {
                       Public
                     </span>
                   </div>
-                  <p className="text-xs text-zinc-500 text-left">Anyone can find and join this club</p>
+                  <p className="text-xs text-zinc-400 text-left">Anyone can find and join this club</p>
                 </button>
 
                 <button
@@ -171,17 +176,18 @@ const CreateClub = () => {
                       Private
                     </span>
                   </div>
-                  <p className="text-xs text-zinc-500 text-left">Join by invite code only</p>
+                  <p className="text-xs text-zinc-400 text-left">Join by invite code only</p>
                 </button>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-3">
+              <label htmlFor="create-club-max-members" className="block text-sm font-medium text-zinc-300 mb-3">
                 Max Members
               </label>
               <div className="relative">
                 <input
+                  id="create-club-max-members"
                   type="number"
                   name="maxMembers"
                   value={formData.maxMembers}
@@ -190,7 +196,7 @@ const CreateClub = () => {
                   min="2"
                   className="w-full bg-black border border-zinc-700 rounded-2xl px-6 py-4 pl-12 text-white placeholder-zinc-500 focus:outline-none focus:border-red-600 transition"
                 />
-                <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
+                <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={20} />
               </div>
             </div>
 
@@ -204,7 +210,7 @@ const CreateClub = () => {
           </form>
 
           <div className="mt-8 text-center">
-            <p className="text-zinc-500 text-sm">
+            <p className="text-zinc-400 text-sm">
               As the creator, you will be the club leader and have full control over settings, events, and membership.
             </p>
           </div>

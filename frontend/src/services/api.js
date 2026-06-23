@@ -63,6 +63,12 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // Best-effort calls (e.g. analytics) must never clear the session or redirect —
+    // a failed/expired-token analytics ping should be invisible to the user.
+    if (originalRequest?.skipAuthRedirect) {
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       const refreshToken = localStorage.getItem('refreshToken');
 
@@ -214,6 +220,17 @@ export const reportsAPI = {
 };
 
 /**
+ * Events (product analytics) API calls
+ */
+export const eventsAPI = {
+  // skipAuthRedirect: a 401 here (e.g. stale token) must never clear the session or redirect —
+  // this is a best-effort background ping, not a user-initiated request.
+  track: ({ type, path, metadata }) => api.post('/events', { type, path, metadata }, { skipAuthRedirect: true }),
+  getMySummary: () => api.get('/events/my-summary'),
+  getAdminSummary: () => api.get('/events/admin-summary'),
+};
+
+/**
  * Export the raw axios instance for custom requests
  */
 export { api };
@@ -222,5 +239,6 @@ export default {
   clubs: clubsAPI,
   drives: drivesAPI,
   reports: reportsAPI,
+  events: eventsAPI,
   raw: api,
 };

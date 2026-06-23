@@ -15,21 +15,22 @@ import { MobileDrawerButton, MobileDrawer } from "../components/ui/MobileDrawer"
 /* ─── Sidebar ─────────────────────────────────────────────────────────── */
 
 const SidebarSectionLabel = ({ children }) => (
-  <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500 px-3 mb-2">{children}</p>
+  <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 px-3 mb-2">{children}</p>
 );
 
 const SidebarNavItem = ({ icon: Icon, label, active, onClick }) => (
-  <div
+  <button
+    type="button"
     onClick={onClick}
-    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 ${
+    className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 ${
       active
         ? "bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-lg shadow-red-900/30"
         : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
     }`}
   >
-    <Icon className={`w-[18px] h-[18px] ${active ? "text-white" : "text-zinc-500"}`} />
+    <Icon className={`w-[18px] h-[18px] ${active ? "text-white" : "text-zinc-400"}`} />
     <span className={`text-sm flex-1 ${active ? "font-semibold" : ""}`}>{label}</span>
-  </div>
+  </button>
 );
 
 const AnalyticsSidebar = ({ user, activeView, onViewChange }) => {
@@ -76,8 +77,8 @@ const AnalyticsSidebar = ({ user, activeView, onViewChange }) => {
             <BarChart2 className="w-[18px] h-[18px] text-red-400" />
             <span className="text-sm font-medium flex-1 text-left">Menu Level</span>
             {analyticsOpen
-              ? <ChevronDown className="w-4 h-4 text-zinc-500" />
-              : <ChevronRight className="w-4 h-4 text-zinc-500" />}
+              ? <ChevronDown className="w-4 h-4 text-zinc-400" />
+              : <ChevronRight className="w-4 h-4 text-zinc-400" />}
           </button>
 
           {analyticsOpen && (
@@ -101,9 +102,10 @@ const AnalyticsSidebar = ({ user, activeView, onViewChange }) => {
 
       {/* User card pinned to bottom */}
       {displayName && (
-        <div
+        <button
+          type="button"
           onClick={() => goTo("/profile")}
-          className="flex items-center gap-3 px-3 py-3 mt-4 bg-zinc-900 rounded-2xl border border-zinc-800/50 hover:border-zinc-700/50 cursor-pointer transition-all duration-300 flex-shrink-0"
+          className="w-full text-left flex items-center gap-3 px-3 py-3 mt-4 bg-zinc-900 rounded-2xl border border-zinc-800/50 hover:border-zinc-700/50 cursor-pointer transition-all duration-300 flex-shrink-0"
         >
           <div className="relative">
             <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-zinc-700/30">
@@ -119,10 +121,10 @@ const AnalyticsSidebar = ({ user, activeView, onViewChange }) => {
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm truncate text-white">{displayName}</p>
-            <p className="text-xs text-zinc-500 truncate">@{user?.username}</p>
+            <p className="text-xs text-zinc-400 truncate">@{user?.username}</p>
           </div>
-          <ChevronRight className="w-4 h-4 text-zinc-600" />
-        </div>
+          <ChevronRight className="w-4 h-4 text-zinc-400" />
+        </button>
       )}
     </>
   );
@@ -130,9 +132,9 @@ const AnalyticsSidebar = ({ user, activeView, onViewChange }) => {
   return (
     <>
       {/* Desktop sidebar */}
-      <div className="w-60 xl:w-64 2xl:w-72 flex-none hidden xl:flex flex-col border-r border-zinc-800/50 p-3 xl:p-4 sticky top-16 h-[calc(100vh-4rem)] overflow-hidden bg-black/20">
+      <nav aria-label="Settings navigation" className="w-60 xl:w-64 2xl:w-72 flex-none hidden xl:flex flex-col border-r border-zinc-800/50 p-3 xl:p-4 sticky top-16 h-[calc(100vh-4rem)] overflow-hidden bg-black/20">
         {content}
-      </div>
+      </nav>
 
       {/* Mobile trigger + drawer (shown once the desktop sidebar is hidden below xl) */}
       <MobileDrawerButton onClick={() => setMobileOpen(true)} breakpointClass="xl:hidden" side="left" label="navigation" />
@@ -149,7 +151,7 @@ const StatChip = ({ icon: Icon, label, value, accent }) => (
   <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl p-4 flex flex-col gap-1 hover:border-white/[0.11] transition-all duration-200">
     <div className="flex items-center gap-1.5 mb-1">
       <Icon size={13} className={accent} />
-      <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">{label}</span>
+      <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">{label}</span>
     </div>
     <span className={`text-2xl font-bold tabular-nums ${accent}`}>{value}</span>
   </div>
@@ -159,7 +161,7 @@ const DetailCard = ({ icon: Icon, label, children, accent = "text-zinc-400" }) =
   <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-4 flex flex-col gap-2 min-h-[110px] hover:border-white/[0.09] transition-all duration-200">
     <div className="flex items-center gap-1.5">
       <Icon size={13} className={accent} />
-      <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">{label}</span>
+      <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">{label}</span>
     </div>
     <div className="flex-1 flex flex-col justify-center">{children}</div>
   </div>
@@ -168,7 +170,7 @@ const DetailCard = ({ icon: Icon, label, children, accent = "text-zinc-400" }) =
 const CompletionBar = ({ rate }) => (
   <div className="mt-2">
     <div className="flex justify-between mb-1.5">
-      <span className="text-[11px] text-zinc-500">Completion</span>
+      <span className="text-[11px] text-zinc-400">Completion</span>
       <span className="text-[11px] font-semibold text-emerald-400">{rate}%</span>
     </div>
     <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
@@ -183,7 +185,7 @@ const CompletionBar = ({ rate }) => (
 const RSVPBar = ({ rate }) => (
   <div className="mt-2">
     <div className="flex justify-between mb-1.5">
-      <span className="text-[11px] text-zinc-500">Avg RSVP Rate</span>
+      <span className="text-[11px] text-zinc-400">Avg RSVP Rate</span>
       <span className="text-[11px] font-semibold text-sky-400">{rate}%</span>
     </div>
     <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
@@ -198,7 +200,7 @@ const RSVPBar = ({ rate }) => (
 const AttendanceBar = ({ rate }) => (
   <div className="mt-2">
     <div className="flex justify-between mb-1.5">
-      <span className="text-[11px] text-zinc-500">Checked-In Attendance</span>
+      <span className="text-[11px] text-zinc-400">Checked-In Attendance</span>
       <span className="text-[11px] font-semibold text-purple-400">{rate}%</span>
     </div>
     <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
@@ -304,7 +306,7 @@ const PersonalAnalytics = ({ user: _user }) => {
         </div>
         <div>
           <h1 className="text-2xl font-bold">Personal Analytics</h1>
-          <p className="text-sm text-zinc-500">Your drive history &amp; participation stats</p>
+          <p className="text-sm text-zinc-400">Your drive history &amp; participation stats</p>
         </div>
       </div>
 
@@ -327,7 +329,7 @@ const PersonalAnalytics = ({ user: _user }) => {
             <div className="bg-zinc-800/60 rounded-2xl p-4 flex flex-col gap-1">
               <div className="flex items-center gap-2 mb-1">
                 <Star size={15} className="text-yellow-400" />
-                <span className="text-xs text-zinc-500 uppercase tracking-wide">Fav Club</span>
+                <span className="text-xs text-zinc-400 uppercase tracking-wide">Fav Club</span>
               </div>
               {favouriteClub ? (
                 <button
@@ -337,7 +339,7 @@ const PersonalAnalytics = ({ user: _user }) => {
                   {favouriteClub.name}
                 </button>
               ) : (
-                <span className="text-sm font-bold text-zinc-600">—</span>
+                <span className="text-sm font-bold text-zinc-400">—</span>
               )}
             </div>
           </div>
@@ -368,7 +370,7 @@ const PersonalAnalytics = ({ user: _user }) => {
             {list.length === 0 && (
               <div className="flex flex-col items-center py-12 text-center">
                 <Car size={32} className="text-zinc-700 mb-3" />
-                <p className="text-sm text-zinc-500">
+                <p className="text-sm text-zinc-400">
                   {tab === "upcoming"
                     ? "No upcoming drives. Find a club and RSVP!"
                     : "No past drives yet."}
@@ -382,14 +384,15 @@ const PersonalAnalytics = ({ user: _user }) => {
                 const drive = rsvp.drive;
                 const isPast = drive.isCompleted || drive.isCancelled || new Date(drive.date) < now;
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={rsvp._id}
                     onClick={() => drive.club?._id && navigate(`/club/${drive.club._id}`)}
-                    className="flex items-start gap-4 p-4 bg-zinc-800/30 hover:bg-zinc-800/50 rounded-2xl cursor-pointer transition-all duration-200 group"
+                    className="w-full text-left flex items-start gap-4 p-4 bg-zinc-800/30 hover:bg-zinc-800/50 rounded-2xl cursor-pointer transition-all duration-200 group"
                   >
                     {/* Date badge */}
                     <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-zinc-800 flex flex-col items-center justify-center border border-zinc-700/40">
-                      <span className="text-xs text-zinc-500 leading-none">
+                      <span className="text-xs text-zinc-400 leading-none">
                         {new Date(drive.date).toLocaleString("en-US", { month: "short" })}
                       </span>
                       <span className="text-lg font-bold text-white leading-tight">
@@ -407,7 +410,7 @@ const PersonalAnalytics = ({ user: _user }) => {
                           </span>
                         )}
                       </div>
-                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-500">
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-400">
                         {drive.club?.name && (
                           <span className="flex items-center gap-1">
                             <Users size={11} /> {drive.club.name}
@@ -435,7 +438,7 @@ const PersonalAnalytics = ({ user: _user }) => {
                         </span>
                       )}
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -470,7 +473,7 @@ const ClubsAnalytics = () => {
         </div>
         <div>
           <h1 className="text-2xl font-bold">Club Analytics</h1>
-          <p className="text-sm text-zinc-500">Performance insights for your clubs</p>
+          <p className="text-sm text-zinc-400">Performance insights for your clubs</p>
         </div>
       </div>
 
@@ -491,10 +494,10 @@ const ClubsAnalytics = () => {
       {!loading && !error && analytics.length === 0 && (
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <div className="p-5 bg-zinc-900 rounded-3xl mb-6 border border-zinc-800/50">
-            <BarChart2 size={40} className="text-zinc-600" />
+            <BarChart2 size={40} className="text-zinc-400" />
           </div>
           <h2 className="text-xl font-semibold mb-2">No analytics yet</h2>
-          <p className="text-zinc-500 text-sm mb-6 max-w-xs">
+          <p className="text-zinc-400 text-sm mb-6 max-w-xs">
             Create a club and schedule some drives to see performance insights here.
           </p>
           <button
@@ -521,14 +524,14 @@ const ClubsAnalytics = () => {
                   </div>
                   <div>
                     <h2 className="font-bold text-lg leading-tight">{club.name}</h2>
-                    <span className="text-xs text-zinc-500">
+                    <span className="text-xs text-zinc-400">
                       {club.memberCount} member{club.memberCount !== 1 ? "s" : ""}
                     </span>
                   </div>
                 </div>
                 <button
                   onClick={() => navigate(`/club/${club._id}`)}
-                  className="text-xs text-zinc-500 hover:text-red-400 transition-colors duration-200 underline underline-offset-2"
+                  className="text-xs text-zinc-400 hover:text-red-400 transition-colors duration-200 underline underline-offset-2"
                 >
                   View Club
                 </button>
@@ -541,7 +544,7 @@ const ClubsAnalytics = () => {
                 <div className="bg-zinc-800/60 rounded-2xl p-4 flex flex-col gap-1">
                   <div className="flex items-center gap-2 mb-1">
                     <CheckCircle size={15} className="text-emerald-400" />
-                    <span className="text-xs text-zinc-500 uppercase tracking-wide">Completed</span>
+                    <span className="text-xs text-zinc-400 uppercase tracking-wide">Completed</span>
                   </div>
                   <span className="text-2xl font-bold text-emerald-400">{completedDrives}</span>
                   <CompletionBar rate={completionRate} />
@@ -558,14 +561,14 @@ const ClubsAnalytics = () => {
                   {mostPopularDrive ? (
                     <>
                       <p className="font-semibold text-sm leading-snug">{mostPopularDrive.name}</p>
-                      <p className="text-xs text-zinc-500 mt-1">{formatDate(mostPopularDrive.date)}</p>
+                      <p className="text-xs text-zinc-400 mt-1">{formatDate(mostPopularDrive.date)}</p>
                       <div className="mt-2 flex items-center gap-1.5">
                         <Users size={12} className="text-green-400" />
                         <span className="text-xs text-green-400 font-medium">{mostPopularDrive.goingCount} going</span>
                       </div>
                     </>
                   ) : (
-                    <p className="text-xs text-zinc-600 italic">No drives with RSVPs yet</p>
+                    <p className="text-xs text-zinc-400 italic">No drives with RSVPs yet</p>
                   )}
                 </DetailCard>
 
@@ -573,7 +576,7 @@ const ClubsAnalytics = () => {
                   {mostActiveMember ? (
                     <>
                       <p className="font-semibold text-sm">{mostActiveMember.name || `@${mostActiveMember.username}`}</p>
-                      <p className="text-xs text-zinc-500">@{mostActiveMember.username}</p>
+                      <p className="text-xs text-zinc-400">@{mostActiveMember.username}</p>
                       <div className="mt-2 flex items-center gap-1.5">
                         <Car size={12} className="text-purple-400" />
                         <span className="text-xs text-purple-400 font-medium">
@@ -582,7 +585,7 @@ const ClubsAnalytics = () => {
                       </div>
                     </>
                   ) : (
-                    <p className="text-xs text-zinc-600 italic">No RSVPs recorded yet</p>
+                    <p className="text-xs text-zinc-400 italic">No RSVPs recorded yet</p>
                   )}
                 </DetailCard>
 
@@ -592,11 +595,11 @@ const ClubsAnalytics = () => {
                       <span className="text-3xl font-bold text-blue-400">{avgRSVPRate}%</span>
                       <RSVPBar rate={avgRSVPRate} />
                       {cancelledDrives > 0 && (
-                        <p className="text-xs text-zinc-600 mt-1">{cancelledDrives} cancelled excluded</p>
+                        <p className="text-xs text-zinc-400 mt-1">{cancelledDrives} cancelled excluded</p>
                       )}
                     </>
                   ) : (
-                    <p className="text-xs text-zinc-600 italic">
+                    <p className="text-xs text-zinc-400 italic">
                       {totalDrives === 0 ? "No drives scheduled yet" : "All drives cancelled"}
                     </p>
                   )}
@@ -606,7 +609,7 @@ const ClubsAnalytics = () => {
                   <DetailCard icon={UserCheck} label="Attendance Rate" accent="text-purple-400">
                     <span className="text-3xl font-bold text-purple-400">{avgAttendanceRate}%</span>
                     <AttendanceBar rate={avgAttendanceRate} />
-                    <p className="text-xs text-zinc-600 mt-1">Checked in vs. "going" RSVPs</p>
+                    <p className="text-xs text-zinc-400 mt-1">Checked in vs. "going" RSVPs</p>
                   </DetailCard>
                 )}
 
@@ -615,9 +618,9 @@ const ClubsAnalytics = () => {
                     <div className="flex items-center gap-1.5">
                       <Star size={20} className="text-yellow-400 fill-yellow-400" />
                       <span className="text-3xl font-bold text-yellow-400">{avgDriveRating.toFixed(1)}</span>
-                      <span className="text-xs text-zinc-500">/ 5</span>
+                      <span className="text-xs text-zinc-400">/ 5</span>
                     </div>
-                    <p className="text-xs text-zinc-600 mt-1">From member ratings on completed drives</p>
+                    <p className="text-xs text-zinc-400 mt-1">From member ratings on completed drives</p>
                   </DetailCard>
                 )}
               </div>
@@ -635,7 +638,7 @@ const SettingsSection = ({ title, description, children }) => (
   <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6 lg:gap-10 py-8 border-b border-zinc-800/60 last:border-b-0">
     <div>
       <h2 className="text-sm font-semibold text-white">{title}</h2>
-      {description && <p className="text-sm text-zinc-500 mt-1.5 leading-relaxed">{description}</p>}
+      {description && <p className="text-sm text-zinc-400 mt-1.5 leading-relaxed">{description}</p>}
     </div>
     <div className="space-y-5 max-w-xl">{children}</div>
   </div>
@@ -649,14 +652,14 @@ const SettingsField = ({ label, htmlFor, hint, children }) => (
       </label>
     )}
     {children}
-    {hint && <p className="text-xs text-zinc-500 mt-1.5">{hint}</p>}
+    {hint && <p className="text-xs text-zinc-400 mt-1.5">{hint}</p>}
   </div>
 );
 
 const settingsInputClass =
   "w-full bg-black border border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-red-600 transition-colors";
 const settingsInputDisabledClass =
-  "w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-zinc-500 cursor-not-allowed";
+  "w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-zinc-400 cursor-not-allowed";
 
 const COOLDOWN_DAYS = 60;
 
@@ -829,7 +832,7 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
       {/* Page header */}
       <div className="mb-2">
         <h1 className="text-2xl font-bold">Profile Settings</h1>
-        <p className="text-sm text-zinc-500 mt-1">Manage your personal information, security, and account.</p>
+        <p className="text-sm text-zinc-400 mt-1">Manage your personal information, security, and account.</p>
       </div>
 
       {message.text && (
@@ -895,7 +898,7 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
           <div className="flex items-center justify-between bg-black border border-zinc-800 rounded-xl p-4">
             <div>
               <div className="text-sm font-medium text-zinc-300">Show Display Name</div>
-              <div className="text-xs text-zinc-500 mt-1">
+              <div className="text-xs text-zinc-400 mt-1">
                 Use your display name instead of username on Dashboard and member lists
               </div>
             </div>
@@ -930,7 +933,7 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
                 </button>
               )}
               {!canChangeUsername && (
-                <span className="text-xs text-zinc-500">
+                <span className="text-xs text-zinc-400">
                   Available in {daysLeft} day{daysLeft !== 1 ? "s" : ""}
                 </span>
               )}
@@ -943,6 +946,7 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
                   value={newUsername}
                   onChange={e => { setNewUsername(e.target.value); setUsernameError(""); }}
                   placeholder=""
+                  // eslint-disable-next-line jsx-a11y/no-autofocus -- focus follows the user's own "Change" click, not page load
                   autoFocus
                   className={settingsInputClass}
                 />
@@ -976,7 +980,7 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
               />
             )}
 
-            <p className="text-xs text-zinc-500 mt-1.5">
+            <p className="text-xs text-zinc-400 mt-1.5">
               {usernameChangedAt
                 ? `Last changed ${new Date(usernameChangedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}. Can be changed once every 60 days.`
                 : "Can be changed once every 60 days."}
@@ -1116,13 +1120,14 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
               <li>Remove you from all clubs</li>
               <li>Cancel all your future RSVPs</li>
             </ul>
-            <p className="text-zinc-500 text-xs mb-5 bg-zinc-800/50 rounded-xl px-4 py-3 border border-zinc-700/50">
+            <p className="text-zinc-400 text-xs mb-5 bg-zinc-800/50 rounded-xl px-4 py-3 border border-zinc-700/50">
               This action <span className="text-white font-semibold">cannot be undone</span>. Enter your password to confirm.
             </p>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-zinc-300 mb-2">Password</label>
+              <label htmlFor="delete-account-password" className="block text-sm font-medium text-zinc-300 mb-2">Password</label>
               <input
+                id="delete-account-password"
                 type="password"
                 value={deletePassword}
                 onChange={e => { setDeletePassword(e.target.value); setDeleteError(""); }}
@@ -1168,7 +1173,7 @@ const UserSettings = ({ user, onLogout, onUpdateUser }) => {
       <NavBar user={user} onLogout={onLogout} />
       <div className="flex flex-1">
         <AnalyticsSidebar user={user} activeView={activeView} onViewChange={setActiveView} />
-        <main className="flex-1 p-6 max-w-5xl mx-auto w-full">
+        <main id="main-content" className="flex-1 p-6 max-w-5xl mx-auto w-full">
           {activeView === "personal" && <PersonalAnalytics user={user} />}
           {activeView === "clubs"    && <ClubsAnalytics />}
           {activeView === "profile"  && <ProfileView onLogout={onLogout} onUpdateUser={onUpdateUser} />}

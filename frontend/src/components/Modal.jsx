@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
+import useFocusTrap from '../hooks/useFocusTrap';
 
 /**
  * Reusable Modal component with consistent styling and behavior
@@ -34,6 +35,8 @@ const Modal = ({
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
+  const dialogRef = useFocusTrap(isOpen);
+
   if (!isOpen) return null;
 
   const sizeClasses = {
@@ -54,7 +57,9 @@ const Modal = ({
       />
       
       {/* Modal Content */}
-      <div 
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
         className={`relative bg-gradient-to-br from-zinc-900 to-zinc-900/80 rounded-3xl p-6 w-full ${sizeClasses[size]} border border-zinc-700/50 shadow-2xl animate-in zoom-in-95 duration-200`}
         role="dialog"
         aria-modal="true"
@@ -70,7 +75,7 @@ const Modal = ({
           {showCloseButton && (
             <button
               onClick={onClose}
-              className="text-zinc-500 hover:text-white transition p-2 hover:bg-zinc-800 rounded-xl"
+              className="text-zinc-400 hover:text-white transition p-2 hover:bg-zinc-800 rounded-xl"
               aria-label="Close modal"
             >
               <X size={20} />

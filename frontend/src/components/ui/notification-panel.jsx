@@ -88,7 +88,7 @@ const NotificationPanel = ({ notifications, unreadCount, markAllRead, markOneRea
         {unreadCount > 0 && (
           <button
             onClick={markAllRead}
-            className="flex items-center gap-1 text-xs text-zinc-500 hover:text-white transition-colors"
+            className="flex items-center gap-1 text-xs text-zinc-400 hover:text-white transition-colors"
           >
             <CheckCheck size={12} />
             Mark all read
@@ -101,7 +101,7 @@ const NotificationPanel = ({ notifications, unreadCount, markAllRead, markOneRea
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 gap-2">
             <Bell className="w-8 h-8 text-zinc-700" />
-            <p className="text-zinc-500 text-sm">
+            <p className="text-zinc-400 text-sm">
               {tab === "unread" ? "No unread notifications" : "No notifications yet"}
             </p>
           </div>
@@ -127,7 +127,7 @@ const NotificationPanel = ({ notifications, unreadCount, markAllRead, markOneRea
                   <p className={`text-sm leading-snug ${!n.read ? "text-zinc-100 font-medium" : "text-zinc-400"}`}>
                     {n.message}
                   </p>
-                  <p className="text-xs text-zinc-600 mt-1">{relativeTime(n.id)}</p>
+                  <p className="text-xs text-zinc-400 mt-1">{relativeTime(n.id)}</p>
                 </div>
 
                 {/* Unread dot */}
@@ -142,7 +142,7 @@ const NotificationPanel = ({ notifications, unreadCount, markAllRead, markOneRea
 
       {/* Footer */}
       <div className="px-4 py-2.5 border-t border-zinc-800 text-center">
-        <button className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+        <button className="text-xs text-zinc-400 hover:text-zinc-300 transition-colors">
           View all notifications
         </button>
       </div>

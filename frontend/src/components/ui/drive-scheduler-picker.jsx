@@ -101,6 +101,7 @@ export function DriveSchedulerPicker({
           <button
             type="button"
             onClick={prevMonth}
+            aria-label="Previous month"
             className="p-1.5 hover:bg-zinc-800 rounded-lg transition"
           >
             <ChevronLeft className="w-4 h-4 text-zinc-400" />
@@ -112,6 +113,7 @@ export function DriveSchedulerPicker({
           <button
             type="button"
             onClick={nextMonth}
+            aria-label="Next month"
             className="p-1.5 hover:bg-zinc-800 rounded-lg transition"
           >
             <ChevronRight className="w-4 h-4 text-zinc-400" />
@@ -121,7 +123,7 @@ export function DriveSchedulerPicker({
         {/* Day-of-week headers */}
         <div className="grid grid-cols-7 mb-1">
           {DAY_NAMES.map((d) => (
-            <div key={d} className="text-center text-[10px] text-zinc-500 py-1">
+            <div key={d} className="text-center text-[10px] text-zinc-400 py-1">
               {d}
             </div>
           ))}

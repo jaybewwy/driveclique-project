@@ -116,7 +116,7 @@ const VerifyEmail = () => {
           )}
           <button
             onClick={() => navigate(user ? '/dashboard' : '/login')}
-            className="text-zinc-500 hover:text-zinc-300 text-sm"
+            className="text-zinc-400 hover:text-zinc-300 text-sm"
           >
             {user ? 'Back to Dashboard' : 'Back to Sign In'}
           </button>

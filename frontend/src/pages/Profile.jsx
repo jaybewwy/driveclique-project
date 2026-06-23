@@ -1,10 +1,20 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Car, User, Camera, X, Save, MapPin, Plus, Trash2, Star, Pencil } from "lucide-react";
+import { Car, User, Camera, X, Save, MapPin, Plus, Trash2, Star, Pencil, Activity } from "lucide-react";
 import { authAPI, getErrorMessage } from "../services/api";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 import { compressImage } from "../utils/imageCompressor";
+import { getMyActivitySummary } from "../services/analytics";
+
+const ACTIVITY_LABELS = {
+  CLUB_CREATED:     "Clubs Created",
+  CLUB_JOINED:      "Clubs Joined",
+  DRIVE_SCHEDULED:  "Drives Scheduled",
+  RSVP_SUBMITTED:   "RSVPs Submitted",
+  RATING_SUBMITTED: "Ratings Given",
+  REPORT_SUBMITTED: "Reports Filed",
+};
 
 const MAX_CARS = 5;
 const MAX_PHOTOS_PER_CAR = 4;
@@ -31,6 +41,13 @@ const Profile = ({ onLogout, onUpdateUser }) => {
   const [previewAvatar, setPreviewAvatar] = useState("");
   const [avatarFileName, setAvatarFileName] = useState("");
   const [expandedCarIndex, setExpandedCarIndex] = useState(null);
+  const [activitySummary, setActivitySummary] = useState(null);
+
+  useEffect(() => {
+    getMyActivitySummary()
+      .then((res) => { if (res.data?.success) setActivitySummary(res.data.summary); })
+      .catch(() => {}); // analytics must never block or error the profile page
+  }, []);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -196,7 +213,7 @@ const Profile = ({ onLogout, onUpdateUser }) => {
         <Sidebar user={user} />
 
         {/* Main Content */}
-        <div className="flex-1 max-w-3xl min-h-screen p-8">
+        <div id="main-content" role="main" className="flex-1 max-w-3xl min-h-screen p-8">
           <div className="mb-8">
             <h1 className="text-4xl font-bold">My Profile</h1>
             <p className="text-zinc-400 mt-1">Manage your account settings</p>
@@ -214,6 +231,23 @@ const Profile = ({ onLogout, onUpdateUser }) => {
             </div>
           )}
 
+          {activitySummary && (
+            <div className="glass-card p-6 mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <Activity className="w-4 h-4 text-red-400" />
+                <p className="section-label">Your Activity</p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {Object.entries(ACTIVITY_LABELS).map(([type, label]) => (
+                  <div key={type}>
+                    <p className="text-2xl font-bold text-white">{activitySummary[type] ?? 0}</p>
+                    <p className="text-xs text-zinc-400">{label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* Profile Picture and Bio Section */}
             <div className="bg-zinc-900 rounded-3xl p-6">
@@ -225,7 +259,7 @@ const Profile = ({ onLogout, onUpdateUser }) => {
                     {(previewAvatar || formData.avatar) ? (
                       <img src={previewAvatar || formData.avatar} alt="Profile" className="w-full h-full object-cover" />
                     ) : (
-                      <User className="w-full h-full p-8 text-zinc-500" />
+                      <User className="w-full h-full p-8 text-zinc-400" />
                     )}
                     <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition cursor-pointer rounded-full">
                       <Camera className="w-8 h-8 text-white" />
@@ -238,11 +272,11 @@ const Profile = ({ onLogout, onUpdateUser }) => {
                     </label>
                   </div>
                   {avatarFileName && (
-                    <p className="text-xs text-zinc-500 text-center mt-2 truncate max-w-[128px]">
+                    <p className="text-xs text-zinc-400 text-center mt-2 truncate max-w-[128px]">
                       {avatarFileName}
                     </p>
                   )}
-                  <p className="text-xs text-zinc-500 text-center mt-1">
+                  <p className="text-xs text-zinc-400 text-center mt-1">
                     Upload a picture
                   </p>
                 </div>
@@ -258,7 +292,7 @@ const Profile = ({ onLogout, onUpdateUser }) => {
                     maxLength="500"
                     className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 focus:outline-none focus:border-red-600 resize-none"
                   />
-                  <p className="text-xs text-zinc-500 mt-1 text-right">
+                  <p className="text-xs text-zinc-400 mt-1 text-right">
                     {formData.bio.length}/500 characters
                   </p>
                 </div>
@@ -285,8 +319,8 @@ const Profile = ({ onLogout, onUpdateUser }) => {
 
               {formData.cars.length === 0 ? (
                 <div className="bg-black rounded-xl p-6 text-center">
-                  <Car className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
-                  <p className="text-zinc-500 text-sm">No cars yet. Click "Add Car" to add your first vehicle.</p>
+                  <Car className="w-8 h-8 text-zinc-400 mx-auto mb-2" />
+                  <p className="text-zinc-400 text-sm">No cars yet. Click "Add Car" to add your first vehicle.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -301,7 +335,7 @@ const Profile = ({ onLogout, onUpdateUser }) => {
                             {car.photos[0] ? (
                               <img src={car.photos[0]} alt={title} className="w-full h-full object-cover" />
                             ) : (
-                              <Car className="w-full h-full p-2.5 text-zinc-600" />
+                              <Car className="w-full h-full p-2.5 text-zinc-400" />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -313,7 +347,7 @@ const Profile = ({ onLogout, onUpdateUser }) => {
                                 </span>
                               )}
                             </div>
-                            {car.nickname && <p className="text-xs text-zinc-500 truncate">"{car.nickname}"</p>}
+                            {car.nickname && <p className="text-xs text-zinc-400 truncate">"{car.nickname}"</p>}
                           </div>
                           <button
                             type="button"
@@ -338,8 +372,9 @@ const Profile = ({ onLogout, onUpdateUser }) => {
                           <div className="px-4 pb-4 space-y-4 border-t border-zinc-800 pt-4">
                             <div className="grid grid-cols-3 gap-3">
                               <div>
-                                <label className="block text-xs font-medium text-zinc-400 mb-1.5">Year</label>
+                                <label htmlFor={`car-${index}-year`} className="block text-xs font-medium text-zinc-400 mb-1.5">Year</label>
                                 <input
+                                  id={`car-${index}-year`}
                                   type="text"
                                   value={car.year}
                                   onChange={(e) => handleCarFieldChange(index, "year", e.target.value)}
@@ -348,8 +383,9 @@ const Profile = ({ onLogout, onUpdateUser }) => {
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs font-medium text-zinc-400 mb-1.5">Make</label>
+                                <label htmlFor={`car-${index}-make`} className="block text-xs font-medium text-zinc-400 mb-1.5">Make</label>
                                 <input
+                                  id={`car-${index}-make`}
                                   type="text"
                                   value={car.make}
                                   onChange={(e) => handleCarFieldChange(index, "make", e.target.value)}
@@ -358,8 +394,9 @@ const Profile = ({ onLogout, onUpdateUser }) => {
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs font-medium text-zinc-400 mb-1.5">Model</label>
+                                <label htmlFor={`car-${index}-model`} className="block text-xs font-medium text-zinc-400 mb-1.5">Model</label>
                                 <input
+                                  id={`car-${index}-model`}
                                   type="text"
                                   value={car.model}
                                   onChange={(e) => handleCarFieldChange(index, "model", e.target.value)}
@@ -370,8 +407,9 @@ const Profile = ({ onLogout, onUpdateUser }) => {
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                               <div>
-                                <label className="block text-xs font-medium text-zinc-400 mb-1.5">Color</label>
+                                <label htmlFor={`car-${index}-color`} className="block text-xs font-medium text-zinc-400 mb-1.5">Color</label>
                                 <input
+                                  id={`car-${index}-color`}
                                   type="text"
                                   value={car.color}
                                   onChange={(e) => handleCarFieldChange(index, "color", e.target.value)}
@@ -380,8 +418,9 @@ const Profile = ({ onLogout, onUpdateUser }) => {
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs font-medium text-zinc-400 mb-1.5">Nickname</label>
+                                <label htmlFor={`car-${index}-nickname`} className="block text-xs font-medium text-zinc-400 mb-1.5">Nickname</label>
                                 <input
+                                  id={`car-${index}-nickname`}
                                   type="text"
                                   value={car.nickname}
                                   onChange={(e) => handleCarFieldChange(index, "nickname", e.target.value)}
@@ -413,8 +452,8 @@ const Profile = ({ onLogout, onUpdateUser }) => {
                                 ))}
                                 {car.photos.length < MAX_PHOTOS_PER_CAR && (
                                   <label className="aspect-square rounded-lg border-2 border-dashed border-zinc-700 hover:border-zinc-600 flex flex-col items-center justify-center cursor-pointer transition-colors">
-                                    <Camera className="w-5 h-5 text-zinc-500 mb-1" />
-                                    <span className="text-[10px] text-zinc-500">Add</span>
+                                    <Camera className="w-5 h-5 text-zinc-400 mb-1" />
+                                    <span className="text-[10px] text-zinc-400">Add</span>
                                     <input
                                       type="file"
                                       accept="image/*"
@@ -475,15 +514,15 @@ const Profile = ({ onLogout, onUpdateUser }) => {
               {formData.avatar ? (
                 <img src={formData.avatar} alt="Profile" className="w-full h-full object-cover" />
               ) : (
-                <User className="w-full h-full p-6 text-zinc-500" />
+                <User className="w-full h-full p-6 text-zinc-400" />
               )}
             </div>
             <h4 className="font-bold text-lg">
               {[formData.firstName, formData.lastName].filter(Boolean).join(' ') || formData.name || formData.username}
             </h4>
-            <p className="text-zinc-500 text-sm">@{formData.username}</p>
+            <p className="text-zinc-400 text-sm">@{formData.username}</p>
             {formData.location && (
-              <div className="flex items-center justify-center gap-1 text-zinc-500 text-xs mt-1 mb-2">
+              <div className="flex items-center justify-center gap-1 text-zinc-400 text-xs mt-1 mb-2">
                 <MapPin className="w-3 h-3" />
                 <span>{formData.location}</span>
               </div>

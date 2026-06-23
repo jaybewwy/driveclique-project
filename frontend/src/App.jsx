@@ -4,6 +4,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ClubsProvider } from './hooks/useClubs';
 import ToastProvider from './components/Toast';
+import PageViewTracker from './components/PageViewTracker';
+import SkipToContent from './components/SkipToContent';
 
 // Auth pages are small and eagerly loaded — users hit these before JS finishes parsing
 import Login from './pages/Login';
@@ -21,6 +23,7 @@ const FindClub     = lazy(() => import('./pages/FindClub'));
 const Profile      = lazy(() => import('./pages/Profile'));
 const UserSettings = lazy(() => import('./pages/UserSettings'));
 const DriveCheckIn = lazy(() => import('./pages/DriveCheckIn'));
+const AdminAnalytics = lazy(() => import('./pages/AdminAnalytics'));
 const NotFound     = lazy(() => import('./pages/NotFound'));
 
 const PageSpinner = () => (
@@ -42,6 +45,8 @@ function AppRoutes() {
 
   return (
     <Suspense fallback={<PageSpinner />}>
+      <SkipToContent />
+      <PageViewTracker />
       <Routes>
         <Route path="/login"            element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login onLogin={login} />} />
         <Route path="/register"         element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Register onRegister={login} />} />
@@ -57,6 +62,7 @@ function AppRoutes() {
         <Route path="/profile"      element={isAuthenticated ? <Profile      user={user} onLogout={logout} onUpdateUser={updateUser} /> : <Navigate to="/login" replace />} />
         <Route path="/settings"     element={isAuthenticated ? <UserSettings user={user} onLogout={logout} onUpdateUser={updateUser} /> : <Navigate to="/login" replace />} />
         <Route path="/drive/:driveId/checkin" element={isAuthenticated ? <DriveCheckIn user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
+        <Route path="/admin/analytics" element={isAuthenticated ? <AdminAnalytics user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         {/* Legacy alias kept so old nav links don't silently redirect to /dashboard */}
         <Route path="/analytics"    element={<Navigate to="/settings" replace />} />
 

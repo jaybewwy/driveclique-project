@@ -24,7 +24,7 @@ const Input = forwardRef(({
       )}
       <div className="relative">
         {Icon && leftIcon && (
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500">
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400">
             <Icon size={20} />
           </div>
         )}
@@ -34,7 +34,7 @@ const Input = forwardRef(({
           {...props} 
         />
         {Icon && !leftIcon && (
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500">
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400">
             <Icon size={20} />
           </div>
         )}
@@ -43,7 +43,7 @@ const Input = forwardRef(({
         <p className="text-sm text-red-400">{error}</p>
       )}
       {helperText && !error && (
-        <p className="text-sm text-zinc-500">{helperText}</p>
+        <p className="text-sm text-zinc-400">{helperText}</p>
       )}
     </div>
   );
@@ -77,7 +77,7 @@ const TextArea = forwardRef(({
         <p className="text-sm text-red-400">{error}</p>
       )}
       {helperText && !error && (
-        <p className="text-sm text-zinc-500">{helperText}</p>
+        <p className="text-sm text-zinc-400">{helperText}</p>
       )}
     </div>
   );
@@ -118,7 +118,7 @@ const Select = forwardRef(({
         <p className="text-sm text-red-400">{error}</p>
       )}
       {helperText && !error && (
-        <p className="text-sm text-zinc-500">{helperText}</p>
+        <p className="text-sm text-zinc-400">{helperText}</p>
       )}
     </div>
   );

@@ -32,6 +32,8 @@ import { LocationSearch } from "../components/ui/location-search";
 import { DriveMapPicker } from "../components/ui/drive-map-picker";
 import { DriveMapPreview } from "../components/ui/drive-map-preview";
 import { MobileDrawerButton } from "../components/ui/MobileDrawer";
+import { useDocumentFocusTrap } from "../hooks/useFocusTrap";
+import { trackEvent } from "../services/analytics";
 
 const ClubDetail = ({ user, onLogout }) => {
   const { clubId } = useParams();
@@ -124,6 +126,35 @@ const ClubDetail = ({ user, onLogout }) => {
   const [isPostingAnnouncement, setIsPostingAnnouncement] = useState(null); // announcementId being deleted, or 'posting'
 
   const [clubNotFound, setClubNotFound] = useState(false);
+
+  // Focus trap + restore for whichever overlay (of the many below) is currently open
+  const isAnyOverlayOpen = showDriveModal || showAllDrivesModal || showPastEventsModal ||
+    showMembersModal || showEditModal || showClubEditModal || showScheduleDriveModal ||
+    showLeaveConfirm || showDeleteConfirm || Boolean(driveToDelete) || Boolean(memberToRemove);
+  useDocumentFocusTrap(isAnyOverlayOpen);
+
+  // Escape closes whichever overlay is currently open
+  useEffect(() => {
+    if (!isAnyOverlayOpen) return;
+    const handleEscape = (e) => {
+      if (e.key !== 'Escape') return;
+      if (showDriveModal) { setShowDriveModal(false); setSelectedDrive(null); }
+      else if (showEditModal) { setShowEditModal(false); setSelectedDrive(null); }
+      else if (showScheduleDriveModal) setShowScheduleDriveModal(false);
+      else if (showAllDrivesModal) setShowAllDrivesModal(false);
+      else if (showPastEventsModal) setShowPastEventsModal(false);
+      else if (showMembersModal) setShowMembersModal(false);
+      else if (showClubEditModal) setShowClubEditModal(false);
+      else if (showLeaveConfirm) setShowLeaveConfirm(false);
+      else if (showDeleteConfirm) { setShowDeleteConfirm(false); setDeleteEmail(''); setDeleteReason(''); }
+      else if (driveToDelete) setDriveToDelete(null);
+      else if (memberToRemove) { setMemberToRemove(null); setMemberActionError(''); }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isAnyOverlayOpen, showDriveModal, showEditModal, showScheduleDriveModal, showAllDrivesModal,
+      showPastEventsModal, showMembersModal, showClubEditModal, showLeaveConfirm, showDeleteConfirm,
+      driveToDelete, memberToRemove]);
 
   // Fetch club details and drives
   useEffect(() => {
@@ -294,6 +325,7 @@ const ClubDetail = ({ user, onLogout }) => {
     setRatingMessage('');
     try {
       await drivesAPI.submitRating(selectedDrive._id, ratingStars, ratingComment);
+      trackEvent('RATING_SUBMITTED', { driveId: selectedDrive._id, stars: ratingStars });
       setRatingMessage('Thanks for rating this drive!');
       await fetchDriveRatings(selectedDrive._id);
     } catch (error) {
@@ -317,7 +349,8 @@ const ClubDetail = ({ user, onLogout }) => {
       if (response.data?.success) {
         setUserRSVP(status);
         setRsvpMessage(response.data.message);
-        
+        trackEvent('RSVP_SUBMITTED', { driveId: selectedDrive._id, status });
+
         // Refresh RSVP counts
         await fetchDriveRSVPData(selectedDrive._id);
         
@@ -519,6 +552,7 @@ const ClubDetail = ({ user, onLogout }) => {
       if (response.data.success) {
         if (response.data.clubId) {
           // Public club — joined immediately; refresh club data so isMember updates
+          trackEvent('CLUB_JOINED', { clubId });
           const refreshed = await clubsAPI.getClubById(clubId);
           if (refreshed.data?.success) setClub(refreshed.data.club);
         } else {
@@ -635,6 +669,7 @@ const ClubDetail = ({ user, onLogout }) => {
         description: scheduleForm.description || ''
       });
       if (response.data?.success) {
+        trackEvent('DRIVE_SCHEDULED', { clubId });
         const drivesResponse = await drivesAPI.getClubDrives(clubId);
         if (drivesResponse.data?.success) setDrives(drivesResponse.data.drives || []);
         closeScheduleDriveModal();
@@ -696,7 +731,7 @@ const ClubDetail = ({ user, onLogout }) => {
         </div>
         <div className="relative z-10 flex flex-col items-center text-center max-w-sm w-full">
           <div className="w-16 h-16 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-center mb-6">
-            <Users className="w-8 h-8 text-zinc-600" />
+            <Users className="w-8 h-8 text-zinc-400" />
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">Club not found</h1>
           <p className="text-zinc-400 text-sm leading-relaxed mb-8">
@@ -729,11 +764,11 @@ const ClubDetail = ({ user, onLogout }) => {
       <div className="flex max-w-7xl mx-auto">
         <Sidebar user={user} />
 
-        <div className="flex-1 min-w-0 max-w-4xl min-h-screen p-4 lg:p-6 xl:p-8">
+        <div id="main-content" role="main" className="flex-1 min-w-0 max-w-4xl min-h-screen p-4 lg:p-6 xl:p-8">
           {/* Back button */}
           <button
             onClick={() => navigate("/my-clubs")}
-            className="inline-flex items-center gap-2 text-xs text-zinc-500 hover:text-white mb-5 transition-colors group"
+            className="inline-flex items-center gap-2 text-xs text-zinc-400 hover:text-white mb-5 transition-colors group"
           >
             <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
             Back to My Clubs
@@ -756,7 +791,7 @@ const ClubDetail = ({ user, onLogout }) => {
                 <h1 className="text-xl font-bold text-white leading-tight">{club.name}</h1>
                 {club.description && <p className="text-zinc-400 text-sm mt-1 line-clamp-2">{club.description}</p>}
                 {club.location && (
-                  <p className="text-zinc-500 text-xs mt-1 flex items-center gap-1">
+                  <p className="text-zinc-400 text-xs mt-1 flex items-center gap-1">
                     <MapPin className="w-3 h-3" />{club.location}
                   </p>
                 )}
@@ -777,7 +812,7 @@ const ClubDetail = ({ user, onLogout }) => {
                     </div>
                     <div>
                       <h3 className="text-lg font-bold">Next Scheduled Drive</h3>
-                      <p className="text-xs text-zinc-500">Don't miss out on the upcoming event</p>
+                      <p className="text-xs text-zinc-400">Don't miss out on the upcoming event</p>
                     </div>
                   </div>
                 </div>
@@ -785,15 +820,23 @@ const ClubDetail = ({ user, onLogout }) => {
 
               {/* Main Drive Card */}
               <div
+                role={isMember || isLeader ? 'button' : undefined}
+                tabIndex={isMember || isLeader ? 0 : undefined}
                 className={`glass-card p-4 transition-all duration-200 group rounded-2xl ${isMember || isLeader ? 'cursor-pointer hover:border-white/[0.12] hover:-translate-y-0.5' : 'cursor-default opacity-70'}`}
                 onClick={() => (isMember || isLeader) && handleDriveClick(upcomingDrives[0])}
+                onKeyDown={(e) => {
+                  if ((isMember || isLeader) && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    handleDriveClick(upcomingDrives[0]);
+                  }
+                }}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm text-white group-hover:text-red-400 transition-colors mb-1.5">
                       {upcomingDrives[0].name}
                     </p>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3.5 h-3.5" />
                         {new Date(upcomingDrives[0].date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
@@ -821,13 +864,13 @@ const ClubDetail = ({ user, onLogout }) => {
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); setReportTarget({ type: 'drive', id: upcomingDrives[0]._id, name: upcomingDrives[0].name }); }}
-                      className="w-8 h-8 flex items-center justify-center text-zinc-600 hover:text-orange-400 hover:bg-orange-500/10 rounded-xl transition-all"
+                      className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-orange-400 hover:bg-orange-500/10 rounded-xl transition-all"
                       title="Report drive"
                     >
                       <Flag className="w-3.5 h-3.5" />
                     </button>
                     <div className="w-8 h-8 bg-white/[0.04] group-hover:bg-red-500/15 rounded-xl flex items-center justify-center transition-all">
-                      <ArrowRight className="w-3.5 h-3.5 text-zinc-600 group-hover:text-red-400" />
+                      <ArrowRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-red-400" />
                     </div>
                   </div>
                 </div>
@@ -836,7 +879,7 @@ const ClubDetail = ({ user, onLogout }) => {
               {upcomingDrives.length > 1 && (
                 <div className="mt-4 flex items-center justify-center">
                   <div className="bg-zinc-800/50 backdrop-blur-sm px-4 py-2 rounded-full border border-zinc-700/30">
-                    <p className="text-zinc-500 text-sm">
+                    <p className="text-zinc-400 text-sm">
                       +{upcomingDrives.length - 1} more upcoming drive{upcomingDrives.length > 2 ? 's' : ''}
                     </p>
                   </div>
@@ -857,7 +900,7 @@ const ClubDetail = ({ user, onLogout }) => {
                   </div>
                   <div>
                     <h3 className="text-lg font-bold">Announcements</h3>
-                    <p className="text-xs text-zinc-500">Updates from the club leader</p>
+                    <p className="text-xs text-zinc-400">Updates from the club leader</p>
                   </div>
                 </div>
                 {isLeader && (
@@ -892,7 +935,7 @@ const ClubDetail = ({ user, onLogout }) => {
                         onChange={e => { setAnnouncementForm(f => ({ ...f, body: e.target.value })); setAnnouncementError(''); }}
                         className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition resize-none"
                       />
-                      <span className="absolute bottom-2 right-3 text-xs text-zinc-600">{announcementForm.body.length}/1000</span>
+                      <span className="absolute bottom-2 right-3 text-xs text-zinc-400">{announcementForm.body.length}/1000</span>
                     </div>
                     {announcementError && <p className="text-red-400 text-sm">{announcementError}</p>}
                     <div className="flex justify-end">
@@ -932,7 +975,7 @@ const ClubDetail = ({ user, onLogout }) => {
               {/* Announcement Cards */}
               {announcements.length === 0 ? (
                 <div className="bg-zinc-900/30 border border-zinc-800/30 rounded-2xl p-6 text-center">
-                  <p className="text-zinc-500 text-sm">No announcements yet.</p>
+                  <p className="text-zinc-400 text-sm">No announcements yet.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -942,7 +985,7 @@ const ClubDetail = ({ user, onLogout }) => {
                         <div className="flex-1 min-w-0">
                           {a.title && <p className="font-semibold text-white mb-1">{a.title}</p>}
                           <p className="text-zinc-300 text-sm whitespace-pre-wrap">{a.body}</p>
-                          <p className="text-zinc-600 text-xs mt-2">
+                          <p className="text-zinc-400 text-xs mt-2">
                             {new Date(a.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                             {' · '}
                             {new Date(a.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
@@ -962,7 +1005,7 @@ const ClubDetail = ({ user, onLogout }) => {
                                 setIsPostingAnnouncement(null);
                               }
                             }}
-                            className="text-zinc-600 hover:text-red-400 transition flex-shrink-0 disabled:opacity-40"
+                            className="text-zinc-400 hover:text-red-400 transition flex-shrink-0 disabled:opacity-40"
                             title="Delete announcement"
                           >
                             <Trash2 size={15} />
@@ -1000,7 +1043,7 @@ const ClubDetail = ({ user, onLogout }) => {
 
           <div className="bg-zinc-900 rounded-xl xl:rounded-2xl p-3 xl:p-4 space-y-2 xl:space-y-4">
             <div>
-              <p className="text-sm text-zinc-500">Leader</p>
+              <p className="text-sm text-zinc-400">Leader</p>
               <p className="font-medium">
                 {club.leader?.useDisplayName && club.leader?.name
                   ? club.leader.name
@@ -1014,7 +1057,7 @@ const ClubDetail = ({ user, onLogout }) => {
 
             {filteredAndSortedDrives.length === 0 ? (
               <div className="bg-zinc-900 rounded-2xl p-4">
-                <p className="text-zinc-500 text-sm">No drives scheduled yet</p>
+                <p className="text-zinc-400 text-sm">No drives scheduled yet</p>
               </div>
             ) : (
               <>
@@ -1025,8 +1068,10 @@ const ClubDetail = ({ user, onLogout }) => {
                       className="bg-zinc-900/50 backdrop-blur-sm rounded-xl xl:rounded-2xl p-3 xl:p-4 border border-zinc-800/50 hover:border-zinc-700/50 transition-all duration-300 group relative overflow-visible"
                     >
                       <div className="flex items-start justify-between">
-                        <div
-                          className={`flex-1 ${isMember || isLeader ? 'cursor-pointer' : 'cursor-default'}`}
+                        <button
+                          type="button"
+                          disabled={!(isMember || isLeader)}
+                          className={`flex-1 text-left ${isMember || isLeader ? 'cursor-pointer' : 'cursor-default'}`}
                           onClick={() => (isMember || isLeader) && handleDriveClick(drive)}
                         >
                           <h4 className="font-semibold mb-2 group-hover:text-red-400 transition-colors">
@@ -1051,7 +1096,7 @@ const ClubDetail = ({ user, onLogout }) => {
                               </span>
                             )}
                           </div>
-                        </div>
+                        </button>
                         {isLeader && (
                           <div className="relative">
                             <button
@@ -1106,7 +1151,7 @@ const ClubDetail = ({ user, onLogout }) => {
                   {pastDrives.length > 0 && (
                     <button
                       onClick={() => setShowPastEventsModal(true)}
-                      className="flex-1 text-zinc-500 hover:text-zinc-400 text-sm font-medium transition py-2 bg-zinc-800/30 hover:bg-zinc-800/50 rounded-xl border border-zinc-700/30"
+                      className="flex-1 text-zinc-400 hover:text-zinc-400 text-sm font-medium transition py-2 bg-zinc-800/30 hover:bg-zinc-800/50 rounded-xl border border-zinc-700/30"
                     >
                       Past Events ({pastDrives.length})
                     </button>
@@ -1149,7 +1194,7 @@ const ClubDetail = ({ user, onLogout }) => {
               <div className="bg-zinc-900 rounded-xl xl:rounded-2xl p-3 xl:p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs xl:text-sm text-zinc-500">Members</p>
+                    <p className="text-xs xl:text-sm text-zinc-400">Members</p>
                     <p className="text-xl xl:text-2xl font-bold text-red-500">{club.members?.length || 0}</p>
                   </div>
                   <button
@@ -1190,7 +1235,7 @@ const ClubDetail = ({ user, onLogout }) => {
                   </button>
                 )}
                 {hasPendingRequest && !joinFeedback && (
-                  <p className="text-sm text-center text-zinc-500">
+                  <p className="text-sm text-center text-zinc-400">
                     Join request pending approval
                   </p>
                 )}
@@ -1230,9 +1275,10 @@ const ClubDetail = ({ user, onLogout }) => {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder=""
+                        aria-label="Find users to invite"
                         className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-600"
                       />
-                      <Search className="absolute right-3 top-2.5 text-zinc-500 w-4 h-4" />
+                      <Search className="absolute right-3 top-2.5 text-zinc-400 w-4 h-4" />
                     </div>
 
                     {searchResults.length > 0 && (
@@ -1264,13 +1310,14 @@ const ClubDetail = ({ user, onLogout }) => {
       {/* All Drives Modal */}
       {showAllDrivesModal && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 rounded-3xl p-8 max-w-lg w-full border border-zinc-800 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <div role="dialog" aria-modal="true" aria-labelledby="all-drives-modal-title" tabIndex={-1} className="bg-zinc-900 rounded-3xl p-8 max-w-lg w-full border border-zinc-800 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">All Drives & Events</h2>
+              <h2 id="all-drives-modal-title" className="text-2xl font-bold">All Drives & Events</h2>
               <button
                 type="button"
                 onClick={closeAllDrivesModal}
-                className="text-zinc-500 hover:text-white transition"
+                aria-label="Close all drives modal"
+                className="text-zinc-400 hover:text-white transition"
               >
                 <X size={24} />
               </button>
@@ -1278,13 +1325,14 @@ const ClubDetail = ({ user, onLogout }) => {
 
             <div className="space-y-3 overflow-y-auto flex-1 pr-2">
               {filteredAndSortedDrives.map((drive) => (
-                <div
+                <button
+                  type="button"
                   key={drive._id}
                   onClick={() => {
                     handleDriveClick(drive);
                     closeAllDrivesModal();
                   }}
-                  className="bg-black rounded-2xl p-4 cursor-pointer hover:bg-zinc-800 transition"
+                  className="w-full text-left bg-black rounded-2xl p-4 cursor-pointer hover:bg-zinc-800 transition"
                 >
                   <p className="font-medium text-sm mb-2">{drive.name}</p>
                   <div className="space-y-1 text-xs text-zinc-400">
@@ -1311,7 +1359,7 @@ const ClubDetail = ({ user, onLogout }) => {
                       </div>
                     )}
                   </div>
-                </div>
+                </button>
               ))}
             </div>
 
@@ -1331,13 +1379,14 @@ const ClubDetail = ({ user, onLogout }) => {
       {/* Members Modal */}
       {showMembersModal && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 rounded-3xl p-8 max-w-lg w-full border border-zinc-800 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <div role="dialog" aria-modal="true" aria-labelledby="members-modal-title" tabIndex={-1} className="bg-zinc-900 rounded-3xl p-8 max-w-lg w-full border border-zinc-800 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">All Members ({club.members?.length || 0})</h2>
+              <h2 id="members-modal-title" className="text-2xl font-bold">All Members ({club.members?.length || 0})</h2>
               <button
                 type="button"
                 onClick={() => setShowMembersModal(false)}
-                className="text-zinc-500 hover:text-white transition"
+                aria-label="Close members modal"
+                className="text-zinc-400 hover:text-white transition"
               >
                 <X size={24} />
               </button>
@@ -1360,7 +1409,7 @@ const ClubDetail = ({ user, onLogout }) => {
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <span className="text-zinc-500 text-sm">
+                          <span className="text-zinc-400 text-sm">
                             {member.username?.charAt(0)?.toUpperCase?.()}
                           </span>
                         </div>
@@ -1371,11 +1420,11 @@ const ClubDetail = ({ user, onLogout }) => {
                       <p className="font-medium">
                         {member.useDisplayName && member.name ? member.name : member.username}
                       </p>
-                      <p className="text-sm text-zinc-500">@{member.username}</p>
+                      <p className="text-sm text-zinc-400">@{member.username}</p>
                       {(() => {
                         const primaryCar = member.cars?.find(c => c.isPrimary) || member.cars?.[0];
                         return primaryCar && (primaryCar.year || primaryCar.make || primaryCar.model) && (
-                          <p className="text-xs text-zinc-500 flex items-center gap-1 mt-1">
+                          <p className="text-xs text-zinc-400 flex items-center gap-1 mt-1">
                             {primaryCar.year} {primaryCar.make} {primaryCar.model}
                           </p>
                         );
@@ -1393,7 +1442,7 @@ const ClubDetail = ({ user, onLogout }) => {
                           <button
                             type="button"
                             onClick={() => setReportTarget({ type: 'user', id: member._id, name: `@${member.username}` })}
-                            className="p-1.5 text-zinc-600 hover:text-orange-400 hover:bg-orange-500/10 rounded-lg transition-all"
+                            className="p-1.5 text-zinc-400 hover:text-orange-400 hover:bg-orange-500/10 rounded-lg transition-all"
                             title="Report member"
                           >
                             <Flag size={14} />
@@ -1404,7 +1453,7 @@ const ClubDetail = ({ user, onLogout }) => {
                           <button
                             type="button"
                             onClick={() => handleRemoveMember(member._id, member.username)}
-                            className="p-1.5 text-zinc-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                            className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
                             title="Remove from club"
                           >
                             <X size={14} />
@@ -1433,13 +1482,14 @@ const ClubDetail = ({ user, onLogout }) => {
       {/* Past Events Modal */}
       {showPastEventsModal && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 rounded-3xl p-8 max-w-lg w-full border border-zinc-800 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <div role="dialog" aria-modal="true" aria-labelledby="past-events-modal-title" tabIndex={-1} className="bg-zinc-900 rounded-3xl p-8 max-w-lg w-full border border-zinc-800 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">Past Events</h2>
+              <h2 id="past-events-modal-title" className="text-2xl font-bold">Past Events</h2>
               <button
                 type="button"
                 onClick={() => setShowPastEventsModal(false)}
-                className="text-zinc-500 hover:text-white transition"
+                aria-label="Close past events modal"
+                className="text-zinc-400 hover:text-white transition"
               >
                 <X size={24} />
               </button>
@@ -1447,14 +1497,16 @@ const ClubDetail = ({ user, onLogout }) => {
 
             <div className="space-y-3 overflow-y-auto flex-1 pr-2">
               {pastDrives.map((drive) => (
-                <div
+                <button
+                  type="button"
                   key={drive._id}
+                  disabled={!(isMember || isLeader)}
                   onClick={() => {
                     if (!(isMember || isLeader)) return;
                     handleDriveClick(drive);
                     setShowPastEventsModal(false);
                   }}
-                  className={`bg-black rounded-2xl p-4 transition ${isMember || isLeader ? 'cursor-pointer hover:bg-zinc-800' : 'cursor-default opacity-80'}`}
+                  className={`w-full text-left bg-black rounded-2xl p-4 transition ${isMember || isLeader ? 'cursor-pointer hover:bg-zinc-800' : 'cursor-default opacity-80'}`}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <p className="font-medium text-sm">{drive.name}</p>
@@ -1488,7 +1540,7 @@ const ClubDetail = ({ user, onLogout }) => {
                       </div>
                     )}
                   </div>
-                </div>
+                </button>
               ))}
             </div>
 
@@ -1508,16 +1560,17 @@ const ClubDetail = ({ user, onLogout }) => {
       {/* Edit Drive Modal */}
       {showEditModal && selectedDrive && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl">
+          <div role="dialog" aria-modal="true" aria-labelledby="edit-drive-modal-title" tabIndex={-1} className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">Edit Drive</h2>
+              <h2 id="edit-drive-modal-title" className="text-2xl font-bold">Edit Drive</h2>
               <button
                 type="button"
                 onClick={() => {
                   setShowEditModal(false);
                   setSelectedDrive(null);
                 }}
-                className="text-zinc-500 hover:text-white transition"
+                aria-label="Close edit drive modal"
+                className="text-zinc-400 hover:text-white transition"
               >
                 <X size={24} />
               </button>
@@ -1525,8 +1578,9 @@ const ClubDetail = ({ user, onLogout }) => {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-zinc-400 mb-2">Name</label>
+                <label htmlFor="edit-drive-name" className="block text-sm text-zinc-400 mb-2">Name</label>
                 <input
+                  id="edit-drive-name"
                   type="text"
                   value={editFormData.name || ''}
                   onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
@@ -1535,8 +1589,9 @@ const ClubDetail = ({ user, onLogout }) => {
               </div>
 
               <div>
-                <label className="block text-sm text-zinc-400 mb-2">Date</label>
+                <label htmlFor="edit-drive-date" className="block text-sm text-zinc-400 mb-2">Date</label>
                 <input
+                  id="edit-drive-date"
                   type="date"
                   value={editFormData.date || ''}
                   onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
@@ -1545,8 +1600,9 @@ const ClubDetail = ({ user, onLogout }) => {
               </div>
 
               <div>
-                <label className="block text-sm text-zinc-400 mb-2">Time</label>
+                <label htmlFor="edit-drive-time" className="block text-sm text-zinc-400 mb-2">Time</label>
                 <input
+                  id="edit-drive-time"
                   type="text"
                   value={editFormData.time || ''}
                   onChange={(e) => setEditFormData({ ...editFormData, time: e.target.value })}
@@ -1556,8 +1612,9 @@ const ClubDetail = ({ user, onLogout }) => {
               </div>
 
               <div>
-                <label className="block text-sm text-zinc-400 mb-2">Location</label>
+                <label htmlFor="edit-drive-location" className="block text-sm text-zinc-400 mb-2">Location</label>
                 <LocationSearch
+                  id="edit-drive-location"
                   value={editFormData.location || ''}
                   onChange={(v) => setEditFormData({ ...editFormData, location: v })}
                   onSelect={({ lat, lng }) => setEditFormData({ ...editFormData, coordinates: { lat, lng } })}
@@ -1569,14 +1626,15 @@ const ClubDetail = ({ user, onLogout }) => {
                       lng={editFormData.coordinates.lng}
                       onChange={(coords) => setEditFormData({ ...editFormData, coordinates: coords })}
                     />
-                    <p className="text-[11px] text-zinc-500">Drag the pin to fine-tune the exact meeting point.</p>
+                    <p className="text-[11px] text-zinc-400">Drag the pin to fine-tune the exact meeting point.</p>
                   </div>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm text-zinc-400 mb-2">Description</label>
+                <label htmlFor="edit-drive-description" className="block text-sm text-zinc-400 mb-2">Description</label>
                 <textarea
+                  id="edit-drive-description"
                   value={editFormData.description || ''}
                   onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
                   rows={3}
@@ -1610,13 +1668,14 @@ const ClubDetail = ({ user, onLogout }) => {
 
       {showDriveModal && selectedDrive && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 rounded-3xl p-8 max-w-lg w-full border border-zinc-800 shadow-2xl">
+          <div role="dialog" aria-modal="true" aria-labelledby="drive-detail-modal-title" tabIndex={-1} className="bg-zinc-900 rounded-3xl p-8 max-w-lg w-full border border-zinc-800 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">{selectedDrive.name}</h2>
+              <h2 id="drive-detail-modal-title" className="text-2xl font-bold">{selectedDrive.name}</h2>
               <button
                 type="button"
                 onClick={closeDriveModal}
-                className="text-zinc-500 hover:text-white transition"
+                aria-label="Close drive details"
+                className="text-zinc-400 hover:text-white transition"
               >
                 <X size={24} />
               </button>
@@ -1685,7 +1744,7 @@ const ClubDetail = ({ user, onLogout }) => {
               {new Date(selectedDrive.date) >= new Date() && !selectedDrive.isCompleted && (
                 <div className="border-t border-zinc-700 pt-6">
                   {!(isMember || isLeader) ? (
-                    <p className="text-sm text-zinc-500 text-center py-2">
+                    <p className="text-sm text-zinc-400 text-center py-2">
                       Join this club to RSVP to drives.
                     </p>
                   ) : (
@@ -1699,7 +1758,7 @@ const ClubDetail = ({ user, onLogout }) => {
                         <div className="mb-4 bg-amber-900/20 border border-amber-600/40 rounded-2xl p-4 text-center">
                           <Clock className="w-5 h-5 text-amber-400 mx-auto mb-2" />
                           <p className="text-amber-400 font-semibold">You are #{userWaitlistPosition} on the waitlist</p>
-                          <p className="text-xs text-zinc-500 mt-1">You'll be automatically confirmed when a spot opens up</p>
+                          <p className="text-xs text-zinc-400 mt-1">You'll be automatically confirmed when a spot opens up</p>
                           <button
                             type="button"
                             onClick={() => handleRSVP('not-going')}
@@ -1782,20 +1841,20 @@ const ClubDetail = ({ user, onLogout }) => {
                         <div className="flex gap-4">
                           <div className="flex-1 bg-black rounded-xl p-3 text-center">
                             <p className="text-2xl font-bold text-green-400">{rsvpCounts.going}</p>
-                            <p className="text-xs text-zinc-500">Going</p>
+                            <p className="text-xs text-zinc-400">Going</p>
                           </div>
                           <div className="flex-1 bg-black rounded-xl p-3 text-center">
                             <p className="text-2xl font-bold text-yellow-400">{rsvpCounts.maybe}</p>
-                            <p className="text-xs text-zinc-500">Maybe</p>
+                            <p className="text-xs text-zinc-400">Maybe</p>
                           </div>
                           <div className="flex-1 bg-black rounded-xl p-3 text-center">
                             <p className="text-2xl font-bold text-red-400">{rsvpCounts.notGoing}</p>
-                            <p className="text-xs text-zinc-500">Not Going</p>
+                            <p className="text-xs text-zinc-400">Not Going</p>
                           </div>
                           {rsvpCounts.waitlisted > 0 && (
                             <div className="flex-1 bg-black rounded-xl p-3 text-center">
                               <p className="text-2xl font-bold text-amber-400">{rsvpCounts.waitlisted}</p>
-                              <p className="text-xs text-zinc-500">Waitlisted</p>
+                              <p className="text-xs text-zinc-400">Waitlisted</p>
                             </div>
                           )}
                         </div>
@@ -1820,7 +1879,7 @@ const ClubDetail = ({ user, onLogout }) => {
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-zinc-500 mb-4">
+                      <p className="text-sm text-zinc-400 mb-4">
                         Optional — ask members who RSVPed "going" to confirm they showed up. Stays open until you mark this drive completed.
                       </p>
                       <button
@@ -1838,15 +1897,15 @@ const ClubDetail = ({ user, onLogout }) => {
                         <div className="flex gap-4">
                           <div className="flex-1 bg-black rounded-xl p-3 text-center">
                             <p className="text-2xl font-bold text-green-400">{checkinCounts.present}</p>
-                            <p className="text-xs text-zinc-500">Present</p>
+                            <p className="text-xs text-zinc-400">Present</p>
                           </div>
                           <div className="flex-1 bg-black rounded-xl p-3 text-center">
                             <p className="text-2xl font-bold text-zinc-400">{checkinCounts.notPresent}</p>
-                            <p className="text-xs text-zinc-500">Not Present</p>
+                            <p className="text-xs text-zinc-400">Not Present</p>
                           </div>
                           <div className="flex-1 bg-black rounded-xl p-3 text-center">
                             <p className="text-2xl font-bold text-amber-400">{checkinCounts.pending}</p>
-                            <p className="text-xs text-zinc-500">Pending</p>
+                            <p className="text-xs text-zinc-400">Pending</p>
                           </div>
                         </div>
                       )}
@@ -1873,7 +1932,7 @@ const ClubDetail = ({ user, onLogout }) => {
                     <div className="flex items-center gap-2 mb-4 text-zinc-300">
                       <Star size={18} className="text-yellow-400 fill-yellow-400" />
                       <span className="font-semibold">{driveRatingSummary.average}</span>
-                      <span className="text-xs text-zinc-500">
+                      <span className="text-xs text-zinc-400">
                         ({driveRatingSummary.count} rating{driveRatingSummary.count === 1 ? '' : 's'})
                       </span>
                     </div>
@@ -1910,7 +1969,7 @@ const ClubDetail = ({ user, onLogout }) => {
                         rows={3}
                         maxLength={200}
                       />
-                      <p className="text-xs text-zinc-500 text-right mb-4">{ratingComment.length}/200</p>
+                      <p className="text-xs text-zinc-400 text-right mb-4">{ratingComment.length}/200</p>
                       <button
                         type="button"
                         onClick={handleSubmitRating}
@@ -1925,7 +1984,7 @@ const ClubDetail = ({ user, onLogout }) => {
                     </>
                   ) : (
                     driveRatingSummary.count === 0 && (
-                      <p className="text-sm text-zinc-500">No ratings yet for this drive.</p>
+                      <p className="text-sm text-zinc-400">No ratings yet for this drive.</p>
                     )
                   )}
                 </div>
@@ -1948,13 +2007,14 @@ const ClubDetail = ({ user, onLogout }) => {
       {/* Club Edit Modal */}
       {showClubEditModal && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div role="dialog" aria-modal="true" aria-labelledby="edit-club-modal-title" tabIndex={-1} className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">Edit Club</h2>
+              <h2 id="edit-club-modal-title" className="text-2xl font-bold">Edit Club</h2>
               <button
                 type="button"
                 onClick={closeClubEditModal}
-                className="text-zinc-500 hover:text-white transition"
+                aria-label="Close edit club modal"
+                className="text-zinc-400 hover:text-white transition"
               >
                 <X size={24} />
               </button>
@@ -1969,7 +2029,7 @@ const ClubDetail = ({ user, onLogout }) => {
             <div className="space-y-4">
               {/* Club Avatar */}
               <div>
-                <label className="block text-sm text-zinc-400 mb-2">Club Avatar</label>
+                <p className="block text-sm text-zinc-400 mb-2">Club Avatar</p>
                 <div className="flex items-center gap-4 mb-4">
                   <div className="w-20 h-20 rounded-full bg-zinc-700 overflow-hidden flex-shrink-0 border-2 border-zinc-600">
                     {clubAvatarPreview ? (
@@ -1988,7 +2048,7 @@ const ClubDetail = ({ user, onLogout }) => {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-zinc-500 text-xs">No Image</span>
+                        <span className="text-zinc-400 text-xs">No Image</span>
                       </div>
                     )}
                   </div>
@@ -2002,7 +2062,7 @@ const ClubDetail = ({ user, onLogout }) => {
                     Choose Image
                   </label>
                   {avatarFileName && (
-                    <p className="text-xs text-zinc-500">Selected: {avatarFileName}</p>
+                    <p className="text-xs text-zinc-400">Selected: {avatarFileName}</p>
                   )}
                 </div>
               </div>
@@ -2030,8 +2090,9 @@ const ClubDetail = ({ user, onLogout }) => {
               </div>
 
               <div>
-                <label className="block text-sm text-zinc-400 mb-2">Location</label>
+                <label htmlFor="club-edit-location" className="block text-sm text-zinc-400 mb-2">Location</label>
                 <LocationSearch
+                  id="club-edit-location"
                   value={clubEditFormData.location || ''}
                   onChange={(val) => setClubEditFormData({ ...clubEditFormData, location: val })}
                 />
@@ -2092,7 +2153,7 @@ const ClubDetail = ({ user, onLogout }) => {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{member.useDisplayName && member.name ? member.name : member.username}</p>
-                          <p className="text-xs text-zinc-500">@{member.username}</p>
+                          <p className="text-xs text-zinc-400">@{member.username}</p>
                         </div>
                         {transferTarget?._id === member._id && (
                           <Crown size={14} className="text-amber-400 flex-shrink-0" />
@@ -2157,18 +2218,19 @@ const ClubDetail = ({ user, onLogout }) => {
       {/* Schedule Drive Modal */}
       {showScheduleDriveModal && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 rounded-3xl p-6 max-w-2xl w-full border border-zinc-800 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div role="dialog" aria-modal="true" aria-labelledby="schedule-drive-modal-title" tabIndex={-1} className="bg-zinc-900 rounded-3xl p-6 max-w-2xl w-full border border-zinc-800 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-red-600 rounded-2xl flex items-center justify-center">
                   <CalendarDays className="w-6 h-6 text-white" />
                 </div>
-                <h2 className="text-2xl font-bold">Schedule a Drive</h2>
+                <h2 id="schedule-drive-modal-title" className="text-2xl font-bold">Schedule a Drive</h2>
               </div>
               <button
                 type="button"
                 onClick={closeScheduleDriveModal}
-                className="text-zinc-500 hover:text-white transition"
+                aria-label="Close schedule drive modal"
+                className="text-zinc-400 hover:text-white transition"
               >
                 <X size={24} />
               </button>
@@ -2183,10 +2245,11 @@ const ClubDetail = ({ user, onLogout }) => {
             <div className="space-y-6">
               {/* Drive Name */}
               <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-3">
+                <label htmlFor="schedule-drive-name" className="block text-sm font-medium text-zinc-300 mb-3">
                   Drive Name <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="schedule-drive-name"
                   type="text"
                   name="name"
                   value={scheduleForm.name}
@@ -2198,9 +2261,9 @@ const ClubDetail = ({ user, onLogout }) => {
 
               {/* Date & Time Selection */}
               <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                <p className="block text-sm font-medium text-zinc-300 mb-2">
                   Date &amp; Time <span className="text-red-500">*</span>
-                </label>
+                </p>
                 <DriveSchedulerPicker
                   selectedDate={selectedDate}
                   selectedTime={scheduleForm.time}
@@ -2215,10 +2278,11 @@ const ClubDetail = ({ user, onLogout }) => {
 
               {/* Location */}
               <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-3">
+                <label htmlFor="schedule-drive-location" className="block text-sm font-medium text-zinc-300 mb-3">
                   Location <span className="text-red-500">*</span>
                 </label>
                 <LocationSearch
+                  id="schedule-drive-location"
                   value={scheduleForm.location}
                   onChange={(v) => { setScheduleForm(prev => ({ ...prev, location: v })); setValidationError(null); }}
                   onSelect={({ lat, lng }) => setScheduleForm(prev => ({ ...prev, coordinates: { lat, lng } }))}
@@ -2230,17 +2294,18 @@ const ClubDetail = ({ user, onLogout }) => {
                       lng={scheduleForm.coordinates.lng}
                       onChange={(coords) => setScheduleForm(prev => ({ ...prev, coordinates: coords }))}
                     />
-                    <p className="text-[11px] text-zinc-500">Drag the pin to fine-tune the exact meeting point.</p>
+                    <p className="text-[11px] text-zinc-400">Drag the pin to fine-tune the exact meeting point.</p>
                   </div>
                 )}
               </div>
 
               {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-3">
+                <label htmlFor="schedule-drive-description" className="block text-sm font-medium text-zinc-300 mb-3">
                   Description (Optional)
                 </label>
                 <textarea
+                  id="schedule-drive-description"
                   name="description"
                   value={scheduleForm.description}
                   onChange={handleScheduleFormChange}
@@ -2252,9 +2317,9 @@ const ClubDetail = ({ user, onLogout }) => {
 
               {/* Route Image (Optional) */}
               <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-3">
-                  Route Image <span className="text-zinc-500 text-xs">(Optional)</span>
-                </label>
+                <p className="block text-sm font-medium text-zinc-300 mb-3">
+                  Route Image <span className="text-zinc-400 text-xs">(Optional)</span>
+                </p>
                 {driveImagePreview ? (
                   <div className="relative">
                     <img src={driveImagePreview} alt="Drive route" className="w-full h-32 object-cover rounded-xl border border-zinc-700" />
@@ -2268,8 +2333,8 @@ const ClubDetail = ({ user, onLogout }) => {
                   </div>
                 ) : (
                   <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-zinc-700 rounded-xl cursor-pointer hover:border-zinc-500 transition">
-                    <MapPin size={20} className="text-zinc-500 mb-1" />
-                    <span className="text-xs text-zinc-500">Upload route map or photo</span>
+                    <MapPin size={20} className="text-zinc-400 mb-1" />
+                    <span className="text-xs text-zinc-400">Upload route map or photo</span>
                     <input type="file" accept="image/*" className="hidden" onChange={handleDriveImageUpload} />
                   </label>
                 )}
@@ -2314,13 +2379,14 @@ const ClubDetail = ({ user, onLogout }) => {
       {/* Leave Club Confirmation Modal */}
       {showLeaveConfirm && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl">
+          <div role="dialog" aria-modal="true" aria-labelledby="leave-club-modal-title" tabIndex={-1} className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">Leave Club</h2>
+              <h2 id="leave-club-modal-title" className="text-2xl font-bold">Leave Club</h2>
               <button
                 type="button"
                 onClick={cancelLeaveClub}
-                className="text-zinc-500 hover:text-white transition"
+                aria-label="Close leave club dialog"
+                className="text-zinc-400 hover:text-white transition"
               >
                 <X size={24} />
               </button>
@@ -2357,8 +2423,8 @@ const ClubDetail = ({ user, onLogout }) => {
       {/* Delete Drive Confirmation */}
       {driveToDelete && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 rounded-2xl p-6 max-w-sm w-full border border-zinc-700 shadow-2xl">
-            <h3 className="text-lg font-bold mb-2">Delete Drive</h3>
+          <div role="dialog" aria-modal="true" aria-labelledby="delete-drive-modal-title" tabIndex={-1} className="bg-zinc-900 rounded-2xl p-6 max-w-sm w-full border border-zinc-700 shadow-2xl">
+            <h3 id="delete-drive-modal-title" className="text-lg font-bold mb-2">Delete Drive</h3>
             <p className="text-zinc-400 text-sm mb-6">
               Are you sure you want to delete <span className="text-white font-medium">{driveToDelete.name}</span>? This cannot be undone.
             </p>
@@ -2385,8 +2451,8 @@ const ClubDetail = ({ user, onLogout }) => {
       {/* Remove Member Confirmation */}
       {memberToRemove && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 rounded-2xl p-6 max-w-sm w-full border border-zinc-700 shadow-2xl">
-            <h3 className="text-lg font-bold mb-2">Remove Member</h3>
+          <div role="dialog" aria-modal="true" aria-labelledby="remove-member-modal-title" tabIndex={-1} className="bg-zinc-900 rounded-2xl p-6 max-w-sm w-full border border-zinc-700 shadow-2xl">
+            <h3 id="remove-member-modal-title" className="text-lg font-bold mb-2">Remove Member</h3>
             <p className="text-zinc-400 text-sm mb-2">
               Are you sure you want to remove <span className="text-white font-medium">@{memberToRemove.username}</span> from this club?
             </p>
@@ -2415,9 +2481,9 @@ const ClubDetail = ({ user, onLogout }) => {
 
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-red-600 shadow-2xl">
+          <div role="dialog" aria-modal="true" aria-labelledby="delete-club-modal-title" tabIndex={-1} className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-red-600 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-red-400">Delete Club</h2>
+              <h2 id="delete-club-modal-title" className="text-2xl font-bold text-red-400">Delete Club</h2>
               <button
                 type="button"
                 onClick={() => {
@@ -2425,7 +2491,8 @@ const ClubDetail = ({ user, onLogout }) => {
                   setDeleteEmail('');
                   setDeleteReason('');
                 }}
-                className="text-zinc-500 hover:text-white transition"
+                aria-label="Close delete club dialog"
+                className="text-zinc-400 hover:text-white transition"
               >
                 <X size={24} />
               </button>
@@ -2445,11 +2512,12 @@ const ClubDetail = ({ user, onLogout }) => {
               </div>
 
               <div>
-                <label className="block text-sm text-zinc-400 mb-2">
+                <label htmlFor="delete-club-email" className="block text-sm text-zinc-400 mb-2">
                   Confirm Leader Email
-                  <span className="text-zinc-500 text-xs ml-1">(Must match the club leader's email)</span>
+                  <span className="text-zinc-400 text-xs ml-1">(Must match the club leader's email)</span>
                 </label>
                 <input
+                  id="delete-club-email"
                   type="email"
                   value={deleteEmail}
                   onChange={(e) => setDeleteEmail(e.target.value)}
@@ -2459,11 +2527,12 @@ const ClubDetail = ({ user, onLogout }) => {
               </div>
 
               <div>
-                <label className="block text-sm text-zinc-400 mb-2">
+                <label htmlFor="delete-club-reason" className="block text-sm text-zinc-400 mb-2">
                   Reason for Deletion
-                  <span className="text-zinc-500 text-xs ml-1">(Optional, helps us improve)</span>
+                  <span className="text-zinc-400 text-xs ml-1">(Optional, helps us improve)</span>
                 </label>
                 <textarea
+                  id="delete-club-reason"
                   value={deleteReason}
                   onChange={(e) => setDeleteReason(e.target.value)}
                   rows={3}

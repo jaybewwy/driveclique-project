@@ -139,7 +139,8 @@ const Dashboard = ({ user, onLogout }) => {
         <Sidebar user={user} />
 
         {/* ── Main feed ────────────────────────────────────────────────── */}
-        <div className="flex-1 max-w-3xl min-h-screen p-5 md:p-6">
+        <div id="main-content" role="main" className="flex-1 max-w-3xl min-h-screen p-5 md:p-6">
+          <h1 className="sr-only">Dashboard</h1>
 
           {/* Email verification banner */}
           {user?.emailVerified === false && (
@@ -170,7 +171,7 @@ const Dashboard = ({ user, onLogout }) => {
                   {displayName}
                 </span>
               </h2>
-              <p className="text-zinc-500 text-sm mt-1.5">Here's what's happening in your car community</p>
+              <p className="text-zinc-400 text-sm mt-1.5">Here's what's happening in your car community</p>
             </div>
           )}
 
@@ -184,7 +185,7 @@ const Dashboard = ({ user, onLogout }) => {
                 <div className="absolute top-0 right-0 w-16 h-16 bg-white/[0.03] rounded-full blur-xl" />
                 <Icon className={`w-5 h-5 ${iconCls} mb-2.5`} />
                 <p className="font-semibold text-xs text-white">{label}</p>
-                <p className="text-[11px] text-zinc-500 mt-0.5 leading-snug hidden sm:block">{desc}</p>
+                <p className="text-[11px] text-zinc-400 mt-0.5 leading-snug hidden sm:block">{desc}</p>
               </div>
             ))}
           </div>
@@ -201,10 +202,10 @@ const Dashboard = ({ user, onLogout }) => {
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-semibold text-white">Club Analytics</p>
-                  <p className="text-[11px] text-zinc-500">Performance insights for your clubs</p>
+                  <p className="text-[11px] text-zinc-400">Performance insights for your clubs</p>
                 </div>
               </div>
-              <ArrowRight className="w-4 h-4 text-zinc-600 group-hover:text-red-400 group-hover:translate-x-0.5 transition-all duration-200" />
+              <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-red-400 group-hover:translate-x-0.5 transition-all duration-200" />
             </button>
           )}
 
@@ -218,7 +219,7 @@ const Dashboard = ({ user, onLogout }) => {
                 </div>
                 <div>
                   <h3 className="font-semibold text-base text-white">Plan Your Next Event</h3>
-                  <p className="text-xs text-zinc-500 mt-0.5">Organize drives and connect with enthusiasts</p>
+                  <p className="text-xs text-zinc-400 mt-0.5">Organize drives and connect with enthusiasts</p>
                 </div>
               </div>
 
@@ -260,7 +261,7 @@ const Dashboard = ({ user, onLogout }) => {
               </div>
               <button
                 onClick={() => navigate("/my-clubs")}
-                className="text-xs text-zinc-500 hover:text-white flex items-center gap-1 transition-colors"
+                className="text-xs text-zinc-400 hover:text-white flex items-center gap-1 transition-colors"
               >
                 View All <ArrowRight className="w-3.5 h-3.5" />
               </button>
@@ -270,17 +271,18 @@ const Dashboard = ({ user, onLogout }) => {
               {drivesLoading && Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
 
               {!drivesLoading && upcomingDrives.map((drive) => (
-                <div
+                <button
+                  type="button"
                   key={drive._id}
                   onClick={() => drive.clubId && navigate(`/club/${drive.clubId}`)}
-                  className="glass-card p-4 hover:border-white/[0.12] hover:-translate-y-0.5 cursor-pointer group transition-all duration-200 rounded-2xl"
+                  className="w-full text-left glass-card p-4 hover:border-white/[0.12] hover:-translate-y-0.5 cursor-pointer group transition-all duration-200 rounded-2xl"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm text-white group-hover:text-red-400 transition-colors truncate mb-1.5">
                         {drive.name}
                       </p>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3.5 h-3.5" />
                           {formatDate(drive.date)}
@@ -298,17 +300,17 @@ const Dashboard = ({ user, onLogout }) => {
                       </div>
                     </div>
                     <div className="w-8 h-8 bg-white/[0.04] group-hover:bg-red-500/15 rounded-xl flex items-center justify-center transition-all duration-200 shrink-0">
-                      <ArrowRight className="w-3.5 h-3.5 text-zinc-600 group-hover:text-red-400" />
+                      <ArrowRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-red-400" />
                     </div>
                   </div>
-                </div>
+                </button>
               ))}
 
               {!drivesLoading && upcomingDrives.length === 0 && (
                 <div className="text-center py-10 glass-subtle rounded-2xl">
                   <Calendar className="w-10 h-10 text-zinc-700 mx-auto mb-2.5" />
-                  <p className="text-sm text-zinc-500 font-medium">No upcoming drives</p>
-                  <p className="text-xs text-zinc-600 mt-0.5">Join a club and RSVP to get started</p>
+                  <p className="text-sm text-zinc-400 font-medium">No upcoming drives</p>
+                  <p className="text-xs text-zinc-400 mt-0.5">Join a club and RSVP to get started</p>
                 </div>
               )}
             </div>
@@ -322,9 +324,10 @@ const Dashboard = ({ user, onLogout }) => {
           <div>
             <p className="section-label mb-3">Trending</p>
             {trendingClub ? (
-              <div
+              <button
+                type="button"
                 onClick={() => navigate(`/club/${trendingClub._id}`)}
-                className="glass-card p-4 cursor-pointer hover:border-white/[0.12] hover:-translate-y-0.5 transition-all duration-200 group rounded-2xl"
+                className="w-full text-left glass-card p-4 cursor-pointer hover:border-white/[0.12] hover:-translate-y-0.5 transition-all duration-200 group rounded-2xl"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl overflow-hidden ring-1 ring-white/[0.08] shrink-0">
@@ -340,17 +343,17 @@ const Dashboard = ({ user, onLogout }) => {
                     <p className="font-semibold text-sm truncate text-white group-hover:text-red-400 transition-colors">
                       {trendingClub.name}
                     </p>
-                    <p className="text-[11px] text-zinc-500 mt-0.5">
+                    <p className="text-[11px] text-zinc-400 mt-0.5">
                       {trendingClub.memberCount} members · {trendingClub.completedDrivesCount} drives
                     </p>
                   </div>
                   <TrendingUp className="w-4 h-4 text-red-500 shrink-0" />
                 </div>
-              </div>
+              </button>
             ) : (
               <div className="glass-subtle p-4 text-center rounded-2xl">
                 <TrendingUp className="w-7 h-7 text-zinc-700 mx-auto mb-1.5" />
-                <p className="text-xs text-zinc-600">No trending clubs yet</p>
+                <p className="text-xs text-zinc-400">No trending clubs yet</p>
               </div>
             )}
           </div>

@@ -45,6 +45,14 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ─── Keyboard focus indicator ────────────────────────────────────────────── */
+/* Only fires for keyboard focus, not mouse clicks — doesn't fight the
+   Tailwind `focus:outline-none` utilities, which target plain :focus. */
+*:focus-visible {
+  outline: 2px solid rgb(var(--primary));
+  outline-offset: 2px;
+}
+
 /* ─── Custom scrollbar ────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 6px;
@@ -106,7 +114,7 @@ body {
 
   /* Section label — uppercase tracking label above sections */
   .section-label {
-    @apply text-[11px] font-semibold uppercase tracking-widest text-zinc-500;
+    @apply text-[11px] font-semibold uppercase tracking-widest text-zinc-400;
   }
 
   /* Gradient text */

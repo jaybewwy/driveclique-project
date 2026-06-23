@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Flag, AlertTriangle, CheckCircle } from 'lucide-react';
 import { reportsAPI } from '../../services/api';
+import { trackEvent } from '../../services/analytics';
+import useFocusTrap from '../../hooks/useFocusTrap';
 
 const REASONS = [
   { value: 'harassment', label: 'Harassment or hate speech' },
@@ -24,6 +26,15 @@ const ReportModal = ({ targetType, targetId, targetName, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState('');
   const [success, setSuccess] = useState(false);
+  const dialogRef = useFocusTrap(true);
+
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,6 +43,7 @@ const ReportModal = ({ targetType, targetId, targetName, onClose }) => {
     setError('');
     try {
       await reportsAPI.submit({ targetType, targetId, reason, details });
+      trackEvent('REPORT_SUBMITTED', { targetType });
       setSuccess(true);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to submit report. Please try again.');
@@ -43,10 +55,17 @@ const ReportModal = ({ targetType, targetId, targetName, onClose }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div role="presentation" aria-hidden="true" className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
 
       {/* Panel */}
-      <div className="relative glass-card w-full max-w-md p-6 rounded-3xl animate-fade-slide-up">
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="report-modal-title"
+        className="relative glass-card w-full max-w-md p-6 rounded-3xl animate-fade-slide-up"
+      >
         {/* Header */}
         <div className="flex items-start justify-between mb-5">
           <div className="flex items-center gap-3">
@@ -54,13 +73,14 @@ const ReportModal = ({ targetType, targetId, targetName, onClose }) => {
               <Flag className="w-4 h-4 text-red-400" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-white">Report Content</h2>
-              <p className="text-xs text-zinc-500 mt-0.5 truncate max-w-[220px]">{targetName}</p>
+              <h2 id="report-modal-title" className="text-base font-semibold text-white">Report Content</h2>
+              <p className="text-xs text-zinc-400 mt-0.5 truncate max-w-[220px]">{targetName}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/[0.07] rounded-lg transition-all"
+            aria-label="Close report dialog"
+            className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/[0.07] rounded-lg transition-all"
           >
             <X className="w-4 h-4" />
           </button>
@@ -73,7 +93,7 @@ const ReportModal = ({ targetType, targetId, targetName, onClose }) => {
               <CheckCircle className="w-7 h-7 text-green-400" />
             </div>
             <p className="text-white font-semibold mb-1">Report submitted</p>
-            <p className="text-zinc-500 text-sm">Thank you — we'll review this content.</p>
+            <p className="text-zinc-400 text-sm">Thank you — we'll review this content.</p>
             <button
               onClick={onClose}
               className="mt-5 btn-ghost px-5 py-2 text-sm"
@@ -115,7 +135,7 @@ const ReportModal = ({ targetType, targetId, targetName, onClose }) => {
 
             {/* Optional details */}
             <div className="mb-5">
-              <p className="section-label mb-2">Additional details <span className="normal-case font-normal text-zinc-600">(optional)</span></p>
+              <p className="section-label mb-2">Additional details <span className="normal-case font-normal text-zinc-400">(optional)</span></p>
               <textarea
                 value={details}
                 onChange={(e) => setDetails(e.target.value)}
@@ -124,7 +144,7 @@ const ReportModal = ({ targetType, targetId, targetName, onClose }) => {
                 placeholder=""
                 className="w-full bg-white/[0.06] border border-white/[0.08] rounded-2xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 resize-none focus:outline-none focus:border-red-500/40 focus:ring-1 focus:ring-red-500/15 transition-all"
               />
-              <p className="text-[11px] text-zinc-600 mt-1 text-right">{details.length}/500</p>
+              <p className="text-[11px] text-zinc-400 mt-1 text-right">{details.length}/500</p>
             </div>
 
             {/* Disclaimer */}
