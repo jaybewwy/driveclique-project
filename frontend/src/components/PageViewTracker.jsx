@@ -10,7 +10,11 @@ const PageViewTracker = () => {
   const location = useLocation();
 
   useEffect(() => {
-    trackEvent('PAGE_VIEW', { path: location.pathname });
+    // Deferred to the next tick so this best-effort ping never competes with
+    // the page's own mount-time effects (auth bootstrap, initial data fetches)
+    // for the network/microtask queue.
+    const timer = setTimeout(() => trackEvent('PAGE_VIEW', { path: location.pathname }), 0);
+    return () => clearTimeout(timer);
   }, [location.pathname]);
 
   return null;
