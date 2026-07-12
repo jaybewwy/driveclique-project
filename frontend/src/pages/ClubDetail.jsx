@@ -21,6 +21,7 @@ import {
   Flag,
   Star,
   Navigation,
+  ChevronDown,
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
@@ -79,6 +80,12 @@ const ClubDetail = ({ user, onLogout }) => {
   const [checkInRequestedAt, setCheckInRequestedAt] = useState(null);
   const [isSendingCheckin, setIsSendingCheckin] = useState(false);
   const [checkinSentMessage, setCheckinSentMessage] = useState('');
+
+  // Attendee list state (leader-only, modal-scoped — reset when modal closes)
+  const [showAttendeesList, setShowAttendeesList] = useState(false);
+  const [attendeesData, setAttendeesData] = useState(null); // { rsvps, stats } from GET /drives/:id/attendees
+  const [isLoadingAttendees, setIsLoadingAttendees] = useState(false);
+  const [attendeesError, setAttendeesError] = useState('');
 
   // Drive rating state (modal-scoped — reset when modal closes)
   const [driveRatingSummary, setDriveRatingSummary] = useState({ average: null, count: 0 });
@@ -242,6 +249,9 @@ const ClubDetail = ({ user, onLogout }) => {
     setCheckinCounts({ present: 0, notPresent: 0, pending: 0 });
     setCheckInRequestedAt(null);
     setCheckinSentMessage('');
+    setShowAttendeesList(false);
+    setAttendeesData(null);
+    setAttendeesError('');
     setDriveRatingSummary({ average: null, count: 0 });
     setRatingStars(0);
     setRatingHoverStars(0);
@@ -315,6 +325,26 @@ const ClubDetail = ({ user, onLogout }) => {
     } finally {
       setIsSendingCheckin(false);
       setTimeout(() => setCheckinSentMessage(''), 4000);
+    }
+  };
+
+  // Leader toggles the full attendee list open/closed, lazy-fetching it on first open
+  const handleToggleAttendeesList = async () => {
+    if (showAttendeesList) {
+      setShowAttendeesList(false);
+      return;
+    }
+    setShowAttendeesList(true);
+    if (attendeesData || isLoadingAttendees || !selectedDrive) return;
+    setIsLoadingAttendees(true);
+    setAttendeesError('');
+    try {
+      const response = await drivesAPI.getAttendees(selectedDrive._id);
+      setAttendeesData(response.data);
+    } catch (error) {
+      setAttendeesError(error.response?.data?.message || 'Failed to load attendee list');
+    } finally {
+      setIsLoadingAttendees(false);
     }
   };
 
@@ -1859,6 +1889,65 @@ const ClubDetail = ({ user, onLogout }) => {
                           )}
                         </div>
                       </div>
+
+                      {/* Attendee List (leader-only) — the full per-member breakdown behind the counts above */}
+                      {isLeader && (
+                        <div className="border-t border-zinc-700/50 pt-4 mt-4">
+                          <button
+                            type="button"
+                            onClick={handleToggleAttendeesList}
+                            aria-expanded={showAttendeesList}
+                            className="w-full flex items-center justify-between text-sm font-semibold text-zinc-400 hover:text-white transition"
+                          >
+                            <span>Attendee List</span>
+                            <ChevronDown
+                              size={16}
+                              className={`transition-transform ${showAttendeesList ? 'rotate-180' : ''}`}
+                            />
+                          </button>
+                          {showAttendeesList && (
+                            <div className="mt-3">
+                              {isLoadingAttendees && (
+                                <p className="text-sm text-zinc-400 text-center py-2">Loading attendees...</p>
+                              )}
+                              {attendeesError && (
+                                <p className="text-sm text-red-400 text-center py-2">{attendeesError}</p>
+                              )}
+                              {attendeesData && (
+                                attendeesData.rsvps.length === 0 ? (
+                                  <p className="text-sm text-zinc-400 text-center py-2">No RSVPs yet.</p>
+                                ) : (
+                                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                                    {attendeesData.rsvps.map((rsvp) => (
+                                      <div
+                                        key={rsvp._id}
+                                        className="flex items-center justify-between bg-black rounded-xl px-3 py-2"
+                                      >
+                                        <span className="text-sm text-white truncate">
+                                          {rsvp.user?.username || 'Unknown member'}
+                                        </span>
+                                        <span
+                                          className={`text-xs font-medium uppercase tracking-wide whitespace-nowrap ml-3 ${
+                                            rsvp.status === 'going'
+                                              ? 'text-green-400'
+                                              : rsvp.status === 'maybe'
+                                              ? 'text-yellow-400'
+                                              : rsvp.status === 'waitlisted'
+                                              ? 'text-amber-400'
+                                              : 'text-red-400'
+                                          }`}
+                                        >
+                                          {rsvp.status.replace('-', ' ')}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
