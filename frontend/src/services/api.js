@@ -148,7 +148,13 @@ export const authAPI = {
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('driveclique_user');
     if (refreshToken) {
-      try { await api.post('/auth/logout', { refreshToken }); } catch { /* best-effort */ }
+      // Client-side session is already cleared above regardless of outcome —
+      // this is just best-effort server-side token revocation.
+      try {
+        await api.post('/auth/logout', { refreshToken });
+      } catch (error) {
+        console.error('Failed to revoke refresh token server-side:', error);
+      }
     }
   },
   refresh: (refreshToken) => api.post('/auth/refresh', { refreshToken }),

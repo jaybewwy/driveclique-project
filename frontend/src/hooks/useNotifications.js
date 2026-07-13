@@ -44,7 +44,9 @@ export const useNotifications = (enabled = true) => {
         try {
           const payload = JSON.parse(e.data);
           addNotification(payload);
-        } catch { /* ignore malformed frames */ }
+        } catch (error) {
+          console.warn('Ignored malformed SSE frame:', e.data, error);
+        }
       };
 
       es.onerror = () => {

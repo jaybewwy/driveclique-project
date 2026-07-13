@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ShieldAlert, BarChart3, Users, Eye } from "lucide-react";
+import { ShieldAlert, BarChart3, Users, Eye, ShieldX } from "lucide-react";
 import NavBar from "../components/NavBar";
 import { getAdminAnalyticsSummary } from "../services/analytics";
 
@@ -11,6 +11,7 @@ const EVENT_LABELS = {
   RSVP_SUBMITTED:   "RSVPs Submitted",
   RATING_SUBMITTED: "Ratings Given",
   REPORT_SUBMITTED: "Reports Filed",
+  AUTHZ_DENIED:     "Authorization Denials",
 };
 
 const AdminAnalytics = ({ user, onLogout }) => {
@@ -109,6 +110,33 @@ const AdminAnalytics = ({ user, onLogout }) => {
                         />
                       </div>
                       <span className="text-xs text-zinc-400 w-8 text-right">{count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Top denied endpoints — the "silent fallback" prevention signal: a spike
+                here means a client is calling an endpoint it shouldn't, which should be
+                investigated even though each individual 403 was already handled correctly. */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <ShieldX className="w-4 h-4 text-zinc-400" />
+                <p className="section-label">Top Denied Endpoints — Last 14 Days</p>
+              </div>
+              {data.topDeniedPaths.length === 0 ? (
+                <p className="text-zinc-400 text-sm">No authorization denials recorded — no non-leader/non-admin request has been rejected recently.</p>
+              ) : (
+                <div className="glass-card p-5 space-y-3">
+                  {data.topDeniedPaths.map(({ path, method, count, distinctUsers }) => (
+                    <div key={`${method}-${path}`} className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm text-white font-mono truncate">
+                          <span className="text-amber-400">{method}</span> {path}
+                        </p>
+                        <p className="text-xs text-zinc-400">{distinctUsers} distinct user{distinctUsers === 1 ? '' : 's'}</p>
+                      </div>
+                      <span className="text-lg font-bold text-amber-400 shrink-0">{count}</span>
                     </div>
                   ))}
                 </div>

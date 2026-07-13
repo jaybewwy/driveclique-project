@@ -10,6 +10,8 @@ import { clubsAPI, drivesAPI, authAPI } from "../services/api";
 import { SkeletonCard } from "../components/Skeleton";
 import { useAuth } from "../hooks/useAuth";
 import { useClubs } from "../hooks/useClubs";
+import OnboardingModal from "../components/ui/OnboardingModal";
+import OnboardingChecklist from "../components/ui/OnboardingChecklist";
 
 const Dashboard = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -28,14 +30,19 @@ const Dashboard = ({ user, onLogout }) => {
   const [drivesLoading, setDrivesLoading]   = useState(true);
   const [resendSent, setResendSent]         = useState(false);
   const [resendLoading, setResendLoading]   = useState(false);
+  const [resendError, setResendError]       = useState('');
+  const [showOnboarding, setShowOnboarding]   = useState(false);
+  const [showChecklist, setShowChecklist]     = useState(false);
+  const [hasRsvped, setHasRsvped]             = useState(false);
 
   const handleResendVerification = async () => {
     setResendLoading(true);
+    setResendError('');
     try {
       await authAPI.resendVerification();
       setResendSent(true);
-    } catch {
-      // fire-and-forget — user can try again
+    } catch (error) {
+      setResendError(error.response?.data?.message || 'Failed to resend. Please try again.');
     } finally {
       setResendLoading(false);
     }
@@ -48,6 +55,44 @@ const Dashboard = ({ user, onLogout }) => {
     }
   }, []);
 
+  // UC-26 — New-User Onboarding
+  useEffect(() => {
+    if (sessionStorage.getItem('justRegistered')) {
+      setShowOnboarding(true);
+      sessionStorage.removeItem('justRegistered');
+    }
+
+    if (localStorage.getItem('onboardingComplete')) return;
+    setShowChecklist(true);
+
+    drivesAPI.getMyRSVPs()
+      .then((res) => {
+        if (res.data.success) setHasRsvped((res.data.rsvps || []).length > 0);
+      })
+      .catch((error) => {
+        // best-effort — checklist item just won't auto-check this session
+        console.error('Failed to load RSVP history for onboarding checklist:', error);
+      });
+  }, []);
+
+  const onboardingItems = [
+    { key: 'club',    label: 'Join a club',          done: userClubs.length > 0,               path: '/find-club' },
+    { key: 'rsvp',    label: 'RSVP to a drive',      done: hasRsvped,                           path: '/my-clubs' },
+    { key: 'profile', label: 'Set up your profile',  done: Boolean(user?.bio || user?.avatar),  path: '/profile' },
+  ];
+  const onboardingAllDone = onboardingItems.every((i) => i.done);
+
+  useEffect(() => {
+    if (showChecklist && onboardingAllDone) {
+      localStorage.setItem('onboardingComplete', '1');
+      setShowChecklist(false);
+    }
+  }, [showChecklist, onboardingAllDone]);
+
+  const dismissChecklist = () => {
+    localStorage.setItem('onboardingComplete', '1');
+    setShowChecklist(false);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -85,9 +130,14 @@ const Dashboard = ({ user, onLogout }) => {
             upcoming.map(async (drive) => {
               try {
                 const r = await drivesAPI.getRSVPStatus(drive._id);
-                if (r.data.success) return { ...drive, attendees: r.data.counts?.going || 0 };
-              } catch { /* default 0 */ }
-              return { ...drive, attendees: 0 };
+                if (r.data.success) return { ...drive, attendees: r.data.counts?.going || 0, attendeesFailed: false };
+              } catch (error) {
+                // Distinguish "failed to load" from "legitimately zero" — silently
+                // defaulting to 0 here previously made a failed request indistinguishable
+                // from a drive with no RSVPs.
+                console.error(`Failed to load RSVP counts for drive ${drive._id}:`, error);
+              }
+              return { ...drive, attendees: null, attendeesFailed: true };
             })
           );
 
@@ -133,6 +183,7 @@ const Dashboard = ({ user, onLogout }) => {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
+      {showOnboarding && <OnboardingModal onClose={() => setShowOnboarding(false)} />}
       <NavBar user={user} onLogout={onLogout} />
 
       <div className="flex max-w-7xl mx-auto">
@@ -156,9 +207,12 @@ const Dashboard = ({ user, onLogout }) => {
                 disabled={resendLoading || resendSent}
                 className="shrink-0 text-xs font-medium text-amber-400 hover:text-amber-300 disabled:opacity-60 transition"
               >
-                {resendSent ? 'Sent!' : resendLoading ? 'Sending…' : 'Resend email'}
+                {resendSent ? 'Sent!' : resendLoading ? 'Sending…' : resendError ? 'Retry' : 'Resend email'}
               </button>
             </div>
+          )}
+          {resendError && (
+            <p className="text-xs text-red-400 -mt-3 mb-5">{resendError}</p>
           )}
 
           {/* Welcome heading */}
@@ -173,6 +227,10 @@ const Dashboard = ({ user, onLogout }) => {
               </h2>
               <p className="text-zinc-400 text-sm mt-1.5">Here's what's happening in your car community</p>
             </div>
+          )}
+
+          {showChecklist && (
+            <OnboardingChecklist items={onboardingItems} onDismiss={dismissChecklist} />
           )}
 
           {/* Quick action chips */}
@@ -295,7 +353,13 @@ const Dashboard = ({ user, onLogout }) => {
                         )}
                         <span className="flex items-center gap-1">
                           <Users className="w-3.5 h-3.5" />
-                          {drive.attendees} going
+                          {drive.attendeesFailed ? (
+                            <span className="text-amber-400" title="Couldn't load attendee count">
+                              — going
+                            </span>
+                          ) : (
+                            <>{drive.attendees} going</>
+                          )}
                         </span>
                       </div>
                     </div>

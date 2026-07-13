@@ -34,6 +34,7 @@ function detectCountry() {
         return code;
       }),
     new Promise(resolve => setTimeout(() => resolve(''), 4000)),
+    // eslint-disable-next-line no-restricted-syntax -- fail-open by design: geolocation is an unrestricted-search fallback, and logging would be noisy (ad-blockers/VPNs block this constantly)
   ]).catch(() => '');
 
   return _detectionPromise;

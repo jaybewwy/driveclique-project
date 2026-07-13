@@ -8,7 +8,9 @@ import { eventsAPI } from './api';
  */
 export const trackEvent = (type, metadata = {}) => {
   try {
+    // eslint-disable-next-line no-restricted-syntax -- best-effort analytics (see docstring above); nothing user-facing to show a "failed" state for
     eventsAPI.track({ type, path: window.location.pathname, metadata }).catch(() => {});
+  // eslint-disable-next-line no-restricted-syntax -- best-effort analytics (see docstring above); nothing user-facing to show a "failed" state for
   } catch {
     // analytics must never throw
   }

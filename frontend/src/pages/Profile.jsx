@@ -46,7 +46,10 @@ const Profile = ({ onLogout, onUpdateUser }) => {
   useEffect(() => {
     getMyActivitySummary()
       .then((res) => { if (res.data?.success) setActivitySummary(res.data.summary); })
-      .catch(() => {}); // analytics must never block or error the profile page
+      // A failure here just means the "Your Activity" card doesn't render (activitySummary
+      // stays null, distinct from a real all-zero summary) — not a fake fallback value —
+      // but still worth logging rather than staying fully silent.
+      .catch((error) => console.error('Failed to load activity summary:', error));
   }, []);
 
   useEffect(() => {

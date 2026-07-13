@@ -71,7 +71,7 @@ const Sidebar = ({ user }) => {
         });
         setScheduledDrivesCount(count);
       })
-      .catch(() => {});
+      .catch((error) => console.error('Failed to load scheduled drives count:', error));
   }, [userClubs]);
 
   const isActive = (path) => location.pathname === path;

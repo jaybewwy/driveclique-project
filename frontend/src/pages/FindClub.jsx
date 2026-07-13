@@ -35,7 +35,7 @@ const FindClub = ({ user, onLogout }) => {
           );
         }
       })
-      .catch(() => {});
+      .catch((error) => console.error('Failed to load popular clubs:', error));
   }, []);
 
   useEffect(() => { setPage(1); }, [searchQuery]);

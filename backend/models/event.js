@@ -8,6 +8,7 @@ const EVENT_TYPES = [
   'RSVP_SUBMITTED',
   'RATING_SUBMITTED',
   'REPORT_SUBMITTED',
+  'AUTHZ_DENIED',
 ];
 
 const EventSchema = new mongoose.Schema({

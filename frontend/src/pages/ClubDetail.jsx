@@ -211,13 +211,22 @@ const ClubDetail = ({ user, onLogout }) => {
     Promise.all(
       upcomingIds.map(driveId =>
         drivesAPI.getRSVPStatus(driveId)
-          .then(res => res.data?.success ? { driveId, counts: res.data.counts } : null)
-          .catch(() => null)
+          .then(res => res.data?.success
+            ? { driveId, counts: res.data.counts, failed: false }
+            : { driveId, counts: null, failed: true })
+          .catch((error) => {
+            // Distinguish "failed to load" from "legitimately zero" — a swallowed
+            // error here previously rendered as a fake "0 going" on the drive card.
+            console.error(`Failed to load RSVP counts for drive ${driveId}:`, error);
+            return { driveId, counts: null, failed: true };
+          })
       )
     ).then(results => {
       const update = {};
       results.forEach(r => {
-        if (r) update[r.driveId] = { going: r.counts.going, maybe: r.counts.maybe, notGoing: r.counts.notGoing };
+        update[r.driveId] = r.failed
+          ? { failed: true }
+          : { going: r.counts.going, maybe: r.counts.maybe, notGoing: r.counts.notGoing, failed: false };
       });
       setDriveRSVPCounts(prev => ({ ...prev, ...update }));
     });
@@ -885,7 +894,13 @@ const ClubDetail = ({ user, onLogout }) => {
                       )}
                       <span className="flex items-center gap-1">
                         <Users className="w-3.5 h-3.5" />
-                        {driveRSVPCounts[upcomingDrives[0]?._id]?.going ?? 0} going
+                        {driveRSVPCounts[upcomingDrives[0]?._id]?.failed ? (
+                          <span className="text-amber-400" title="Couldn't load attendee count">
+                            — going
+                          </span>
+                        ) : (
+                          <>{driveRSVPCounts[upcomingDrives[0]?._id]?.going ?? 0} going</>
+                        )}
                       </span>
                     </div>
                   </div>
@@ -1003,6 +1018,9 @@ const ClubDetail = ({ user, onLogout }) => {
               )}
 
               {/* Announcement Cards */}
+              {announcementError && !showAnnouncementForm && (
+                <p className="text-red-400 text-sm mb-3">{announcementError}</p>
+              )}
               {announcements.length === 0 ? (
                 <div className="bg-zinc-900/30 border border-zinc-800/30 rounded-2xl p-6 text-center">
                   <p className="text-zinc-400 text-sm">No announcements yet.</p>
@@ -1026,11 +1044,12 @@ const ClubDetail = ({ user, onLogout }) => {
                             disabled={isPostingAnnouncement === a._id}
                             onClick={async () => {
                               setIsPostingAnnouncement(a._id);
+                              setAnnouncementError('');
                               try {
                                 await clubsAPI.deleteAnnouncement(clubId, a._id);
                                 setAnnouncements(prev => prev.filter(x => x._id !== a._id));
-                              } catch {
-                                /* silent — card stays */
+                              } catch (error) {
+                                setAnnouncementError(error.response?.data?.message || 'Failed to delete announcement. Please try again.');
                               } finally {
                                 setIsPostingAnnouncement(null);
                               }
