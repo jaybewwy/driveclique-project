@@ -3,6 +3,11 @@ const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const Event = require('../models/event');
 const { EVENT_TYPES } = Event;
 
+// AUTHZ_DENIED is a server-only signal (written directly by errorHandler.js on every
+// real 403) — excluding it here stops any authenticated client from self-reporting
+// fake denials and polluting the admin "Top Denied Endpoints" dashboard.
+const CLIENT_TRACKABLE_TYPES = EVENT_TYPES.filter((type) => type !== 'AUTHZ_DENIED');
+
 /**
  * POST /api/events
  * Record a single product-analytics event for the authenticated user.
@@ -10,7 +15,7 @@ const { EVENT_TYPES } = Event;
 const trackEvent = asyncHandler(async (req, res) => {
   const { type, path, metadata } = req.body;
 
-  if (!EVENT_TYPES.includes(type)) {
+  if (!CLIENT_TRACKABLE_TYPES.includes(type)) {
     throw new AppError(`Unknown event type: ${type}`, 400);
   }
 

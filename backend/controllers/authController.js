@@ -10,6 +10,7 @@ const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { validateInput, isValidEmail, isValidUsername } = require('../middleware/validation');
 const { sendEmail, emailTemplates } = require('../services/emailService');
 const { verifyEmailAddress } = require('../services/emailVerifier');
+const { escapeRegex } = require('../utils/regex');
 
 const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -174,9 +175,6 @@ const searchUsers = asyncHandler(async (req, res) => {
   if (!query || !query.trim()) {
     return res.json({ success: true, users: [] });
   }
-
-  // Escape user input to prevent ReDoS attacks
-  const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   const users = await User.find({
     username: { $regex: escapeRegex(query.trim()), $options: 'i' }

@@ -3,13 +3,7 @@ const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { notify } = require('../services/notificationEmitter');
 const { sendEmail, emailTemplates } = require('../services/emailService');
 const logger = require('../utils/logger');
-
-/**
- * Escape special regex characters in a string to prevent ReDoS
- * @param {string} str
- * @returns {string}
- */
-const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const { escapeRegex } = require('../utils/regex');
 
 /**
  * Create a new Club
