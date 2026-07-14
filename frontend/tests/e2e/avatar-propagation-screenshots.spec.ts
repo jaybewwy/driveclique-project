@@ -39,8 +39,11 @@ test.describe('Avatar propagation to club member list', () => {
     await expect(page.getByPlaceholder(/What's the plan\?/i)).toBeVisible({ timeout: 15_000 });
 
     // BEFORE — open club, view Members panel, no avatar uploaded yet
+    // Note: the Drives "View All (N)" button includes a count in its accessible
+    // name, so it never matches this exact-text locator — only the Members
+    // panel's "View All" button does, making .first() unambiguous.
     await page.goto(`${FRONTEND}/club/${clubId}`);
-    await page.getByRole('button', { name: 'View All', exact: true }).nth(1).click();
+    await page.getByRole('button', { name: 'View All', exact: true }).first().click();
     await expect(page.getByText(member.username, { exact: false }).first()).toBeVisible({ timeout: 10_000 });
     await page.screenshot({ path: 'tests/e2e/screenshots/avatar-before-members-panel.png' });
 
@@ -55,7 +58,7 @@ test.describe('Avatar propagation to club member list', () => {
 
     // AFTER — back to the club Members panel, expect the photo (an <img>) to render
     await page.goto(`${FRONTEND}/club/${clubId}`);
-    await page.getByRole('button', { name: 'View All', exact: true }).nth(1).click();
+    await page.getByRole('button', { name: 'View All', exact: true }).first().click();
     await expect(page.getByText(member.username, { exact: false }).first()).toBeVisible({ timeout: 10_000 });
     await page.screenshot({ path: 'tests/e2e/screenshots/avatar-after-members-panel.png' });
 

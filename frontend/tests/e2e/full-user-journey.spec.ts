@@ -14,6 +14,7 @@
 import { test, expect, Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -29,7 +30,7 @@ if (!fs.existsSync(SCREENSHOT_DIR)) fs.mkdirSync(SCREENSHOT_DIR, { recursive: tr
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 function rand(len = 7) {
-  return Math.random().toString(36).slice(2, 2 + len);
+  return crypto.randomBytes(Math.ceil(len / 2)).toString('hex').slice(0, len);
 }
 
 function makeUsers() {
