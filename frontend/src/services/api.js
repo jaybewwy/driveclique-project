@@ -180,7 +180,7 @@ export const clubsAPI = {
   create: (clubData) => api.post('/clubs', clubData),
   update: (clubId, clubData) => api.put(`/clubs/${clubId}`, clubData),
   search: (params) => api.get('/clubs/browse', { params }),
-  searchPage: (query, page, limit = 20) => api.get('/clubs/browse', { params: { query, page, limit } }),
+  searchPage: (query, page, limit = 20, tags) => api.get('/clubs/browse', { params: { query, page, limit, tags: tags?.length ? tags.join(',') : undefined } }),
   requestToJoin: (clubId) => api.post(`/clubs/${clubId}/join`),
   handleJoinRequest: (clubId, requestId, status) => 
     api.post(`/clubs/${clubId}/handle-request`, { requestId, status }),

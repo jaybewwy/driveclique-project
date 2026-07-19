@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authentication');
 const { validateParams, validateInput, validateQuery } = require('../middleware/validation');
+const { CLUB_TAGS } = require('../models/club');
 const {
   createClub,
   getUserClubs,
@@ -25,6 +26,16 @@ const {
 // All routes require authentication
 router.use(protect);
 
+// Shared by the create and update routes below
+const tagsRule = {
+  type: 'array',
+  custom: (value) => (
+    value.length <= 5 && value.every((t) => CLUB_TAGS.includes(t))
+      ? undefined
+      : `tags must be up to 5 values from: ${CLUB_TAGS.join(', ')}`
+  )
+};
+
 /**
  * @route   POST /api/clubs
  * @desc    Create a new club
@@ -37,7 +48,8 @@ router.post(
     description: { required: true, type: 'string', minLength: 10, maxLength: 1000 },
     location: { type: 'string', maxLength: 200 },
     maxMembers: { type: 'number', min: 2, max: 10000 },
-    isPrivate: { type: 'boolean' }
+    isPrivate: { type: 'boolean' },
+    tags: tagsRule
   }),
   createClub
 );
@@ -56,7 +68,7 @@ router.get('/', getUserClubs);
  */
 router.get(
   '/browse',
-  validateQuery({ query: { maxLength: 100 }, page: { type: 'number', min: 1 }, limit: { type: 'number', min: 1, max: 50 } }),
+  validateQuery({ query: { maxLength: 100 }, page: { type: 'number', min: 1 }, limit: { type: 'number', min: 1, max: 50 }, tags: { maxLength: 200 } }),
   searchClubs
 );
 
@@ -167,7 +179,8 @@ router.put(
     description: { type: 'string', minLength: 10, maxLength: 1000 },
     location: { type: 'string', maxLength: 200 },
     avatar: { type: 'string', maxLength: 100000 },
-    isPrivate: { type: 'boolean' }
+    isPrivate: { type: 'boolean' },
+    tags: tagsRule
   }),
   updateClub
 );

@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Lock, FileText, Globe, Users } from "lucide-react";
+import { ArrowLeft, Lock, FileText, Globe, Users, Tag } from "lucide-react";
 import { clubsAPI, getErrorMessage } from "../services/api";
 import { LocationSearch } from "../components/ui/location-search";
+import ClubTagPicker from "../components/ui/ClubTagPicker";
 import { useClubs } from "../hooks/useClubs";
 import { trackEvent } from "../services/analytics";
+
+const MAX_TAGS = 5;
 
 const CreateClub = () => {
   const navigate = useNavigate();
@@ -15,6 +18,7 @@ const CreateClub = () => {
     location: "",
     maxMembers: "",
     isPrivate: false,
+    tags: [],
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -46,13 +50,14 @@ const CreateClub = () => {
         location: formData.location,
         maxMembers: formData.maxMembers ? parseInt(formData.maxMembers) : null,
         isPrivate: formData.isPrivate,
+        tags: formData.tags,
       });
 
       if (response.data.success) {
         addClub(response.data.club);
         trackEvent('CLUB_CREATED', { clubId: response.data.club._id });
         setSuccess("Club created successfully! Redirecting to club page...");
-        setFormData({ name: "", description: "", location: "", maxMembers: "", isPrivate: false });
+        setFormData({ name: "", description: "", location: "", maxMembers: "", isPrivate: false, tags: [] });
         setTimeout(() => {
           navigate(`/club/${response.data.club._id}`);
         }, 2000);
@@ -134,6 +139,22 @@ const CreateClub = () => {
                 id="create-club-location"
                 value={formData.location}
                 onChange={(val) => setFormData({ ...formData, location: val })}
+              />
+            </div>
+
+            {/* Club Tags */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+                  <Tag size={16} className="text-zinc-400" />
+                  Club Tags
+                </p>
+                <span className="text-xs text-zinc-400">{formData.tags.length}/{MAX_TAGS} selected</span>
+              </div>
+              <ClubTagPicker
+                selected={formData.tags}
+                onChange={(tags) => setFormData({ ...formData, tags })}
+                max={MAX_TAGS}
               />
             </div>
 

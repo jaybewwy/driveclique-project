@@ -7,6 +7,7 @@ import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 import ReportModal from "../components/ui/ReportModal";
 import { MobileDrawerButton } from "../components/ui/MobileDrawer";
+import ClubTagPicker from "../components/ui/ClubTagPicker";
 import { trackEvent } from "../services/analytics";
 
 const FindClub = ({ user, onLogout }) => {
@@ -15,6 +16,7 @@ const FindClub = ({ user, onLogout }) => {
   const [loading, setLoading]           = useState(true);
   const [popularClubs, setPopularClubs] = useState([]);
   const [searchQuery, setSearchQuery]   = useState("");
+  const [selectedTags, setSelectedTags] = useState([]);
   const [page, setPage]                 = useState(1);
   const [pagination, setPagination]     = useState(null);
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -38,13 +40,13 @@ const FindClub = ({ user, onLogout }) => {
       .catch((error) => console.error('Failed to load popular clubs:', error));
   }, []);
 
-  useEffect(() => { setPage(1); }, [searchQuery]);
+  useEffect(() => { setPage(1); }, [searchQuery, selectedTags]);
 
   useEffect(() => {
     setLoading(true);
     const fetchClubs = async () => {
       try {
-        const response = await clubsAPI.searchPage(searchQuery.trim() || undefined, page, 20);
+        const response = await clubsAPI.searchPage(searchQuery.trim() || undefined, page, 20, selectedTags);
         if (response.data.success) {
           setClubs(response.data.clubs);
           setPagination(response.data.pagination);
@@ -57,7 +59,7 @@ const FindClub = ({ user, onLogout }) => {
     };
     const timer = setTimeout(fetchClubs, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery, page]);
+  }, [searchQuery, selectedTags, page]);
 
   const isUserMember = (club) =>
     club.members.some(m => typeof m === 'string' ? m === user?._id : m._id === user?._id);
@@ -218,6 +220,11 @@ const FindClub = ({ user, onLogout }) => {
             </p>
           </div>
 
+          {/* Tag filters */}
+          <div className="mb-5">
+            <ClubTagPicker selected={selectedTags} onChange={setSelectedTags} />
+          </div>
+
           {/* Results */}
           {loading ? (
             <div className="space-y-3">
@@ -299,6 +306,20 @@ const FindClub = ({ user, onLogout }) => {
                             </span>
                           )}
                         </div>
+
+                        {/* Tags */}
+                        {club.tags?.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {club.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="px-2 py-0.5 bg-white/[0.06] border border-white/[0.08] rounded-full text-[10px] text-zinc-400"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
 

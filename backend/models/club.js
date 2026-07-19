@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const crypto = require('crypto');
 
+const CLUB_TAGS = ['JDM', 'Muscle', 'Off-Road', 'Classic', 'Luxury', 'Track', 'EV', 'Trucks', 'General'];
+
 const ClubSchema = new mongoose.Schema({
   name: { 
     type: String, 
@@ -39,9 +41,14 @@ const ClubSchema = new mongoose.Schema({
       return crypto.randomBytes(3).toString('hex').toUpperCase();
     }
   },
-  isPrivate: { 
-    type: Boolean, 
-    default: false 
+  isPrivate: {
+    type: Boolean,
+    default: false
+  },
+  tags: {
+    type: [String],
+    default: [],
+    enum: CLUB_TAGS
   },
   joinRequests: [{
     user: {
@@ -77,3 +84,4 @@ ClubSchema.index({ leader: 1 });
 ClubSchema.index({ members: 1 });
 
 module.exports = mongoose.model('Club', ClubSchema);
+module.exports.CLUB_TAGS = CLUB_TAGS;

@@ -4,6 +4,7 @@ const { notify } = require('../services/notificationEmitter');
 const { sendEmail, emailTemplates } = require('../services/emailService');
 const logger = require('../utils/logger');
 const { escapeRegex } = require('../utils/regex');
+const { CLUB_TAGS } = Club;
 
 /**
  * Create a new Club
@@ -11,7 +12,7 @@ const { escapeRegex } = require('../utils/regex');
  * @access Private
  */
 const createClub = asyncHandler(async (req, res) => {
-  const { name, description, location, maxMembers, isPrivate } = req.body;
+  const { name, description, location, maxMembers, isPrivate, tags } = req.body;
   const userId = req.user?.id;
 
   if (!userId) {
@@ -30,6 +31,7 @@ const createClub = asyncHandler(async (req, res) => {
     location: location || '',
     maxMembers: maxMembers || null,
     isPrivate: isPrivate === true ? true : false,
+    tags: Array.isArray(tags) ? tags : [],
     leader: userId,
     members: [userId]
   });
@@ -237,7 +239,7 @@ const handleJoinRequest = asyncHandler(async (req, res) => {
  * @access Private
  */
 const searchClubs = asyncHandler(async (req, res) => {
-  const { query, page = 1, limit = 20 } = req.query;
+  const { query, page = 1, limit = 20, tags } = req.query;
 
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
   const limitNum = Math.min(50, Math.max(1, parseInt(limit, 10) || 20));
@@ -247,6 +249,16 @@ const searchClubs = asyncHandler(async (req, res) => {
   if (query) {
     const regex = { $regex: escapeRegex(query.trim()), $options: 'i' };
     searchQuery.$or = [{ name: regex }, { location: regex }];
+  }
+  if (tags) {
+    // Comma-separated tag list (e.g. "JDM,Track"); unknown values are silently
+    // dropped rather than rejected — this is a passive read-time filter, not a
+    // leader-facing write, so it fails open like the app's other read filters.
+    const validTags = tags.split(',').map((t) => t.trim()).filter((t) => CLUB_TAGS.includes(t));
+    if (validTags.length > 0) {
+      // $in against an array field matches clubs with ANY of the given tags (OR logic)
+      searchQuery.tags = { $in: validTags };
+    }
   }
 
   const [clubs, total] = await Promise.all([
@@ -359,7 +371,7 @@ const joinClubByInviteCode = asyncHandler(async (req, res) => {
  */
 const updateClub = asyncHandler(async (req, res) => {
   const { clubId } = req.params;
-  const { name, description, location, avatar, isPrivate } = req.body;
+  const { name, description, location, avatar, isPrivate, tags } = req.body;
   const userId = req.user?.id;
 
   if (!userId) {
@@ -390,6 +402,7 @@ const updateClub = asyncHandler(async (req, res) => {
   if (location !== undefined) club.location = location;
   if (avatar !== undefined) club.avatar = avatar;
   if (isPrivate !== undefined) club.isPrivate = isPrivate;
+  if (tags !== undefined) club.tags = tags;
 
   await club.save();
 

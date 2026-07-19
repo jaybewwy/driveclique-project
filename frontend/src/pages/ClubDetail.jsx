@@ -26,6 +26,7 @@ import ReportModal from "../components/ui/ReportModal";
 import AnnouncementsSection from "../components/ui/AnnouncementsSection";
 import ScheduleDriveModal from "../components/ui/ScheduleDriveModal";
 import DriveDetailModal from "../components/ui/DriveDetailModal";
+import ClubTagPicker from "../components/ui/ClubTagPicker";
 import { compressImage } from "../utils/imageCompressor";
 import { clubsAPI, drivesAPI, authAPI } from "../services/api";
 import { LocationSearch } from "../components/ui/location-search";
@@ -462,6 +463,7 @@ const ClubDetail = ({ user, onLogout }) => {
       location: club.location || '',
       avatar: club.avatar || '',
       isPrivate: club.isPrivate || false,
+      tags: club.tags || [],
     });
     setClubAvatarPreview(club.avatar || '');
     setTransferTarget(null);
@@ -1616,6 +1618,18 @@ const ClubDetail = ({ user, onLogout }) => {
                   id="club-edit-location"
                   value={clubEditFormData.location || ''}
                   onChange={(val) => setClubEditFormData({ ...clubEditFormData, location: val })}
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-zinc-400">Club Tags</p>
+                  <span className="text-xs text-zinc-400">{(clubEditFormData.tags || []).length}/5 selected</span>
+                </div>
+                <ClubTagPicker
+                  selected={clubEditFormData.tags || []}
+                  onChange={(tags) => setClubEditFormData({ ...clubEditFormData, tags })}
+                  max={5}
                 />
               </div>
 
