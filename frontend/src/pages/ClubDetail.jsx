@@ -19,19 +19,17 @@ import {
   Crown,
   Users,
   Flag,
-  Star,
-  Navigation,
-  ChevronDown,
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 import ReportModal from "../components/ui/ReportModal";
+import AnnouncementsSection from "../components/ui/AnnouncementsSection";
+import ScheduleDriveModal from "../components/ui/ScheduleDriveModal";
+import DriveDetailModal from "../components/ui/DriveDetailModal";
 import { compressImage } from "../utils/imageCompressor";
 import { clubsAPI, drivesAPI, authAPI } from "../services/api";
-import { DriveSchedulerPicker } from "../components/ui/drive-scheduler-picker";
 import { LocationSearch } from "../components/ui/location-search";
 import { DriveMapPicker } from "../components/ui/drive-map-picker";
-import { DriveMapPreview } from "../components/ui/drive-map-preview";
 import { MobileDrawerButton } from "../components/ui/MobileDrawer";
 import { useDocumentFocusTrap } from "../hooks/useFocusTrap";
 import { trackEvent } from "../services/analytics";
@@ -98,21 +96,9 @@ const ClubDetail = ({ user, onLogout }) => {
   // Persistent per-drive RSVP counts (survive modal close, used by drive cards)
   const [driveRSVPCounts, setDriveRSVPCounts] = useState({});
 
-  // Schedule Drive modal state
+  // Schedule Drive modal — open/close state stays here since it participates in the
+  // shared overlay focus-trap/Escape handling below; form fields live in ScheduleDriveModal
   const [showScheduleDriveModal, setShowScheduleDriveModal] = useState(false);
-  const [scheduleForm, setScheduleForm] = useState({
-    name: '',
-    date: '',
-    time: '',
-    location: '',
-    coordinates: null,
-    description: '',
-    image: ''
-  });
-  const [driveImagePreview, setDriveImagePreview] = useState('');
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [isScheduling, setIsScheduling] = useState(false);
-  const [validationError, setValidationError] = useState(null);
   const [joinLoading, setJoinLoading] = useState(false);
   const [joinFeedback, setJoinFeedback] = useState('');
   const [clubEditError, setClubEditError] = useState('');
@@ -125,12 +111,9 @@ const ClubDetail = ({ user, onLogout }) => {
   // Report modal state
   const [reportTarget, setReportTarget] = useState(null); // { type, id, name }
 
-  // Announcements state
+  // Announcements state (list is lifted here since it's seeded by the club fetch below;
+  // the form/error/posting UI state lives inside AnnouncementsSection)
   const [announcements, setAnnouncements] = useState([]);
-  const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
-  const [announcementForm, setAnnouncementForm] = useState({ title: '', body: '' });
-  const [announcementError, setAnnouncementError] = useState('');
-  const [isPostingAnnouncement, setIsPostingAnnouncement] = useState(null); // announcementId being deleted, or 'posting'
 
   const [clubNotFound, setClubNotFound] = useState(false);
 
@@ -620,104 +603,13 @@ const ClubDetail = ({ user, onLogout }) => {
     }
   };
 
-  // Schedule Drive handlers
-  const openScheduleDriveModal = () => {
-    setScheduleForm({ name: '', date: '', time: '', location: '', coordinates: null, description: '', image: '' });
-    setDriveImagePreview('');
-    setSelectedDate(null);
-    setValidationError(null);
-    setShowScheduleDriveModal(true);
-  };
-
-  const closeScheduleDriveModal = () => {
+  // Schedule Drive: ScheduleDriveModal owns the form; this refetches the club's drive
+  // list (shared `drives` state, also read by upcomingDrives/pastDrives below) and
+  // closes the modal once the new drive has actually been created.
+  const handleDriveScheduled = async () => {
+    const drivesResponse = await drivesAPI.getClubDrives(clubId);
+    if (drivesResponse.data?.success) setDrives(drivesResponse.data.drives || []);
     setShowScheduleDriveModal(false);
-    setScheduleForm({ name: '', date: '', time: '', location: '', coordinates: null, description: '', image: '' });
-    setDriveImagePreview('');
-    setValidationError(null);
-  };
-
-  const handleDriveImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    try {
-      const { compressedData } = await compressImage(file);
-      setScheduleForm(prev => ({ ...prev, image: compressedData }));
-      setDriveImagePreview(compressedData);
-    } catch {
-      setValidationError('Failed to process image. Please try again.');
-    }
-  };
-
-  const handleScheduleFormChange = (e) => {
-    setScheduleForm({ ...scheduleForm, [e.target.name]: e.target.value });
-    setValidationError(null);
-  };
-
-  const getFormattedDate = () => {
-    if (selectedDate) {
-      const year = selectedDate.getFullYear();
-      const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-      const day = String(selectedDate.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    }
-    return '';
-  };
-
-  const handleDateSelect = (date) => {
-    setSelectedDate(date);
-  };
-
-  const validateScheduleForm = () => {
-    const formattedDate = getFormattedDate();
-    if (!scheduleForm.name.trim()) {
-      setValidationError('Drive name is required');
-      return false;
-    }
-    if (!formattedDate) {
-      setValidationError('Please select a valid date');
-      return false;
-    }
-    if (!scheduleForm.time.trim()) {
-      setValidationError('Please select a time');
-      return false;
-    }
-    if (!scheduleForm.location.trim()) {
-      setValidationError('Location is required');
-      return false;
-    }
-    const todayObj = new Date();
-    todayObj.setHours(0, 0, 0, 0);
-    if (selectedDate < todayObj) {
-      setValidationError('Cannot schedule a drive in the past');
-      return false;
-    }
-    return true;
-  };
-
-  const handleScheduleDrive = async () => {
-    if (!validateScheduleForm()) return;
-    setIsScheduling(true);
-    try {
-      const response = await drivesAPI.create({
-        clubId,
-        name: scheduleForm.name,
-        date: getFormattedDate(),
-        time: scheduleForm.time,
-        location: scheduleForm.location,
-        coordinates: scheduleForm.coordinates || undefined,
-        description: scheduleForm.description || ''
-      });
-      if (response.data?.success) {
-        trackEvent('DRIVE_SCHEDULED', { clubId });
-        const drivesResponse = await drivesAPI.getClubDrives(clubId);
-        if (drivesResponse.data?.success) setDrives(drivesResponse.data.drives || []);
-        closeScheduleDriveModal();
-      }
-    } catch (err) {
-      setValidationError(err.response?.data?.message || 'Failed to schedule drive.');
-    } finally {
-      setIsScheduling(false);
-    }
   };
 
   // Filter and sort drives for display
@@ -935,137 +827,12 @@ const ClubDetail = ({ user, onLogout }) => {
 
           {/* Announcements Section — visible to all on public clubs, members/leader only on private clubs */}
           {(!club.isPrivate || isMember || isLeader) && (
-            <div className="mt-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center">
-                    <svg className="w-5 h-5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold">Announcements</h3>
-                    <p className="text-xs text-zinc-400">Updates from the club leader</p>
-                  </div>
-                </div>
-                {isLeader && (
-                  <button
-                    onClick={() => { setShowAnnouncementForm(v => !v); setAnnouncementError(''); }}
-                    className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-xl text-sm font-medium transition"
-                  >
-                    {showAnnouncementForm ? <X size={15} /> : <Plus size={15} />}
-                    {showAnnouncementForm ? 'Cancel' : 'Post Announcement'}
-                  </button>
-                )}
-              </div>
-
-              {/* Post Announcement Form */}
-              {isLeader && showAnnouncementForm && (
-                <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-2xl p-5 mb-4">
-                  <div className="space-y-3">
-                    <input
-                      type="text"
-                      placeholder=""
-                      value={announcementForm.title}
-                      maxLength={100}
-                      onChange={e => setAnnouncementForm(f => ({ ...f, title: e.target.value }))}
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition"
-                    />
-                    <div className="relative">
-                      <textarea
-                        placeholder=""
-                        value={announcementForm.body}
-                        maxLength={1000}
-                        rows={4}
-                        onChange={e => { setAnnouncementForm(f => ({ ...f, body: e.target.value })); setAnnouncementError(''); }}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition resize-none"
-                      />
-                      <span className="absolute bottom-2 right-3 text-xs text-zinc-400">{announcementForm.body.length}/1000</span>
-                    </div>
-                    {announcementError && <p className="text-red-400 text-sm">{announcementError}</p>}
-                    <div className="flex justify-end">
-                      <button
-                        disabled={isPostingAnnouncement === 'posting'}
-                        onClick={async () => {
-                          if (!announcementForm.body.trim()) {
-                            setAnnouncementError('Announcement cannot be empty.');
-                            return;
-                          }
-                          setIsPostingAnnouncement('posting');
-                          try {
-                            const res = await clubsAPI.postAnnouncement(clubId, {
-                              title: announcementForm.title.trim(),
-                              body: announcementForm.body.trim()
-                            });
-                            if (res.data?.success) {
-                              setAnnouncements(prev => [res.data.announcement, ...prev]);
-                              setAnnouncementForm({ title: '', body: '' });
-                              setShowAnnouncementForm(false);
-                            }
-                          } catch {
-                            setAnnouncementError('Failed to post announcement. Please try again.');
-                          } finally {
-                            setIsPostingAnnouncement(null);
-                          }
-                        }}
-                        className="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 px-6 py-2 rounded-xl text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isPostingAnnouncement === 'posting' ? 'Posting...' : 'Post'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Announcement Cards */}
-              {announcementError && !showAnnouncementForm && (
-                <p className="text-red-400 text-sm mb-3">{announcementError}</p>
-              )}
-              {announcements.length === 0 ? (
-                <div className="bg-zinc-900/30 border border-zinc-800/30 rounded-2xl p-6 text-center">
-                  <p className="text-zinc-400 text-sm">No announcements yet.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {announcements.map((a) => (
-                    <div key={a._id} className="bg-zinc-900/50 border border-zinc-800/50 rounded-2xl p-5 transition-all duration-300 hover:border-zinc-700/50">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          {a.title && <p className="font-semibold text-white mb-1">{a.title}</p>}
-                          <p className="text-zinc-300 text-sm whitespace-pre-wrap">{a.body}</p>
-                          <p className="text-zinc-400 text-xs mt-2">
-                            {new Date(a.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                            {' · '}
-                            {new Date(a.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                          </p>
-                        </div>
-                        {isLeader && (
-                          <button
-                            disabled={isPostingAnnouncement === a._id}
-                            onClick={async () => {
-                              setIsPostingAnnouncement(a._id);
-                              setAnnouncementError('');
-                              try {
-                                await clubsAPI.deleteAnnouncement(clubId, a._id);
-                                setAnnouncements(prev => prev.filter(x => x._id !== a._id));
-                              } catch (error) {
-                                setAnnouncementError(error.response?.data?.message || 'Failed to delete announcement. Please try again.');
-                              } finally {
-                                setIsPostingAnnouncement(null);
-                              }
-                            }}
-                            className="text-zinc-400 hover:text-red-400 transition flex-shrink-0 disabled:opacity-40"
-                            title="Delete announcement"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <AnnouncementsSection
+              clubId={clubId}
+              announcements={announcements}
+              setAnnouncements={setAnnouncements}
+              isLeader={isLeader}
+            />
           )}
         </div>
 
@@ -1214,7 +981,7 @@ const ClubDetail = ({ user, onLogout }) => {
           <div className="mt-3 xl:mt-4">
             {isLeader && (
               <button
-                onClick={openScheduleDriveModal}
+                onClick={() => setShowScheduleDriveModal(true)}
                 className="w-full bg-red-600 hover:bg-red-700 py-2 xl:py-3 rounded-xl xl:rounded-2xl text-sm xl:text-base font-medium flex items-center justify-center gap-2 transition mb-3 xl:mb-4"
               >
                 <Plus size={18} />
@@ -1716,400 +1483,46 @@ const ClubDetail = ({ user, onLogout }) => {
       )}
 
       {showDriveModal && selectedDrive && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div role="dialog" aria-modal="true" aria-labelledby="drive-detail-modal-title" tabIndex={-1} className="bg-zinc-900 rounded-3xl p-8 max-w-lg w-full border border-zinc-800 shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <h2 id="drive-detail-modal-title" className="text-2xl font-bold">{selectedDrive.name}</h2>
-              <button
-                type="button"
-                onClick={closeDriveModal}
-                aria-label="Dismiss drive details panel"
-                className="text-zinc-400 hover:text-white transition"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className="space-y-6">
-              {/* Drive Details */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 text-zinc-300">
-                  <Calendar size={18} className="text-red-500" />
-                  <span>
-                    {new Date(selectedDrive.date).toLocaleDateString("en-US", {
-                      weekday: "long",
-                      month: "long",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </span>
-                </div>
-
-                {selectedDrive.time && (
-                  <div className="flex items-center gap-3 text-zinc-300">
-                    <Clock size={18} className="text-red-500" />
-                    <span>{selectedDrive.time}</span>
-                  </div>
-                )}
-
-                {selectedDrive.location && (
-                  <div className="flex items-center gap-3 text-zinc-300">
-                    <MapPin size={18} className="text-red-500" />
-                    <span>{selectedDrive.location}</span>
-                  </div>
-                )}
-              </div>
-
-              {selectedDrive.coordinates?.lat && (
-                <div className="space-y-2">
-                  <DriveMapPreview lat={selectedDrive.coordinates.lat} lng={selectedDrive.coordinates.lng} />
-                  <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${selectedDrive.coordinates.lat},${selectedDrive.coordinates.lng}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 bg-zinc-800 hover:bg-zinc-700 py-2.5 rounded-xl text-sm font-medium transition"
-                  >
-                    <Navigation size={16} /> Get Directions
-                  </a>
-                </div>
-              )}
-
-              {selectedDrive.image && (
-                <img
-                  src={selectedDrive.image}
-                  alt="Drive route"
-                  className="w-full h-40 object-cover rounded-xl border border-zinc-800"
-                />
-              )}
-
-              {selectedDrive.description && (
-                <div className="bg-black rounded-xl p-4">
-                  <h3 className="text-sm font-medium text-zinc-400 mb-2">Description</h3>
-                  <p className="text-zinc-300 text-sm whitespace-pre-wrap">{selectedDrive.description}</p>
-                </div>
-              )}
-
-              {/* RSVP Section - Members and leaders only */}
-              {new Date(selectedDrive.date) >= new Date() && !selectedDrive.isCompleted && (
-                <div className="border-t border-zinc-700 pt-6">
-                  {!(isMember || isLeader) ? (
-                    <p className="text-sm text-zinc-400 text-center py-2">
-                      Join this club to RSVP to drives.
-                    </p>
-                  ) : (
-                    <>
-                      <h3 className="text-lg font-semibold mb-4">
-                        {isLeader ? 'Mark your attendance' : 'Are you going?'}
-                      </h3>
-
-                      {/* State 1 — user is on the waitlist */}
-                      {userRSVP === 'waitlisted' ? (
-                        <div className="mb-4 bg-amber-900/20 border border-amber-600/40 rounded-2xl p-4 text-center">
-                          <Clock className="w-5 h-5 text-amber-400 mx-auto mb-2" />
-                          <p className="text-amber-400 font-semibold">You are #{userWaitlistPosition} on the waitlist</p>
-                          <p className="text-xs text-zinc-400 mt-1">You'll be automatically confirmed when a spot opens up</p>
-                          <button
-                            type="button"
-                            onClick={() => handleRSVP('not-going')}
-                            disabled={isRSVPLoading}
-                            className="mt-3 text-sm text-zinc-400 hover:text-red-400 transition disabled:opacity-50"
-                          >
-                            Leave Waitlist
-                          </button>
-                        </div>
-                      ) : (
-                        /* State 2 (drive full) or State 3 (normal) */
-                        <div className="flex gap-3 mb-4">
-                          {/* Going — or Join Waitlist when drive is at capacity */}
-                          {rsvpCounts.going >= (selectedDrive?.maxAttendees ?? Infinity) && userRSVP !== 'going' ? (
-                            <button
-                              type="button"
-                              onClick={() => handleRSVP('going')}
-                              disabled={isRSVPLoading}
-                              className="flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 bg-zinc-800 hover:bg-amber-900/30 text-white hover:text-amber-400 border border-zinc-700 hover:border-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <Clock size={18} />
-                              Join Waitlist
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleRSVP('going')}
-                              disabled={isRSVPLoading}
-                              className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
-                                userRSVP === 'going'
-                                  ? 'bg-green-600 text-white'
-                                  : 'bg-zinc-800 hover:bg-green-900/30 text-white hover:text-green-400 border border-zinc-700 hover:border-green-600'
-                              } disabled:opacity-50 disabled:cursor-not-allowed`}
-                            >
-                              <CheckCircle size={18} />
-                              Going
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleRSVP('maybe')}
-                            disabled={isRSVPLoading}
-                            className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
-                              userRSVP === 'maybe'
-                                ? 'bg-yellow-600 text-white'
-                                : 'bg-zinc-800 hover:bg-yellow-900/30 text-white hover:text-yellow-400 border border-zinc-700 hover:border-yellow-600'
-                            } disabled:opacity-50 disabled:cursor-not-allowed`}
-                          >
-                            <CalendarDays size={18} />
-                            Maybe
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRSVP('not-going')}
-                            disabled={isRSVPLoading}
-                            className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
-                              userRSVP === 'not-going'
-                                ? 'bg-red-600 text-white'
-                                : 'bg-zinc-800 hover:bg-red-900/30 text-white hover:text-red-400 border border-zinc-700 hover:border-red-600'
-                            } disabled:opacity-50 disabled:cursor-not-allowed`}
-                          >
-                            <X size={18} />
-                            Not Going
-                          </button>
-                        </div>
-                      )}
-
-                      {/* RSVP Message */}
-                      {rsvpMessage && (
-                        <div className="mb-4 p-3 bg-green-900/30 border border-green-600 rounded-xl">
-                          <p className="text-green-400 text-sm text-center">{rsvpMessage}</p>
-                        </div>
-                      )}
-
-                      {/* RSVP Counts */}
-                      <div className="border-t border-zinc-700/50 pt-4">
-                        <h4 className="text-sm font-semibold mb-3 text-zinc-400">
-                          {isLeader ? 'RSVP Summary' : 'Current RSVPs'}
-                        </h4>
-                        <div className="flex gap-4">
-                          <div className="flex-1 bg-black rounded-xl p-3 text-center">
-                            <p className="text-2xl font-bold text-green-400">{rsvpCounts.going}</p>
-                            <p className="text-xs text-zinc-400">Going</p>
-                          </div>
-                          <div className="flex-1 bg-black rounded-xl p-3 text-center">
-                            <p className="text-2xl font-bold text-yellow-400">{rsvpCounts.maybe}</p>
-                            <p className="text-xs text-zinc-400">Maybe</p>
-                          </div>
-                          <div className="flex-1 bg-black rounded-xl p-3 text-center">
-                            <p className="text-2xl font-bold text-red-400">{rsvpCounts.notGoing}</p>
-                            <p className="text-xs text-zinc-400">Not Going</p>
-                          </div>
-                          {rsvpCounts.waitlisted > 0 && (
-                            <div className="flex-1 bg-black rounded-xl p-3 text-center">
-                              <p className="text-2xl font-bold text-amber-400">{rsvpCounts.waitlisted}</p>
-                              <p className="text-xs text-zinc-400">Waitlisted</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Attendee List (leader-only) — the full per-member breakdown behind the counts above */}
-                      {isLeader && (
-                        <div className="border-t border-zinc-700/50 pt-4 mt-4">
-                          <button
-                            type="button"
-                            onClick={handleToggleAttendeesList}
-                            aria-expanded={showAttendeesList}
-                            className="w-full flex items-center justify-between text-sm font-semibold text-zinc-400 hover:text-white transition"
-                          >
-                            <span>Attendee List</span>
-                            <ChevronDown
-                              size={16}
-                              className={`transition-transform ${showAttendeesList ? 'rotate-180' : ''}`}
-                            />
-                          </button>
-                          {showAttendeesList && (
-                            <div className="mt-3">
-                              {isLoadingAttendees && (
-                                <p className="text-sm text-zinc-400 text-center py-2">Loading attendees...</p>
-                              )}
-                              {attendeesError && (
-                                <p className="text-sm text-red-400 text-center py-2">{attendeesError}</p>
-                              )}
-                              {attendeesData && (
-                                attendeesData.rsvps.length === 0 ? (
-                                  <p className="text-sm text-zinc-400 text-center py-2">No RSVPs yet.</p>
-                                ) : (
-                                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                                    {attendeesData.rsvps.map((rsvp) => (
-                                      <div
-                                        key={rsvp._id}
-                                        className="flex items-center justify-between bg-black rounded-xl px-3 py-2"
-                                      >
-                                        <span className="text-sm text-white truncate">
-                                          {rsvp.user?.username || 'Unknown member'}
-                                        </span>
-                                        <span
-                                          className={`text-xs font-medium uppercase tracking-wide whitespace-nowrap ml-3 ${
-                                            rsvp.status === 'going'
-                                              ? 'text-green-400'
-                                              : rsvp.status === 'maybe'
-                                              ? 'text-yellow-400'
-                                              : rsvp.status === 'waitlisted'
-                                              ? 'text-amber-400'
-                                              : 'text-red-400'
-                                          }`}
-                                        >
-                                          {rsvp.status.replace('-', ' ')}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Check-In Section (UC-08) — optional; leader can send/resend anytime, members with a "going"
-                  RSVP can self check-in any time too (covers missed push notifications). Stays open until
-                  the leader marks the drive completed. */}
-              {!selectedDrive.isCompleted && (isLeader || userRSVP === 'going') && (
-                <div className="border-t border-zinc-700 pt-6">
-                  {isLeader ? (
-                    <>
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-lg font-semibold">Drive Check-In</h3>
-                        {rsvpCounts.going >= 40 && (
-                          <span className="text-[11px] uppercase tracking-wide bg-sky-900/30 text-sky-400 border border-sky-700/40 rounded-full px-2 py-0.5">
-                            Recommended for large groups
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-zinc-400 mb-4">
-                        Optional — ask members who RSVPed "going" to confirm they showed up. Stays open until you mark this drive completed.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={handleSendCheckin}
-                        disabled={isSendingCheckin}
-                        className="w-full bg-zinc-800 hover:bg-sky-900/30 text-white hover:text-sky-400 border border-zinc-700 hover:border-sky-600 py-3 rounded-2xl font-medium transition disabled:opacity-50 mb-4"
-                      >
-                        {isSendingCheckin ? 'Sending...' : checkInRequestedAt ? 'Resend Check-In Notification' : 'Send Check-In Notification'}
-                      </button>
-                      {checkinSentMessage && (
-                        <p className="text-sm text-zinc-400 text-center mb-4">{checkinSentMessage}</p>
-                      )}
-                      {checkInRequestedAt && (
-                        <div className="flex gap-4">
-                          <div className="flex-1 bg-black rounded-xl p-3 text-center">
-                            <p className="text-2xl font-bold text-green-400">{checkinCounts.present}</p>
-                            <p className="text-xs text-zinc-400">Present</p>
-                          </div>
-                          <div className="flex-1 bg-black rounded-xl p-3 text-center">
-                            <p className="text-2xl font-bold text-zinc-400">{checkinCounts.notPresent}</p>
-                            <p className="text-xs text-zinc-400">Not Present</p>
-                          </div>
-                          <div className="flex-1 bg-black rounded-xl p-3 text-center">
-                            <p className="text-2xl font-bold text-amber-400">{checkinCounts.pending}</p>
-                            <p className="text-xs text-zinc-400">Pending</p>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/drive/${selectedDrive._id}/checkin`)}
-                      className="w-full bg-zinc-800 hover:bg-sky-900/30 text-white hover:text-sky-400 border border-zinc-700 hover:border-sky-600 py-3 rounded-2xl font-medium transition"
-                    >
-                      Check In to This Drive
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Rate this Drive (UC-25) — attendees can rate once the drive is completed;
-                  the average is visible to all club members. */}
-              {selectedDrive.isCompleted && (
-                <div className="border-t border-zinc-700 pt-6">
-                  <h3 className="text-lg font-semibold mb-3">Rate this Drive</h3>
-
-                  {driveRatingSummary.count > 0 && (
-                    <div className="flex items-center gap-2 mb-4 text-zinc-300">
-                      <Star size={18} className="text-yellow-400 fill-yellow-400" />
-                      <span className="font-semibold">{driveRatingSummary.average}</span>
-                      <span className="text-xs text-zinc-400">
-                        ({driveRatingSummary.count} rating{driveRatingSummary.count === 1 ? '' : 's'})
-                      </span>
-                    </div>
-                  )}
-
-                  {userRSVP === 'going' ? (
-                    <>
-                      <div className="flex items-center gap-1 mb-4">
-                        {[1, 2, 3, 4, 5].map((value) => (
-                          <button
-                            key={value}
-                            type="button"
-                            onClick={() => setRatingStars(value)}
-                            onMouseEnter={() => setRatingHoverStars(value)}
-                            onMouseLeave={() => setRatingHoverStars(0)}
-                            className="transition"
-                          >
-                            <Star
-                              size={28}
-                              className={
-                                value <= (ratingHoverStars || ratingStars)
-                                  ? 'text-yellow-400 fill-yellow-400'
-                                  : 'text-zinc-700'
-                              }
-                            />
-                          </button>
-                        ))}
-                      </div>
-                      <textarea
-                        value={ratingComment}
-                        onChange={(e) => setRatingComment(e.target.value.slice(0, 200))}
-                        placeholder="Add an optional comment (max 200 characters)"
-                        className="w-full bg-black border border-zinc-700 rounded-xl p-3 text-sm text-zinc-300 resize-none mb-1"
-                        rows={3}
-                        maxLength={200}
-                      />
-                      <p className="text-xs text-zinc-400 text-right mb-4">{ratingComment.length}/200</p>
-                      <button
-                        type="button"
-                        onClick={handleSubmitRating}
-                        disabled={isSubmittingRating || ratingStars === 0}
-                        className="w-full bg-zinc-800 hover:bg-yellow-900/30 text-white hover:text-yellow-400 border border-zinc-700 hover:border-yellow-600 py-3 rounded-2xl font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isSubmittingRating ? 'Submitting...' : 'Submit Rating'}
-                      </button>
-                      {ratingMessage && (
-                        <p className="text-sm text-zinc-400 text-center mt-3">{ratingMessage}</p>
-                      )}
-                    </>
-                  ) : (
-                    driveRatingSummary.count === 0 && (
-                      <p className="text-sm text-zinc-400">No ratings yet for this drive.</p>
-                    )
-                  )}
-                </div>
-              )}
-
-              <div className="pt-4">
-                <button
-                  type="button"
-                  onClick={closeDriveModal}
-                  className="w-full bg-zinc-800 hover:bg-zinc-700 py-3 rounded-2xl font-medium transition"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <DriveDetailModal
+          drive={selectedDrive}
+          isMember={isMember}
+          isLeader={isLeader}
+          onClose={closeDriveModal}
+          rsvp={{
+            status: userRSVP,
+            waitlistPosition: userWaitlistPosition,
+            counts: rsvpCounts,
+            isLoading: isRSVPLoading,
+            message: rsvpMessage,
+            onSubmit: handleRSVP,
+          }}
+          checkin={{
+            counts: checkinCounts,
+            requestedAt: checkInRequestedAt,
+            isSending: isSendingCheckin,
+            sentMessage: checkinSentMessage,
+            onSend: handleSendCheckin,
+          }}
+          attendees={{
+            show: showAttendeesList,
+            data: attendeesData,
+            isLoading: isLoadingAttendees,
+            error: attendeesError,
+            onToggle: handleToggleAttendeesList,
+          }}
+          rating={{
+            summary: driveRatingSummary,
+            stars: ratingStars,
+            hoverStars: ratingHoverStars,
+            setStars: setRatingStars,
+            setHoverStars: setRatingHoverStars,
+            comment: ratingComment,
+            setComment: setRatingComment,
+            onSubmit: handleSubmitRating,
+            isSubmitting: isSubmittingRating,
+            message: ratingMessage,
+          }}
+        />
       )}
 
       {/* Club Edit Modal */}
@@ -2325,163 +1738,11 @@ const ClubDetail = ({ user, onLogout }) => {
 
       {/* Schedule Drive Modal */}
       {showScheduleDriveModal && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div role="dialog" aria-modal="true" aria-labelledby="schedule-drive-modal-title" tabIndex={-1} className="bg-zinc-900 rounded-3xl p-6 max-w-2xl w-full border border-zinc-800 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-red-600 rounded-2xl flex items-center justify-center">
-                  <CalendarDays className="w-6 h-6 text-white" />
-                </div>
-                <h2 id="schedule-drive-modal-title" className="text-2xl font-bold">Schedule a Drive</h2>
-              </div>
-              <button
-                type="button"
-                onClick={closeScheduleDriveModal}
-                aria-label="Dismiss drive scheduling form"
-                className="text-zinc-400 hover:text-white transition"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            {validationError && (
-              <div className="mb-6 p-4 bg-red-900/30 border border-red-600 rounded-xl">
-                <p className="text-red-400 text-sm">{validationError}</p>
-              </div>
-            )}
-
-            <div className="space-y-6">
-              {/* Drive Name */}
-              <div>
-                <label htmlFor="schedule-drive-name" className="block text-sm font-medium text-zinc-300 mb-3">
-                  Drive Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="schedule-drive-name"
-                  type="text"
-                  name="name"
-                  value={scheduleForm.name}
-                  onChange={handleScheduleFormChange}
-                  className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-red-600 transition"
-                  placeholder="e.g. Mountain Run, Cars and Coffee"
-                />
-              </div>
-
-              {/* Date & Time Selection */}
-              <div>
-                <p className="block text-sm font-medium text-zinc-300 mb-2">
-                  Date &amp; Time <span className="text-red-500">*</span>
-                </p>
-                <DriveSchedulerPicker
-                  selectedDate={selectedDate}
-                  selectedTime={scheduleForm.time}
-                  onDateChange={handleDateSelect}
-                  onTimeChange={(time) => {
-                    setScheduleForm((prev) => ({ ...prev, time }));
-                    setValidationError(null);
-                  }}
-                  minDate={new Date()}
-                />
-              </div>
-
-              {/* Location */}
-              <div>
-                <label htmlFor="schedule-drive-location" className="block text-sm font-medium text-zinc-300 mb-3">
-                  Location <span className="text-red-500">*</span>
-                </label>
-                <LocationSearch
-                  id="schedule-drive-location"
-                  value={scheduleForm.location}
-                  onChange={(v) => { setScheduleForm(prev => ({ ...prev, location: v })); setValidationError(null); }}
-                  onSelect={({ lat, lng }) => setScheduleForm(prev => ({ ...prev, coordinates: { lat, lng } }))}
-                />
-                {scheduleForm.coordinates?.lat && (
-                  <div className="mt-3 space-y-1">
-                    <DriveMapPicker
-                      lat={scheduleForm.coordinates.lat}
-                      lng={scheduleForm.coordinates.lng}
-                      onChange={(coords) => setScheduleForm(prev => ({ ...prev, coordinates: coords }))}
-                    />
-                    <p className="text-[11px] text-zinc-400">Drag the pin to fine-tune the exact meeting point.</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Description */}
-              <div>
-                <label htmlFor="schedule-drive-description" className="block text-sm font-medium text-zinc-300 mb-3">
-                  Description (Optional)
-                </label>
-                <textarea
-                  id="schedule-drive-description"
-                  name="description"
-                  value={scheduleForm.description}
-                  onChange={handleScheduleFormChange}
-                  rows={3}
-                  className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-red-600 transition resize-none"
-                  placeholder="Additional details about the drive..."
-                />
-              </div>
-
-              {/* Route Image (Optional) */}
-              <div>
-                <p className="block text-sm font-medium text-zinc-300 mb-3">
-                  Route Image <span className="text-zinc-400 text-xs">(Optional)</span>
-                </p>
-                {driveImagePreview ? (
-                  <div className="relative">
-                    <img src={driveImagePreview} alt="Drive route" className="w-full h-32 object-cover rounded-xl border border-zinc-700" />
-                    <button
-                      type="button"
-                      onClick={() => { setDriveImagePreview(''); setScheduleForm(prev => ({ ...prev, image: '' })); }}
-                      className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 p-1 rounded-lg transition"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-zinc-700 rounded-xl cursor-pointer hover:border-zinc-500 transition">
-                    <MapPin size={20} className="text-zinc-400 mb-1" />
-                    <span className="text-xs text-zinc-400">Upload route map or photo</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={handleDriveImageUpload} />
-                  </label>
-                )}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={closeScheduleDriveModal}
-                  className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-3 rounded-xl font-medium transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleScheduleDrive}
-                  disabled={isScheduling}
-                  className="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-xl font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isScheduling ? (
-                    <>
-                      <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Scheduling...
-                    </>
-                  ) : (
-                    <>
-                      <CalendarDays size={18} />
-                      Schedule Drive
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ScheduleDriveModal
+          clubId={clubId}
+          onClose={() => setShowScheduleDriveModal(false)}
+          onScheduled={handleDriveScheduled}
+        />
       )}
 
       {/* Leave Club Confirmation Modal */}
