@@ -195,6 +195,8 @@ export const clubsAPI = {
   transfer: (clubId, newLeaderId) => api.put(`/clubs/${clubId}/transfer`, { newLeaderId }),
   postAnnouncement: (clubId, data) => api.post(`/clubs/${clubId}/announcements`, data),
   deleteAnnouncement: (clubId, announcementId) => api.delete(`/clubs/${clubId}/announcements/${announcementId}`),
+  promoteCoLeader: (clubId, userId) => api.put(`/clubs/${clubId}/promote`, { userId }),
+  demoteCoLeader: (clubId, userId) => api.put(`/clubs/${clubId}/demote`, { userId }),
 };
 
 /**

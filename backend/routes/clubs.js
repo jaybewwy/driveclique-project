@@ -20,7 +20,9 @@ const {
   removeMember,
   transferOwnership,
   postAnnouncement,
-  deleteAnnouncement
+  deleteAnnouncement,
+  promoteCoLeader,
+  demoteCoLeader
 } = require('../controllers/clubController');
 
 // All routes require authentication
@@ -228,9 +230,33 @@ router.put(
 );
 
 /**
+ * @route   PUT /api/clubs/:clubId/promote
+ * @desc    Promote a member to co-leader (UC-10)
+ * @access  Private (Club Leader only)
+ */
+router.put(
+  '/:clubId/promote',
+  validateParams({ clubId: { required: true, objectId: true } }),
+  validateInput({ userId: { required: true, type: 'string' } }),
+  promoteCoLeader
+);
+
+/**
+ * @route   PUT /api/clubs/:clubId/demote
+ * @desc    Demote a co-leader back to regular member (UC-10)
+ * @access  Private (Club Leader only)
+ */
+router.put(
+  '/:clubId/demote',
+  validateParams({ clubId: { required: true, objectId: true } }),
+  validateInput({ userId: { required: true, type: 'string' } }),
+  demoteCoLeader
+);
+
+/**
  * @route   DELETE /api/clubs/:clubId/members/:memberId
- * @desc    Remove a member from a club (leader only)
- * @access  Private (Club Leaders only)
+ * @desc    Remove a member from a club (leader or co-leader)
+ * @access  Private (Club Leaders and Co-Leaders)
  */
 router.delete(
   '/:clubId/members/:memberId',

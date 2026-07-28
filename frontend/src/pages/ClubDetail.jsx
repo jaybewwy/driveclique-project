@@ -19,6 +19,10 @@ import {
   Crown,
   Users,
   Flag,
+  Shield,
+  ShieldOff,
+  UserCheck,
+  UserX,
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
@@ -109,6 +113,18 @@ const ClubDetail = ({ user, onLogout }) => {
   const [transferTarget, setTransferTarget] = useState(null);
   const [transferError, setTransferError] = useState('');
 
+  // Co-leader promote/demote state (UC-10)
+  const [coLeaderActionError, setCoLeaderActionError] = useState('');
+
+  // Pending join-request approval state (UC-10)
+  const [processingRequestId, setProcessingRequestId] = useState(null);
+  const [pendingRequestError, setPendingRequestError] = useState('');
+
+  // Cancel Drive state (UC-10 — distinct from Delete Drive; notifies members)
+  const [driveToCancel, setDriveToCancel] = useState(null);
+  const [cancelDriveReason, setCancelDriveReason] = useState('');
+  const [cancelDriveError, setCancelDriveError] = useState('');
+
   // Report modal state
   const [reportTarget, setReportTarget] = useState(null); // { type, id, name }
 
@@ -121,7 +137,8 @@ const ClubDetail = ({ user, onLogout }) => {
   // Focus trap + restore for whichever overlay (of the many below) is currently open
   const isAnyOverlayOpen = showDriveModal || showAllDrivesModal || showPastEventsModal ||
     showMembersModal || showEditModal || showClubEditModal || showScheduleDriveModal ||
-    showLeaveConfirm || showDeleteConfirm || Boolean(driveToDelete) || Boolean(memberToRemove);
+    showLeaveConfirm || showDeleteConfirm || Boolean(driveToDelete) || Boolean(memberToRemove) ||
+    Boolean(driveToCancel);
   useDocumentFocusTrap(isAnyOverlayOpen);
 
   // Escape closes whichever overlay is currently open
@@ -140,12 +157,13 @@ const ClubDetail = ({ user, onLogout }) => {
       else if (showDeleteConfirm) { setShowDeleteConfirm(false); setDeleteEmail(''); setDeleteReason(''); }
       else if (driveToDelete) setDriveToDelete(null);
       else if (memberToRemove) { setMemberToRemove(null); setMemberActionError(''); }
+      else if (driveToCancel) { setDriveToCancel(null); setCancelDriveError(''); }
     };
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isAnyOverlayOpen, showDriveModal, showEditModal, showScheduleDriveModal, showAllDrivesModal,
       showPastEventsModal, showMembersModal, showClubEditModal, showLeaveConfirm, showDeleteConfirm,
-      driveToDelete, memberToRemove]);
+      driveToDelete, memberToRemove, driveToCancel]);
 
   // Fetch club details and drives
   useEffect(() => {
@@ -183,6 +201,12 @@ const ClubDetail = ({ user, onLogout }) => {
   const hasPendingRequest = club?.joinRequests?.some(
     r => r.user?.toString() === userId && r.status === 'pending'
   ) ?? false;
+  // Co-leader is a moderator-tier role (UC-10) — a subset of leader powers
+  const isCoLeader = club?.coLeaders?.some(
+    m => (m._id?.toString() || m?.toString()) === userId
+  ) ?? false;
+  const canModerate = isLeader || isCoLeader;
+  const pendingJoinRequests = (club?.joinRequests || []).filter(r => r.status === 'pending');
 
   // Pre-fetch RSVP counts for all upcoming drives in parallel once drives load.
   useEffect(() => {
@@ -425,6 +449,34 @@ const ClubDetail = ({ user, onLogout }) => {
     }
   };
 
+  // Cancel Drive (UC-10) — distinct from Delete: sets isCancelled + notifies
+  // members via SSE/email rather than removing the drive. Leader can cancel
+  // any drive; a co-leader only drives they created themselves.
+  const handleOpenCancelDrive = (drive) => {
+    setDriveToCancel(drive);
+    setCancelDriveReason('');
+    setCancelDriveError('');
+    setShowActionMenu(null);
+  };
+
+  const confirmCancelDrive = async () => {
+    if (!driveToCancel) return;
+    if (!cancelDriveReason.trim()) {
+      setCancelDriveError('Please provide a reason for cancelling this drive');
+      return;
+    }
+    try {
+      const response = await drivesAPI.cancel(driveToCancel._id, cancelDriveReason.trim());
+      if (response.data?.success) {
+        setDrives(prevDrives => prevDrives.map(d => d._id === driveToCancel._id ? { ...d, isCancelled: true } : d));
+        setDriveToCancel(null);
+        setCancelDriveReason('');
+      }
+    } catch (error) {
+      setCancelDriveError(error.response?.data?.message || 'Failed to cancel drive');
+    }
+  };
+
   const handleEditDrive = (drive) => {
     setEditFormData({
       name: drive.name,
@@ -533,6 +585,39 @@ const ClubDetail = ({ user, onLogout }) => {
     }
   };
 
+  // Promote a regular member to co-leader (UC-10) — leader only
+  const handlePromoteCoLeader = async (memberId) => {
+    setCoLeaderActionError('');
+    try {
+      const response = await clubsAPI.promoteCoLeader(clubId, memberId);
+      if (response.data?.success) {
+        const promotedMember = club.members.find(m => (m._id?.toString() || m?.toString()) === memberId);
+        setClub(prevClub => ({
+          ...prevClub,
+          coLeaders: [...(prevClub.coLeaders || []), promotedMember || memberId]
+        }));
+      }
+    } catch (error) {
+      setCoLeaderActionError(error.response?.data?.message || 'Failed to promote member');
+    }
+  };
+
+  // Demote a co-leader back to a regular member (UC-10) — leader only
+  const handleDemoteCoLeader = async (memberId) => {
+    setCoLeaderActionError('');
+    try {
+      const response = await clubsAPI.demoteCoLeader(clubId, memberId);
+      if (response.data?.success) {
+        setClub(prevClub => ({
+          ...prevClub,
+          coLeaders: (prevClub.coLeaders || []).filter(c => (c._id?.toString() || c?.toString()) !== memberId)
+        }));
+      }
+    } catch (error) {
+      setCoLeaderActionError(error.response?.data?.message || 'Failed to demote co-leader');
+    }
+  };
+
   const handleTransferOwnership = async () => {
     if (!transferTarget) return;
     setTransferError('');
@@ -587,6 +672,26 @@ const ClubDetail = ({ user, onLogout }) => {
       setJoinFeedback(err.response?.data?.message || 'Failed to send join request.');
     } finally {
       setJoinLoading(false);
+    }
+  };
+
+  // Leader or co-leader approves/rejects a pending join request (UC-10).
+  // Refetches the whole club afterward since both `members` (on accept) and
+  // `joinRequests` change together — the same pattern handleJoinClub already
+  // uses for the public-club instant-join path above.
+  const handleJoinRequestDecision = async (requestId, status) => {
+    setPendingRequestError('');
+    setProcessingRequestId(requestId);
+    try {
+      const response = await clubsAPI.handleJoinRequest(clubId, requestId, status);
+      if (response.data?.success) {
+        const refreshed = await clubsAPI.getClubById(clubId);
+        if (refreshed.data?.success) setClub(refreshed.data.club);
+      }
+    } catch (error) {
+      setPendingRequestError(error.response?.data?.message || 'Failed to process join request');
+    } finally {
+      setProcessingRequestId(null);
     }
   };
 
@@ -732,6 +837,77 @@ const ClubDetail = ({ user, onLogout }) => {
             </div>
           </div>
 
+          {/* Pending Join Requests — leader or co-leader, private clubs only (UC-10). Lives in the
+              main content column, not the right sidebar — that sidebar is height-capped with
+              overflow-hidden at desktop widths, so new sidebar content silently clips once enough
+              other cards (a scheduled drive, Manage Club, Members) already fill it. */}
+          {canModerate && club.isPrivate && (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center">
+                    <UserCheck className="w-5 h-5 text-zinc-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold">Pending Join Requests</h3>
+                    <p className="text-xs text-zinc-400">Members waiting for approval</p>
+                  </div>
+                </div>
+                {pendingJoinRequests.length > 0 && (
+                  <span className="text-xs bg-red-600 text-white px-2 py-0.5 rounded-full">{pendingJoinRequests.length}</span>
+                )}
+              </div>
+              {pendingRequestError && (
+                <p className="text-red-400 text-xs mb-2">{pendingRequestError}</p>
+              )}
+              {pendingJoinRequests.length === 0 ? (
+                <div className="bg-zinc-900/30 border border-zinc-800/30 rounded-2xl p-6 text-center">
+                  <p className="text-zinc-400 text-sm">No pending requests</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {pendingJoinRequests.map((request) => (
+                    <div key={request._id} className="flex items-center gap-3 bg-zinc-900/50 border border-zinc-800/50 rounded-2xl px-4 py-3">
+                      <div className="w-9 h-9 bg-zinc-700 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center">
+                        {request.user?.avatar ? (
+                          <img src={request.user.avatar} alt={request.user.username} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-zinc-400 text-xs">{request.user?.username?.charAt(0)?.toUpperCase?.()}</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {request.user?.useDisplayName && request.user?.name ? request.user.name : request.user?.username}
+                        </p>
+                        <p className="text-xs text-zinc-400 truncate">@{request.user?.username}</p>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleJoinRequestDecision(request._id, 'accepted')}
+                          disabled={processingRequestId === request._id}
+                          className="p-1.5 text-zinc-400 hover:text-green-400 hover:bg-green-500/10 rounded-lg transition-all disabled:opacity-50"
+                          title="Approve"
+                        >
+                          <UserCheck size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleJoinRequestDecision(request._id, 'rejected')}
+                          disabled={processingRequestId === request._id}
+                          className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all disabled:opacity-50"
+                          title="Reject"
+                        >
+                          <UserX size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Next Upcoming Drive - only shown when drives exist */}
           {upcomingDrives.length > 0 && (
             <div className="mb-8">
@@ -827,13 +1003,13 @@ const ClubDetail = ({ user, onLogout }) => {
             </div>
           )}
 
-          {/* Announcements Section — visible to all on public clubs, members/leader only on private clubs */}
+          {/* Announcements Section — visible to all on public clubs, members/leader/co-leader only on private clubs */}
           {(!club.isPrivate || isMember || isLeader) && (
             <AnnouncementsSection
               clubId={clubId}
               announcements={announcements}
               setAnnouncements={setAnnouncements}
-              isLeader={isLeader}
+              canModerate={canModerate}
             />
           )}
         </div>
@@ -915,44 +1091,64 @@ const ClubDetail = ({ user, onLogout }) => {
                             )}
                           </div>
                         </button>
-                        {isLeader && (
-                          <div className="relative">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setShowActionMenu(showActionMenu === drive._id ? null : drive._id);
-                              }}
-                              className="p-1 hover:bg-zinc-700 rounded-lg transition"
-                            >
-                              <MoreVertical size={14} className="text-zinc-400" />
-                            </button>
-                            {showActionMenu === drive._id && (
-                              <div className="absolute right-0 top-8 bg-zinc-800 rounded-xl shadow-lg border border-zinc-700 z-50 min-w-[140px]">
-                                <button
-                                  onClick={() => handleEditDrive(drive)}
-                                  className="w-full px-3 py-2 text-left text-sm hover:bg-zinc-700 flex items-center gap-2 rounded-t-xl transition"
-                                >
-                                  <Edit3 size={14} />
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() => handleMarkComplete(drive)}
-                                  className="w-full px-3 py-2 text-left text-sm hover:bg-zinc-700 flex items-center gap-2 transition"
-                                >
-                                  <CheckCircle size={14} />
-                                  Mark Complete
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteDrive(drive)}
-                                  className="w-full px-3 py-2 text-left text-sm hover:bg-red-900/50 text-red-400 flex items-center gap-2 rounded-b-xl transition"
-                                >
-                                  <Trash2 size={14} />
-                                  Delete
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                        {(() => {
+                          const driveCreatorId = drive.createdBy?._id?.toString() || drive.createdBy?.toString() || '';
+                          const canCancelThisDrive = isLeader || (isCoLeader && driveCreatorId === userId);
+                          if (!isLeader && !canCancelThisDrive) return null;
+                          return (
+                            <div className="relative">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowActionMenu(showActionMenu === drive._id ? null : drive._id);
+                                }}
+                                className="p-1 hover:bg-zinc-700 rounded-lg transition"
+                              >
+                                <MoreVertical size={14} className="text-zinc-400" />
+                              </button>
+                              {showActionMenu === drive._id && (
+                                <div className="absolute right-0 top-8 bg-zinc-800 rounded-xl shadow-lg border border-zinc-700 z-50 min-w-[140px]">
+                                  {isLeader && (
+                                    <button
+                                      onClick={() => handleEditDrive(drive)}
+                                      className="w-full px-3 py-2 text-left text-sm hover:bg-zinc-700 flex items-center gap-2 rounded-t-xl transition"
+                                    >
+                                      <Edit3 size={14} />
+                                      Edit
+                                    </button>
+                                  )}
+                                  {isLeader && (
+                                    <button
+                                      onClick={() => handleMarkComplete(drive)}
+                                      className="w-full px-3 py-2 text-left text-sm hover:bg-zinc-700 flex items-center gap-2 transition"
+                                    >
+                                      <CheckCircle size={14} />
+                                      Mark Complete
+                                    </button>
+                                  )}
+                                  {canCancelThisDrive && (
+                                    <button
+                                      onClick={() => handleOpenCancelDrive(drive)}
+                                      className="w-full px-3 py-2 text-left text-sm hover:bg-zinc-700 flex items-center gap-2 transition"
+                                    >
+                                      <X size={14} />
+                                      Cancel Drive
+                                    </button>
+                                  )}
+                                  {isLeader && (
+                                    <button
+                                      onClick={() => handleDeleteDrive(drive)}
+                                      className="w-full px-3 py-2 text-left text-sm hover:bg-red-900/50 text-red-400 flex items-center gap-2 rounded-b-xl transition"
+                                    >
+                                      <Trash2 size={14} />
+                                      Delete
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   ))}
@@ -981,7 +1177,7 @@ const ClubDetail = ({ user, onLogout }) => {
 
           {/* Members section - visible to all members */}
           <div className="mt-3 xl:mt-4">
-            {isLeader && (
+            {canModerate && (
               <button
                 onClick={() => setShowScheduleDriveModal(true)}
                 className="w-full bg-red-600 hover:bg-red-700 py-2 xl:py-3 rounded-xl xl:rounded-2xl text-sm xl:text-base font-medium flex items-center justify-center gap-2 transition mb-3 xl:mb-4"
@@ -1210,9 +1406,16 @@ const ClubDetail = ({ user, onLogout }) => {
               </button>
             </div>
 
+            {coLeaderActionError && (
+              <p className="text-red-400 text-xs mb-3">{coLeaderActionError}</p>
+            )}
+
             <div className="space-y-3 overflow-y-auto flex-1 pr-2">
               {(club.members || []).map((member) => {
                 const memberIsLeader = club.leader?._id && member._id === club.leader._id;
+                const memberIsCoLeader = (club.coLeaders || []).some(
+                  c => (c._id?.toString() || c?.toString()) === member._id?.toString()
+                );
                 return (
                   <div
                     key={member._id}
@@ -1255,6 +1458,12 @@ const ClubDetail = ({ user, onLogout }) => {
                       </span>
                     ) : (
                       <div className="flex items-center gap-1">
+                        {/* Co-Leader badge (UC-10) */}
+                        {memberIsCoLeader && (
+                          <span className="text-sky-400 text-sm flex items-center gap-1 bg-sky-900/30 px-3 py-1 rounded-full">
+                            <Shield size={12} /> Co-Leader
+                          </span>
+                        )}
                         {/* Report button — visible to any member for other members */}
                         {member._id !== user?._id && (
                           <button
@@ -1266,8 +1475,29 @@ const ClubDetail = ({ user, onLogout }) => {
                             <Flag size={14} />
                           </button>
                         )}
-                        {/* Remove button — leader only */}
-                        {isLeader && (
+                        {/* Promote/Demote co-leader — leader only (UC-10) */}
+                        {isLeader && !memberIsCoLeader && (
+                          <button
+                            type="button"
+                            onClick={() => handlePromoteCoLeader(member._id)}
+                            className="p-1.5 text-zinc-400 hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-all"
+                            title="Promote to co-leader"
+                          >
+                            <Shield size={14} />
+                          </button>
+                        )}
+                        {isLeader && memberIsCoLeader && (
+                          <button
+                            type="button"
+                            onClick={() => handleDemoteCoLeader(member._id)}
+                            className="p-1.5 text-zinc-400 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-all"
+                            title="Demote to member"
+                          >
+                            <ShieldOff size={14} />
+                          </button>
+                        )}
+                        {/* Remove button — leader or co-leader; a co-leader can't remove another co-leader */}
+                        {canModerate && (isLeader || !memberIsCoLeader) && (
                           <button
                             type="button"
                             onClick={() => handleRemoveMember(member._id, member.username)}
@@ -1488,7 +1718,7 @@ const ClubDetail = ({ user, onLogout }) => {
         <DriveDetailModal
           drive={selectedDrive}
           isMember={isMember}
-          isLeader={isLeader}
+          canModerate={canModerate}
           onClose={closeDriveModal}
           rsvp={{
             status: userRSVP,
@@ -1825,6 +2055,46 @@ const ClubDetail = ({ user, onLogout }) => {
                 className="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-xl font-medium transition"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Drive Confirmation (UC-10) — distinct from Delete: notifies members */}
+      {driveToCancel && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div role="dialog" aria-modal="true" aria-labelledby="cancel-drive-modal-title" tabIndex={-1} className="bg-zinc-900 rounded-2xl p-6 max-w-sm w-full border border-zinc-700 shadow-2xl">
+            <h3 id="cancel-drive-modal-title" className="text-lg font-bold mb-2">Cancel Drive</h3>
+            <p className="text-zinc-400 text-sm mb-3">
+              Cancelling <span className="text-white font-medium">{driveToCancel.name}</span> will notify every member who RSVPed. This cannot be undone.
+            </p>
+            <label htmlFor="cancel-drive-reason" className="block text-sm text-zinc-400 mb-2">Reason</label>
+            <textarea
+              id="cancel-drive-reason"
+              value={cancelDriveReason}
+              onChange={(e) => { setCancelDriveReason(e.target.value); setCancelDriveError(''); }}
+              rows={3}
+              placeholder="e.g. Bad weather in the forecast"
+              className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-600 resize-none mb-3"
+            />
+            {cancelDriveError && (
+              <p className="text-red-400 text-sm mb-3">{cancelDriveError}</p>
+            )}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => { setDriveToCancel(null); setCancelDriveError(''); }}
+                className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-3 rounded-xl font-medium transition"
+              >
+                Keep Drive
+              </button>
+              <button
+                type="button"
+                onClick={confirmCancelDrive}
+                className="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-xl font-medium transition"
+              >
+                Cancel Drive
               </button>
             </div>
           </div>

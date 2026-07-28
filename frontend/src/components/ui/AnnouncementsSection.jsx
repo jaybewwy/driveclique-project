@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Plus, X, Trash2 } from "lucide-react";
 import { clubsAPI } from "../../services/api";
 
-const AnnouncementsSection = ({ clubId, announcements, setAnnouncements, isLeader }) => {
+const AnnouncementsSection = ({ clubId, announcements, setAnnouncements, canModerate }) => {
   const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
   const [announcementForm, setAnnouncementForm] = useState({ title: '', body: '' });
   const [announcementError, setAnnouncementError] = useState('');
@@ -58,7 +58,7 @@ const AnnouncementsSection = ({ clubId, announcements, setAnnouncements, isLeade
             <p className="text-xs text-zinc-400">Updates from the club leader</p>
           </div>
         </div>
-        {isLeader && (
+        {canModerate && (
           <button
             onClick={() => { setShowAnnouncementForm(v => !v); setAnnouncementError(''); }}
             className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-xl text-sm font-medium transition"
@@ -70,7 +70,7 @@ const AnnouncementsSection = ({ clubId, announcements, setAnnouncements, isLeade
       </div>
 
       {/* Post Announcement Form */}
-      {isLeader && showAnnouncementForm && (
+      {canModerate && showAnnouncementForm && (
         <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-2xl p-5 mb-4">
           <div className="space-y-3">
             <input
@@ -128,7 +128,7 @@ const AnnouncementsSection = ({ clubId, announcements, setAnnouncements, isLeade
                     {new Date(a.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                   </p>
                 </div>
-                {isLeader && (
+                {canModerate && (
                   <button
                     disabled={isPostingAnnouncement === a._id}
                     onClick={() => handleDeleteAnnouncement(a._id)}

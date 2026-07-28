@@ -7,7 +7,7 @@ import { DriveMapPreview } from "./drive-map-preview";
 // Edit Drive modal there and the RSVP/rating data is pre-fetched by ClubDetail.jsx's
 // handleDriveClick *before* this modal ever mounts (so there's no loading flash to manage
 // here). This component only renders what it's given and reports interactions back up.
-const DriveDetailModal = ({ drive, isMember, isLeader, onClose, rsvp, checkin, attendees, rating }) => {
+const DriveDetailModal = ({ drive, isMember, canModerate, onClose, rsvp, checkin, attendees, rating }) => {
   const navigate = useNavigate();
 
   return (
@@ -87,14 +87,14 @@ const DriveDetailModal = ({ drive, isMember, isLeader, onClose, rsvp, checkin, a
           {/* RSVP Section - Members and leaders only */}
           {new Date(drive.date) >= new Date() && !drive.isCompleted && (
             <div className="border-t border-zinc-700 pt-6">
-              {!(isMember || isLeader) ? (
+              {!(isMember || canModerate) ? (
                 <p className="text-sm text-zinc-400 text-center py-2">
                   Join this club to RSVP to drives.
                 </p>
               ) : (
                 <>
                   <h3 className="text-lg font-semibold mb-4">
-                    {isLeader ? 'Mark your attendance' : 'Are you going?'}
+                    {canModerate ? 'Mark your attendance' : 'Are you going?'}
                   </h3>
 
                   {/* State 1 — user is on the waitlist */}
@@ -180,7 +180,7 @@ const DriveDetailModal = ({ drive, isMember, isLeader, onClose, rsvp, checkin, a
                   {/* RSVP Counts */}
                   <div className="border-t border-zinc-700/50 pt-4">
                     <h4 className="text-sm font-semibold mb-3 text-zinc-400">
-                      {isLeader ? 'RSVP Summary' : 'Current RSVPs'}
+                      {canModerate ? 'RSVP Summary' : 'Current RSVPs'}
                     </h4>
                     <div className="flex gap-4">
                       <div className="flex-1 bg-black rounded-xl p-3 text-center">
@@ -204,8 +204,8 @@ const DriveDetailModal = ({ drive, isMember, isLeader, onClose, rsvp, checkin, a
                     </div>
                   </div>
 
-                  {/* Attendee List (leader-only) — the full per-member breakdown behind the counts above */}
-                  {isLeader && (
+                  {/* Attendee List (leader/co-leader) — the full per-member breakdown behind the counts above */}
+                  {canModerate && (
                     <div className="border-t border-zinc-700/50 pt-4 mt-4">
                       <button
                         type="button"
@@ -270,9 +270,9 @@ const DriveDetailModal = ({ drive, isMember, isLeader, onClose, rsvp, checkin, a
           {/* Check-In Section (UC-08) — optional; leader can send/resend anytime, members with a "going"
               RSVP can self check-in any time too (covers missed push notifications). Stays open until
               the leader marks the drive completed. */}
-          {!drive.isCompleted && (isLeader || rsvp.status === 'going') && (
+          {!drive.isCompleted && (canModerate || rsvp.status === 'going') && (
             <div className="border-t border-zinc-700 pt-6">
-              {isLeader ? (
+              {canModerate ? (
                 <>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-lg font-semibold">Drive Check-In</h3>

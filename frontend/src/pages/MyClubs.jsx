@@ -14,6 +14,7 @@ const MyClubs = ({ user, onLogout }) => {
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [inviteCode, setInviteCode]       = useState("");
   const [joinError, setJoinError]         = useState("");
+  const [joinInfo, setJoinInfo]           = useState("");
   const [joinLoading, setJoinLoading]     = useState(false);
 
   const sortedClubs = [...clubs].sort((a, b) => {
@@ -26,13 +27,20 @@ const MyClubs = ({ user, onLogout }) => {
     if (!inviteCode.trim()) { setJoinError("Please enter an invite code"); return; }
     setJoinLoading(true);
     setJoinError("");
+    setJoinInfo("");
     try {
       const response = await clubsAPI.joinByInviteCode(inviteCode.trim());
       if (response.data.success) {
-        trackEvent('CLUB_JOINED', { via: 'inviteCode' });
-        await refreshClubs();
-        setShowJoinModal(false);
-        setInviteCode("");
+        if (response.data.pending) {
+          // Private club — the code submitted a join request, not instant membership (UC-10)
+          setJoinInfo("Join request sent! Awaiting leader approval.");
+          setInviteCode("");
+        } else {
+          trackEvent('CLUB_JOINED', { via: 'inviteCode' });
+          await refreshClubs();
+          setShowJoinModal(false);
+          setInviteCode("");
+        }
       }
     } catch (error) {
       setJoinError(error.response?.data?.message || "Invalid invite code");
@@ -41,7 +49,7 @@ const MyClubs = ({ user, onLogout }) => {
     }
   };
 
-  const closeModal = () => { setShowJoinModal(false); setInviteCode(""); setJoinError(""); };
+  const closeModal = () => { setShowJoinModal(false); setInviteCode(""); setJoinError(""); setJoinInfo(""); };
 
   /* ── Loading ────────────────────────────────────────────────────────── */
   if (loading) {
@@ -96,6 +104,12 @@ const MyClubs = ({ user, onLogout }) => {
               // eslint-disable-next-line jsx-a11y/no-autofocus -- focus follows the user's own "Join with Invite Code" click, not page load
               autoFocus
             />
+
+            {joinInfo && (
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3">
+                <p className="text-emerald-400 text-sm text-center">{joinInfo}</p>
+              </div>
+            )}
 
             {joinError && (
               <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3">

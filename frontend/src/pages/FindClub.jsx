@@ -92,10 +92,16 @@ const FindClub = ({ user, onLogout }) => {
     try {
       const response = await clubsAPI.joinByInviteCode(inviteCode.trim());
       if (response.data.success) {
-        trackEvent('CLUB_JOINED', { via: 'inviteCode' });
-        const clubId = response.data.clubId || response.data.club?._id;
-        if (clubId) navigate(`/club/${clubId}`);
-        else { setShowJoinModal(false); setActionSuccess("Joined club successfully!"); }
+        if (response.data.pending) {
+          // Private club — the code submitted a join request, not instant membership (UC-10)
+          setShowJoinModal(false);
+          setActionSuccess("Join request sent! Awaiting leader approval.");
+        } else {
+          trackEvent('CLUB_JOINED', { via: 'inviteCode' });
+          const clubId = response.data.clubId || response.data.club?._id;
+          if (clubId) navigate(`/club/${clubId}`);
+          else { setShowJoinModal(false); setActionSuccess("Joined club successfully!"); }
+        }
       }
     } catch {
       setJoinError("Invite code incorrect.");

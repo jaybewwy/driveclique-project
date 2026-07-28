@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bell, Calendar, CheckCircle, Users, UserCheck, UserX,
-  Clock, Megaphone, CheckCheck, MapPin,
+  Clock, Megaphone, CheckCheck, MapPin, Shield, ShieldOff,
 } from "lucide-react";
 
 // Map SSE event types to lucide icons and accent colours
@@ -17,6 +17,8 @@ const TYPE_META = {
   WAITLIST_JOINED:      { icon: Clock,        color: "text-amber-400"  },
   WAITLIST_PROMOTED:    { icon: CheckCircle,  color: "text-emerald-400"},
   DRIVE_CHECKIN_REQUEST:{ icon: MapPin,       color: "text-sky-400"    },
+  COLEADER_PROMOTED:    { icon: Shield,       color: "text-sky-400"    },
+  COLEADER_DEMOTED:     { icon: ShieldOff,    color: "text-amber-400"  },
 };
 
 const relativeTime = (id) => {
