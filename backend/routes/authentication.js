@@ -9,6 +9,7 @@ const {
   getProfile,
   updateProfile,
   searchUsers,
+  getPublicProfile,
   refreshAccessToken,
   logoutUser,
   forgotPassword,
@@ -142,6 +143,17 @@ router.get(
   protect,
   validateQuery({ query: { maxLength: 100 } }),
   searchUsers
+);
+
+/**
+ * @route   GET /api/auth/users/:userId/public
+ * @desc    Get another user's public profile (safe subset + mutual clubs + participation)
+ * @access  Private
+ */
+router.get(
+  '/users/:userId/public',
+  protect,
+  getPublicProfile
 );
 
 /**

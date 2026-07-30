@@ -21,8 +21,8 @@ const TYPE_META = {
   COLEADER_DEMOTED:     { icon: ShieldOff,    color: "text-amber-400"  },
 };
 
-const relativeTime = (id) => {
-  const diff = Date.now() - id;
+const relativeTime = (createdAt) => {
+  const diff = Date.now() - new Date(createdAt).getTime();
   const m = Math.floor(diff / 60000);
   if (m < 1)  return "just now";
   if (m < 60) return `${m}m ago`;
@@ -129,7 +129,7 @@ const NotificationPanel = ({ notifications, unreadCount, markAllRead, markOneRea
                   <p className={`text-sm leading-snug ${!n.read ? "text-zinc-100 font-medium" : "text-zinc-400"}`}>
                     {n.message}
                   </p>
-                  <p className="text-xs text-zinc-400 mt-1">{relativeTime(n.id)}</p>
+                  <p className="text-xs text-zinc-400 mt-1">{relativeTime(n.createdAt)}</p>
                 </div>
 
                 {/* Unread dot */}

@@ -7,7 +7,7 @@ import { DriveMapPreview } from "./drive-map-preview";
 // Edit Drive modal there and the RSVP/rating data is pre-fetched by ClubDetail.jsx's
 // handleDriveClick *before* this modal ever mounts (so there's no loading flash to manage
 // here). This component only renders what it's given and reports interactions back up.
-const DriveDetailModal = ({ drive, isMember, canModerate, onClose, rsvp, checkin, attendees, rating }) => {
+const DriveDetailModal = ({ drive, isMember, canModerate, onClose, onViewProfile, rsvp, checkin, attendees, rating }) => {
   const navigate = useNavigate();
 
   return (
@@ -237,9 +237,19 @@ const DriveDetailModal = ({ drive, isMember, canModerate, onClose, rsvp, checkin
                                     key={attendeeRsvp._id}
                                     className="flex items-center justify-between bg-black rounded-xl px-3 py-2"
                                   >
-                                    <span className="text-sm text-white truncate">
-                                      {attendeeRsvp.user?.username || 'Unknown member'}
-                                    </span>
+                                    {attendeeRsvp.user?._id ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => onViewProfile?.(attendeeRsvp.user._id)}
+                                        className="text-sm text-white truncate hover:text-red-400 transition-colors text-left"
+                                      >
+                                        {attendeeRsvp.user?.username || 'Unknown member'}
+                                      </button>
+                                    ) : (
+                                      <span className="text-sm text-white truncate">
+                                        {attendeeRsvp.user?.username || 'Unknown member'}
+                                      </span>
+                                    )}
                                     <span
                                       className={`text-xs font-medium uppercase tracking-wide whitespace-nowrap ml-3 ${
                                         attendeeRsvp.status === 'going'

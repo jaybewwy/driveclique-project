@@ -8,7 +8,7 @@ import {
   Save, X, Pencil, Lock
 } from "lucide-react";
 import NavBar from "../components/NavBar";
-import { drivesAPI, authAPI, getErrorMessage } from "../services/api";
+import { drivesAPI, authAPI, notificationsAPI, getErrorMessage } from "../services/api";
 import { LocationSearch } from "../components/ui/location-search";
 import { MobileDrawerButton, MobileDrawer } from "../components/ui/MobileDrawer";
 
@@ -663,6 +663,25 @@ const settingsInputDisabledClass =
 
 const COOLDOWN_DAYS = 60;
 
+// Labels shown in the Notifications settings section. Keys must match
+// backend/models/notification.js's NOTIFICATION_TYPES exactly.
+const NOTIFICATION_PREFERENCE_OPTIONS = [
+  { type: "NEW_DRIVE", label: "A new drive is scheduled in one of your clubs" },
+  { type: "RSVP_NEW", label: "A member RSVPs to a drive you created" },
+  { type: "RSVP_UPDATED", label: "A member changes their RSVP on a drive you created" },
+  { type: "WAITLIST_JOINED", label: "You're added to a drive's waitlist" },
+  { type: "WAITLIST_PROMOTED", label: "You're promoted off a waitlist" },
+  { type: "DRIVE_CANCELLED", label: "A drive you RSVPed to is cancelled" },
+  { type: "DRIVE_REMINDER", label: "Reminders for upcoming drives" },
+  { type: "DRIVE_CHECKIN_REQUEST", label: "A leader requests check-in for a drive" },
+  { type: "JOIN_REQUEST", label: "Someone requests to join your club" },
+  { type: "JOIN_ACCEPTED", label: "Your request to join a club is accepted" },
+  { type: "JOIN_REJECTED", label: "Your request to join a club is declined" },
+  { type: "NEW_ANNOUNCEMENT", label: "A club posts a new announcement" },
+  { type: "COLEADER_PROMOTED", label: "You're promoted to co-leader" },
+  { type: "COLEADER_DEMOTED", label: "You're removed as co-leader" },
+];
+
 const ProfileView = ({ onLogout, onUpdateUser }) => {
   const navigate = useNavigate();
   const [loading, setLoading]   = useState(true);
@@ -690,6 +709,10 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
   const [deletePassword, setDeletePassword]   = useState("");
   const [deleteError, setDeleteError]         = useState("");
   const [isDeleting, setIsDeleting]           = useState(false);
+
+  const [notifPrefs, setNotifPrefs] = useState({});
+  const [savingNotifType, setSavingNotifType] = useState(null);
+  const [notifPrefsError, setNotifPrefsError] = useState("");
 
   const applyCooldown = (changedAt) => {
     if (!changedAt) { setCanChangeUsername(true); setDaysLeft(0); return; }
@@ -719,7 +742,26 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
       })
       .catch(err => { if (err.response?.status === 401) navigate("/login"); })
       .finally(() => setLoading(false));
+
+    notificationsAPI.getPreferences()
+      .then(res => { if (res.data.success) setNotifPrefs(res.data.data.notificationPreferences || {}); })
+      .catch(err => console.warn("Failed to load notification preferences, defaulting to all enabled:", err));
   }, [navigate]);
+
+  const handleToggleNotifPref = async (type, value) => {
+    setNotifPrefsError("");
+    const previous = notifPrefs;
+    setNotifPrefs(prev => ({ ...prev, [type]: value })); // optimistic
+    setSavingNotifType(type);
+    try {
+      await notificationsAPI.updatePreferences({ [type]: value });
+    } catch (err) {
+      setNotifPrefs(previous); // revert on failure
+      setNotifPrefsError(getErrorMessage(err));
+    } finally {
+      setSavingNotifType(null);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -1066,6 +1108,42 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
               <Lock size={15} />
               {changingPw ? "Updating…" : "Update Password"}
             </button>
+          </div>
+        </SettingsSection>
+
+        {/* Notifications */}
+        <SettingsSection
+          title="Notifications"
+          description="Choose which notifications you receive. Turning one off applies going forward — it won't remove your past history."
+        >
+          {notifPrefsError && <p className="text-red-400 text-sm">{notifPrefsError}</p>}
+
+          <div className="bg-black border border-zinc-800 rounded-xl divide-y divide-zinc-800">
+            {NOTIFICATION_PREFERENCE_OPTIONS.map(({ type, label }) => {
+              const enabled = notifPrefs[type] !== false;
+              return (
+                <div key={type} className="flex items-center justify-between px-4 py-3">
+                  <span className="text-sm text-zinc-300 pr-4">{label}</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={enabled}
+                    aria-label={label}
+                    disabled={savingNotifType === type}
+                    onClick={() => handleToggleNotifPref(type, !enabled)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
+                      enabled ? "bg-red-600" : "bg-zinc-700"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        enabled ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </SettingsSection>
 

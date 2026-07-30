@@ -186,6 +186,45 @@ const searchUsers = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Get another user's public profile — a safe field subset plus derived
+ * context (clubs both users share, "going" RSVP count as a participation
+ * signal). Never returns email, password, or tokens.
+ * @route   GET /api/auth/users/:userId/public
+ * @access  Private
+ */
+const getPublicProfile = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+  const viewerId = req.user.id;
+
+  const user = await User.findById(userId)
+    .select('username name firstName lastName avatar bio location cars useDisplayName createdAt')
+    .lean();
+
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+
+  const [mutualClubs, goingCount] = await Promise.all([
+    Club.find({
+      $and: [
+        { $or: [{ leader: viewerId }, { members: viewerId }, { coLeaders: viewerId }] },
+        { $or: [{ leader: userId }, { members: userId }, { coLeaders: userId }] },
+      ],
+    }).select('name').lean(),
+    RSVP.countDocuments({ user: userId, status: 'going' }),
+  ]);
+
+  res.json({
+    success: true,
+    profile: {
+      ...user,
+      mutualClubs: mutualClubs.map((c) => ({ _id: c._id, name: c.name })),
+      goingCount,
+    },
+  });
+});
+
+/**
  * Register User
  * @route POST /api/auth/register
  * @access Public
@@ -516,6 +555,7 @@ module.exports = {
   getProfile,
   updateProfile,
   searchUsers,
+  getPublicProfile,
   refreshAccessToken,
   logoutUser,
   forgotPassword,

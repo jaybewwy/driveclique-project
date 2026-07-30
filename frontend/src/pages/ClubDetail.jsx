@@ -30,6 +30,7 @@ import ReportModal from "../components/ui/ReportModal";
 import AnnouncementsSection from "../components/ui/AnnouncementsSection";
 import ScheduleDriveModal from "../components/ui/ScheduleDriveModal";
 import DriveDetailModal from "../components/ui/DriveDetailModal";
+import MemberProfilePanel from "../components/ui/MemberProfilePanel";
 import ClubTagPicker from "../components/ui/ClubTagPicker";
 import { compressImage } from "../utils/imageCompressor";
 import { clubsAPI, drivesAPI, authAPI } from "../services/api";
@@ -110,6 +111,10 @@ const ClubDetail = ({ user, onLogout }) => {
   const [memberActionError, setMemberActionError] = useState('');
   const [driveToDelete, setDriveToDelete] = useState(null);
   const [memberToRemove, setMemberToRemove] = useState(null);
+  // UC-22 — { userId, canRemove } | null. canRemove is decided by the caller
+  // at click time (member list vs. drive attendee list both know their own
+  // leader/co-leader context; the panel itself doesn't).
+  const [profilePanelTarget, setProfilePanelTarget] = useState(null);
   const [transferTarget, setTransferTarget] = useState(null);
   const [transferError, setTransferError] = useState('');
 
@@ -206,6 +211,16 @@ const ClubDetail = ({ user, onLogout }) => {
     m => (m._id?.toString() || m?.toString()) === userId
   ) ?? false;
   const canModerate = isLeader || isCoLeader;
+  // UC-22 — same eligibility rule as the member list's own Remove button
+  // (leader-or-co-leader, and a co-leader can't remove another co-leader),
+  // factored out so the drive attendee list can offer the same action.
+  const computeCanRemoveMember = (targetUserId) => {
+    if (!canModerate) return false;
+    const targetIsCoLeader = (club?.coLeaders || []).some(
+      (c) => (c._id?.toString() || c?.toString()) === targetUserId?.toString()
+    );
+    return isLeader || !targetIsCoLeader;
+  };
   const pendingJoinRequests = (club?.joinRequests || []).filter(r => r.status === 'pending');
 
   // Pre-fetch RSVP counts for all upcoming drives in parallel once drives load.
@@ -1437,7 +1452,14 @@ const ClubDetail = ({ user, onLogout }) => {
                       )}
                     </div>
 
-                    <div className="flex-1">
+                    <button
+                      type="button"
+                      onClick={() => setProfilePanelTarget({
+                        userId: member._id,
+                        canRemove: computeCanRemoveMember(member._id),
+                      })}
+                      className="flex-1 text-left hover:opacity-80 transition-opacity"
+                    >
                       <p className="font-medium">
                         {member.useDisplayName && member.name ? member.name : member.username}
                       </p>
@@ -1450,7 +1472,7 @@ const ClubDetail = ({ user, onLogout }) => {
                           </p>
                         );
                       })()}
-                    </div>
+                    </button>
 
                     {memberIsLeader ? (
                       <span className="text-amber-500 text-sm flex items-center gap-1 bg-amber-900/30 px-3 py-1 rounded-full">
@@ -1720,6 +1742,10 @@ const ClubDetail = ({ user, onLogout }) => {
           isMember={isMember}
           canModerate={canModerate}
           onClose={closeDriveModal}
+          onViewProfile={(targetUserId) => setProfilePanelTarget({
+            userId: targetUserId,
+            canRemove: computeCanRemoveMember(targetUserId),
+          })}
           rsvp={{
             status: userRSVP,
             waitlistPosition: userWaitlistPosition,
@@ -1756,6 +1782,17 @@ const ClubDetail = ({ user, onLogout }) => {
           }}
         />
       )}
+
+      <MemberProfilePanel
+        userId={profilePanelTarget?.userId}
+        isOpen={!!profilePanelTarget}
+        onClose={() => setProfilePanelTarget(null)}
+        canRemove={profilePanelTarget?.canRemove}
+        onRemove={() => {
+          const target = club?.members?.find(m => m._id === profilePanelTarget?.userId);
+          handleRemoveMember(profilePanelTarget.userId, target?.username || 'this member');
+        }}
+      />
 
       {/* Club Edit Modal */}
       {showClubEditModal && (
