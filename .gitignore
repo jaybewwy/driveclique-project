@@ -96,3 +96,7 @@ frontend/.env.local
 *.ts
 !frontend/tests/e2e/*.spec.ts
 *.md
+# README.md is the intended public-facing repo doc (not an internal session
+# note like activeContext.md/progress.md above) — un-ignore it specifically
+# rather than widening the *.md rule for every doc in the repo.
+!README.md
