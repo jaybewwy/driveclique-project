@@ -68,7 +68,10 @@ router.post(
     username: { required: true, type: 'string', minLength: 3, maxLength: 30 },
     email: { required: true, type: 'string', email: true },
     password: { required: true, type: 'string', minLength: 8, maxLength: 100 },
-    name: { type: 'string', minLength: 1, maxLength: 100 }
+    name: { type: 'string', minLength: 1, maxLength: 100 },
+    firstName: { type: 'string', maxLength: 50 },
+    lastName: { type: 'string', maxLength: 50 },
+    location: { type: 'string', maxLength: 200 }
   }),
   registerUser
 );
@@ -107,6 +110,9 @@ router.put(
     name: { type: 'string', maxLength: 100 },
     bio: { type: 'string', maxLength: 500 },
     avatar: { type: 'string' }, // URL, could add pattern validation
+    firstName: { type: 'string', maxLength: 50 },
+    lastName: { type: 'string', maxLength: 50 },
+    location: { type: 'string', maxLength: 200 },
     useDisplayName: { type: 'boolean' },
     cars: {
       type: 'array',
@@ -172,7 +178,11 @@ router.post(
  * @desc    Revoke a refresh token
  * @access  Public
  */
-router.post('/logout', logoutUser);
+router.post(
+  '/logout',
+  validateInput({ refreshToken: { type: 'string' } }),
+  logoutUser
+);
 
 /**
  * @route   POST /api/auth/forgot-password
