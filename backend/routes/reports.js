@@ -1,10 +1,12 @@
 const express = require('express');
 const router  = express.Router();
 const { protect }       = require('../middleware/authentication');
+const { apiLimiter }    = require('../middleware/rateLimiters');
 const { validateInput } = require('../middleware/validation');
 const { submitReport }  = require('../controllers/reportController');
 
 router.use(protect);
+router.use(apiLimiter);
 
 /**
  * @route   POST /api/reports

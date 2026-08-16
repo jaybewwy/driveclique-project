@@ -109,7 +109,7 @@ router.put(
   validateInput({
     name: { type: 'string', maxLength: 100 },
     bio: { type: 'string', maxLength: 500 },
-    avatar: { type: 'string' }, // URL, could add pattern validation
+    avatar: { type: 'string', maxLength: 300000 }, // base64 data URI; same 300k-char cap as car photos below
     firstName: { type: 'string', maxLength: 50 },
     lastName: { type: 'string', maxLength: 50 },
     location: { type: 'string', maxLength: 200 },
@@ -169,7 +169,7 @@ router.get(
  */
 router.post(
   '/refresh',
-  validateInput({ refreshToken: { required: true, type: 'string' } }),
+  validateInput({ refreshToken: { required: true, type: 'string', minLength: 80, maxLength: 80 } }),
   refreshAccessToken
 );
 
@@ -180,7 +180,7 @@ router.post(
  */
 router.post(
   '/logout',
-  validateInput({ refreshToken: { type: 'string' } }),
+  validateInput({ refreshToken: { type: 'string', minLength: 80, maxLength: 80 } }),
   logoutUser
 );
 

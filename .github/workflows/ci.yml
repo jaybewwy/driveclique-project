@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main, staging]
 
+# Least-privilege default for the GITHUB_TOKEN — none of these jobs push
+# commits, comment on PRs, or otherwise need write access to repo contents.
+permissions:
+  contents: read
+
 jobs:
   # ── 1. Lint + build check ──────────────────────────────────────────────────
   lint-build:

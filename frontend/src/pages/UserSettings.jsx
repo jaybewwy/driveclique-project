@@ -832,7 +832,16 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
     try {
       await authAPI.changePassword(pwForm.current, pwForm.new);
       setPwForm({ current: "", new: "", confirm: "" });
-      setPwSuccess("Password updated successfully!");
+      // The backend revokes every refresh token for this account on a
+      // password change (including this session's), so staying "logged in"
+      // here would just be masking a session that's about to fail the next
+      // time the access token needs a refresh. Log out immediately instead.
+      setPwSuccess("Password updated. Signing you out for security — please log in again.");
+      localStorage.removeItem("token");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("driveclique_user");
+      onLogout();
+      setTimeout(() => navigate("/login"), 1500);
     } catch (err) {
       setPwError(getErrorMessage(err));
     } finally {

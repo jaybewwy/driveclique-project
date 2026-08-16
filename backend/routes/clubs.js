@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authentication');
+const { apiLimiter, strictLimiter } = require('../middleware/rateLimiters');
 const { validateParams, validateInput, validateQuery } = require('../middleware/validation');
 const { CLUB_TAGS } = require('../models/club');
 const {
@@ -27,6 +28,7 @@ const {
 
 // All routes require authentication
 router.use(protect);
+router.use(apiLimiter);
 
 // Shared by the create and update routes below
 const tagsRule = {
@@ -88,6 +90,7 @@ router.get('/trending', getTopClub);
  */
 router.post(
   '/join-by-code/:inviteCode',
+  strictLimiter, // invite codes are a 6-char secret (~16.7M keyspace) — bound guessing speed
   validateParams({
     inviteCode: { required: true, type: 'string' }
   }),
@@ -101,6 +104,7 @@ router.post(
  */
 router.get(
   '/invite/:inviteCode',
+  strictLimiter, // same brute-force protection as join-by-code above
   validateParams({
     inviteCode: { required: true, type: 'string' }
   }),

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authentication');
+const { apiLimiter } = require('../middleware/rateLimiters');
 const { validateParams, validateInput } = require('../middleware/validation');
 const {
   createDrive,
@@ -23,6 +24,7 @@ const {
 
 // All routes require authentication
 router.use(protect);
+router.use(apiLimiter);
 
 /**
  * @route   POST /api/drives

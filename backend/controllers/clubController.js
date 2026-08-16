@@ -120,9 +120,14 @@ const getClubById = asyncHandler(async (req, res) => {
 const getClubByInviteCode = asyncHandler(async (req, res) => {
   const { inviteCode } = req.params;
 
+  // A valid invite code only proves the requester was given the code by
+  // someone — not that they're a member. Email is left out of this preview
+  // (unlike getClubById, which is reached only after actually joining/being
+  // a member) so guessing/leaking a code can't be used to harvest members'
+  // email addresses off a private club.
   const club = await Club.findOne({ inviteCode })
-    .populate('leader', 'username email avatar name useDisplayName cars')
-    .populate('members', 'username email avatar name useDisplayName cars')
+    .populate('leader', 'username avatar name useDisplayName cars')
+    .populate('members', 'username avatar name useDisplayName cars')
     .lean();
 
   if (!club) {

@@ -71,6 +71,19 @@ npm run dev              # Vite on port 5173
 
 SMTP is optional — all email features silently no-op when unconfigured.
 
+### Running the full stack with Docker (optional)
+
+`docker-compose.yml` (repo root) runs MongoDB + backend + frontend together. The
+MongoDB service requires authentication — copy `.env.example` to `.env` at the
+repo root and set `MONGO_ROOT_USERNAME`/`MONGO_ROOT_PASSWORD` first, or
+`docker-compose up` will refuse to start:
+
+```bash
+cp .env.example .env       # repo root — sets MONGO_ROOT_USERNAME / MONGO_ROOT_PASSWORD
+cp backend/.env.example backend/.env
+docker-compose up --build
+```
+
 ---
 
 ## Environments & Deployment

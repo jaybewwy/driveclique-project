@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const { emitter } = require('../services/notificationEmitter');
 const { protect } = require('../middleware/authentication');
+const { apiLimiter } = require('../middleware/rateLimiters');
 const {
   getMyNotifications,
   markNotificationRead,
@@ -16,12 +17,14 @@ const protectSSE = (req, res, next) => {
   const token = req.query.token;
   if (!token) return res.status(401).end();
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
     next();
   } catch {
     res.status(401).end();
   }
 };
+
+router.use(apiLimiter);
 
 /**
  * @route   GET /api/notifications/stream
