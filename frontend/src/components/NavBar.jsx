@@ -52,7 +52,7 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
   return (
     <>
       {/* ── Main nav bar ──────────────────────────────────────────────── */}
-      <nav className="bg-zinc-950/90 backdrop-blur-2xl border-b border-white/[0.06] px-4 sm:px-6 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] flex items-center justify-between sticky top-0 z-50 transition-all duration-300">
+      <nav className="bg-zinc-950/90 backdrop-blur-2xl border-b border-white/[0.06] px-4 sm:px-6 pb-2.5 pt-[max(0.625rem,var(--sat))] flex items-center justify-between sticky top-0 z-50 transition-all duration-300">
 
         {/* Logo */}
         <div className="flex items-center gap-3">
@@ -153,7 +153,7 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
 
       {/* ── Mobile fullscreen menu ─────────────────────────────────────── */}
       {showMobileMenu && (
-        <div className="sm:hidden fixed inset-0 top-[calc(49px+env(safe-area-inset-top))] bg-zinc-950/98 backdrop-blur-2xl z-40 animate-fade-slide-up">
+        <div className="sm:hidden fixed inset-0 top-[calc(49px+var(--sat))] bg-zinc-950/98 backdrop-blur-2xl z-40 animate-fade-slide-up">
           <div className="p-4 space-y-1">
 
             {/* User info header */}

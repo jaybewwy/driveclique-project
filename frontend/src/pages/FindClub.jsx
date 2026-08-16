@@ -394,7 +394,7 @@ const FindClub = ({ user, onLogout }) => {
         <div
           className={
             mobilePopularOpen
-              ? "flex fixed inset-0 z-50 bg-zinc-950 flex-col p-5 pt-[calc(4rem+env(safe-area-inset-top))] overflow-y-auto gap-5 xl:inset-auto xl:z-auto xl:bg-transparent xl:w-72 xl:pt-5 xl:sticky xl:top-[49px] xl:h-[calc(100vh-49px)]"
+              ? "flex fixed inset-0 z-50 bg-zinc-950 flex-col p-5 pt-[calc(4rem+var(--sat))] overflow-y-auto gap-5 xl:inset-auto xl:z-auto xl:bg-transparent xl:w-72 xl:pt-5 xl:sticky xl:top-[49px] xl:h-[calc(100vh-49px)]"
               : "hidden xl:flex xl:flex-col xl:w-72 xl:p-5 xl:sticky xl:top-[49px] xl:h-[calc(100vh-49px)] xl:overflow-y-auto xl:gap-5"
           }
         >
@@ -403,7 +403,7 @@ const FindClub = ({ user, onLogout }) => {
               type="button"
               onClick={() => setMobilePopularOpen(false)}
               aria-label="Close popular clubs"
-              className="xl:hidden absolute top-[calc(1rem+env(safe-area-inset-top))] right-4 p-2 rounded-lg bg-zinc-900/80 text-zinc-400 hover:text-white transition-colors"
+              className="xl:hidden absolute top-[calc(1rem+var(--sat))] right-4 p-2 rounded-lg bg-zinc-900/80 text-zinc-400 hover:text-white transition-colors"
             >
               <X className="w-5 h-5" />
             </button>

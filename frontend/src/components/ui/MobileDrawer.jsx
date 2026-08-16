@@ -13,7 +13,7 @@ export function MobileDrawerButton({ onClick, breakpointClass, side = "left", la
     <button
       onClick={onClick}
       aria-label={`Open ${label}`}
-      style={{ bottom: `max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem))` }}
+      style={{ bottom: `max(1.25rem, calc(var(--sab) + 0.75rem))` }}
       className={`${breakpointClass} fixed ${positionClass} z-40 flex items-center justify-center w-12 h-12 rounded-full bg-zinc-900/90 backdrop-blur-xl border border-zinc-700/50 text-white shadow-lg shadow-black/40 hover:border-red-500/50 transition-all duration-300`}
     >
       <Menu className="w-5 h-5" />
@@ -65,11 +65,11 @@ export function MobileDrawer({ isOpen, onClose, side = "left", children }) {
         <button
           onClick={onClose}
           aria-label="Close menu"
-          className="absolute top-[max(0.75rem,env(safe-area-inset-top))] right-3 p-2 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors z-10"
+          className="absolute top-[max(0.75rem,var(--sat))] right-3 p-2 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors z-10"
         >
           <X className="w-5 h-5" />
         </button>
-        <div className="flex flex-col h-full p-3 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))]">{children}</div>
+        <div className="flex flex-col h-full p-3 pt-[calc(3.5rem+var(--sat))] pb-[max(0.75rem,var(--sab))]">{children}</div>
       </div>
     </div>
   );

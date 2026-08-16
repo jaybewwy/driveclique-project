@@ -1039,7 +1039,7 @@ const ClubDetail = ({ user, onLogout }) => {
         <div
           className={
             mobileInfoOpen
-              ? "flex fixed inset-0 z-50 bg-zinc-950 flex-col p-5 pt-[calc(4rem+env(safe-area-inset-top))] overflow-y-auto lg:inset-auto lg:z-auto lg:bg-transparent lg:flex-none lg:w-56 xl:w-72 2xl:w-80 lg:p-3 xl:p-5 2xl:p-6 lg:pt-3 xl:pt-5 2xl:pt-6 lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:overflow-hidden"
+              ? "flex fixed inset-0 z-50 bg-zinc-950 flex-col p-5 pt-[calc(4rem+var(--sat))] overflow-y-auto lg:inset-auto lg:z-auto lg:bg-transparent lg:flex-none lg:w-56 xl:w-72 2xl:w-80 lg:p-3 xl:p-5 2xl:p-6 lg:pt-3 xl:pt-5 2xl:pt-6 lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:overflow-hidden"
               : "hidden lg:flex lg:flex-col lg:flex-none lg:w-56 xl:w-72 2xl:w-80 lg:p-3 xl:p-5 2xl:p-6 lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:overflow-hidden"
           }
         >
@@ -1048,7 +1048,7 @@ const ClubDetail = ({ user, onLogout }) => {
               type="button"
               onClick={() => setMobileInfoOpen(false)}
               aria-label="Close club info"
-              className="lg:hidden absolute top-[calc(1rem+env(safe-area-inset-top))] right-4 p-2 rounded-lg bg-zinc-900/80 text-zinc-400 hover:text-white transition-colors"
+              className="lg:hidden absolute top-[calc(1rem+var(--sat))] right-4 p-2 rounded-lg bg-zinc-900/80 text-zinc-400 hover:text-white transition-colors"
             >
               <X className="w-5 h-5" />
             </button>

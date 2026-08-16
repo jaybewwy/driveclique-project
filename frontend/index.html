@@ -15,8 +15,15 @@
           stored as base64 and rendered as data-URI <img> tags
         - connect-src allows any https: host rather than one hardcoded API
           origin, since VITE_API_URL varies per deployment (local/staging/prod)
+        - http://192.168.1.148:* is a TEMPORARY local-device-testing entry —
+          the backend's plain-HTTP LAN address for physical-device Capacitor
+          builds, since a real phone (unlike the Android emulator's fixed
+          10.0.2.2 alias) can only reach the dev machine via its actual LAN
+          IP, which changes per network/machine. Remove before any real
+          deployment; a real release build should point at an HTTPS backend,
+          already covered by the blanket `https:` allowance above.
     -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://images.unsplash.com https://*.tile.openstreetmap.org; connect-src 'self' https: http://localhost:* http://10.0.2.2:*; base-uri 'self'; form-action 'self'; object-src 'none'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://images.unsplash.com https://*.tile.openstreetmap.org; connect-src 'self' https: http://localhost:* http://10.0.2.2:* http://192.168.1.148:*; base-uri 'self'; form-action 'self'; object-src 'none'" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="256x256" href="/favicon.png" />
     <!-- viewport-fit=cover renders edge-to-edge on iPhone notch / Dynamic Island -->
