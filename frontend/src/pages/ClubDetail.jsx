@@ -1382,9 +1382,9 @@ const ClubDetail = ({ user, onLogout }) => {
                       </div>
                     )}
                     {drive.location && (
-                      <div className="flex items-center gap-2">
-                        <MapPin size={12} />
-                        <span className="truncate">{drive.location}</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <MapPin size={12} className="shrink-0" />
+                        <span className="truncate min-w-0">{drive.location}</span>
                       </div>
                     )}
                   </div>
@@ -1604,9 +1604,9 @@ const ClubDetail = ({ user, onLogout }) => {
                       </div>
                     )}
                     {drive.location && (
-                      <div className="flex items-center gap-2">
-                        <MapPin size={12} />
-                        <span className="truncate">{drive.location}</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <MapPin size={12} className="shrink-0" />
+                        <span className="truncate min-w-0">{drive.location}</span>
                       </div>
                     )}
                   </div>

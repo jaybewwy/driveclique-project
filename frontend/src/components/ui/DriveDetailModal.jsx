@@ -80,7 +80,7 @@ const DriveDetailModal = ({ drive, isMember, canModerate, onClose, onViewProfile
           {drive.description && (
             <div className="bg-black rounded-xl p-4">
               <h3 className="text-sm font-medium text-zinc-400 mb-2">Description</h3>
-              <p className="text-zinc-300 text-sm whitespace-pre-wrap">{drive.description}</p>
+              <p className="text-zinc-300 text-sm whitespace-pre-wrap break-words">{drive.description}</p>
             </div>
           )}
 
@@ -235,18 +235,18 @@ const DriveDetailModal = ({ drive, isMember, canModerate, onClose, onViewProfile
                                 {attendees.data.rsvps.map((attendeeRsvp) => (
                                   <div
                                     key={attendeeRsvp._id}
-                                    className="flex items-center justify-between bg-black rounded-xl px-3 py-2"
+                                    className="flex items-center justify-between gap-3 bg-black rounded-xl px-3 py-2"
                                   >
                                     {attendeeRsvp.user?._id ? (
                                       <button
                                         type="button"
                                         onClick={() => onViewProfile?.(attendeeRsvp.user._id)}
-                                        className="text-sm text-white truncate hover:text-red-400 transition-colors text-left"
+                                        className="text-sm text-white truncate min-w-0 hover:text-red-400 transition-colors text-left"
                                       >
                                         {attendeeRsvp.user?.username || 'Unknown member'}
                                       </button>
                                     ) : (
-                                      <span className="text-sm text-white truncate">
+                                      <span className="text-sm text-white truncate min-w-0">
                                         {attendeeRsvp.user?.username || 'Unknown member'}
                                       </span>
                                     )}

@@ -2,15 +2,25 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   BarChart2, Users, Calendar, CheckCircle, TrendingUp,
-  Car, Star, Award, AlertCircle, Plus,
+  Car, Star, Award, AlertCircle, Plus, Activity,
   Home, User as UserIcon, ChevronDown, ChevronRight,
   MapPin, Clock, XCircle, ThumbsUp, UserCheck,
   Save, X, Pencil, Lock
 } from "lucide-react";
 import NavBar from "../components/NavBar";
 import { drivesAPI, authAPI, notificationsAPI, getErrorMessage } from "../services/api";
+import { getMyActivitySummary } from "../services/analytics";
 import { LocationSearch } from "../components/ui/location-search";
 import { MobileDrawerButton, MobileDrawer } from "../components/ui/MobileDrawer";
+
+const ACTIVITY_LABELS = {
+  CLUB_CREATED:     "Clubs Created",
+  CLUB_JOINED:      "Clubs Joined",
+  DRIVE_SCHEDULED:  "Drives Scheduled",
+  RSVP_SUBMITTED:   "RSVPs Submitted",
+  RATING_SUBMITTED: "Ratings Given",
+  REPORT_SUBMITTED: "Reports Filed",
+};
 
 /* ─── Sidebar ─────────────────────────────────────────────────────────── */
 
@@ -261,12 +271,22 @@ const PersonalAnalytics = ({ user: _user }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tab, setTab] = useState("upcoming");
+  const [activitySummary, setActivitySummary] = useState(null);
 
   useEffect(() => {
     drivesAPI.getMyRSVPs()
       .then(res => { if (res.data.success) setRsvps(res.data.rsvps); })
       .catch(err => setError(err?.response?.data?.message || "Failed to load drive history."))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    getMyActivitySummary()
+      .then((res) => { if (res.data?.success) setActivitySummary(res.data.summary); })
+      // A failure here just means the "Your Activity" card doesn't render (activitySummary
+      // stays null, distinct from a real all-zero summary) — not a fake fallback value —
+      // but still worth logging rather than staying fully silent.
+      .catch((error) => console.error('Failed to load activity summary:', error));
   }, []);
 
   const now = new Date();
@@ -326,7 +346,7 @@ const PersonalAnalytics = ({ user: _user }) => {
             <StatChip icon={Calendar}    label="Total RSVPs"  value={rsvps.length}     accent="text-red-400" />
             <StatChip icon={CheckCircle} label="Attended"     value={attended}          accent="text-emerald-400" />
             <StatChip icon={TrendingUp}  label="Upcoming"     value={upcoming.length}   accent="text-blue-400" />
-            <div className="bg-zinc-800/60 rounded-2xl p-4 flex flex-col gap-1">
+            <div className="bg-zinc-800/60 rounded-2xl p-4 flex flex-col gap-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <Star size={15} className="text-yellow-400" />
                 <span className="text-xs text-zinc-400 uppercase tracking-wide">Fav Club</span>
@@ -334,7 +354,7 @@ const PersonalAnalytics = ({ user: _user }) => {
               {favouriteClub ? (
                 <button
                   onClick={() => navigate(`/club/${favouriteClub.id}`)}
-                  className="text-sm font-bold text-yellow-400 truncate text-left hover:underline"
+                  className="text-sm font-bold text-yellow-400 truncate text-left hover:underline min-w-0"
                 >
                   {favouriteClub.name}
                 </button>
@@ -403,7 +423,7 @@ const PersonalAnalytics = ({ user: _user }) => {
                     {/* Details */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <p className="font-semibold text-sm text-white truncate">{drive.name}</p>
+                        <p className="font-semibold text-sm text-white truncate min-w-0">{drive.name}</p>
                         {drive.isCancelled && (
                           <span className="text-xs text-red-400 flex items-center gap-0.5">
                             <XCircle size={11} /> Cancelled
@@ -443,6 +463,23 @@ const PersonalAnalytics = ({ user: _user }) => {
               })}
             </div>
           </div>
+
+          {activitySummary && (
+            <div className="glass-card p-6 mt-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Activity className="w-4 h-4 text-red-400" />
+                <p className="section-label">Your Activity</p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {Object.entries(ACTIVITY_LABELS).map(([type, label]) => (
+                  <div key={type}>
+                    <p className="text-2xl font-bold text-white">{activitySummary[type] ?? 0}</p>
+                    <p className="text-xs text-zinc-400">{label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -1260,7 +1297,7 @@ const UserSettings = ({ user, onLogout, onUpdateUser }) => {
       <NavBar user={user} onLogout={onLogout} />
       <div className="flex flex-1">
         <AnalyticsSidebar user={user} activeView={activeView} onViewChange={setActiveView} />
-        <main id="main-content" className="flex-1 p-6 max-w-5xl mx-auto w-full">
+        <main id="main-content" className="flex-1 min-w-0 p-6 max-w-5xl mx-auto w-full">
           {activeView === "personal" && <PersonalAnalytics user={user} />}
           {activeView === "clubs"    && <ClubsAnalytics />}
           {activeView === "profile"  && <ProfileView onLogout={onLogout} onUpdateUser={onUpdateUser} />}

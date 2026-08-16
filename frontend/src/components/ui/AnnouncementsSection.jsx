@@ -121,7 +121,7 @@ const AnnouncementsSection = ({ clubId, announcements, setAnnouncements, canMode
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   {a.title && <p className="font-semibold text-white mb-1">{a.title}</p>}
-                  <p className="text-zinc-300 text-sm whitespace-pre-wrap">{a.body}</p>
+                  <p className="text-zinc-300 text-sm whitespace-pre-wrap break-words">{a.body}</p>
                   <p className="text-zinc-400 text-xs mt-2">
                     {new Date(a.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     {' · '}

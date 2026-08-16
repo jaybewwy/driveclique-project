@@ -44,10 +44,13 @@ app.use(morgan(':method :safe-url :status :res[content-length]b :response-time m
 }));
 
 // Enable CORS — allow browser clients and Capacitor WebView origins.
-// iOS Capacitor uses 'capacitor://localhost'; Android uses 'http://localhost'.
+// iOS Capacitor uses 'capacitor://localhost'. Android's default androidScheme
+// has been 'https' since Capacitor 3, so the WebView's real origin is
+// 'https://localhost' — 'http://localhost' is kept too in case androidScheme
+// is ever overridden back to 'http' in capacitor.config.ts.
 const _allowedOrigins = process.env.NODE_ENV === 'production'
-  ? [process.env.ALLOWED_ORIGIN_WEB, 'capacitor://localhost', 'http://localhost'].filter(Boolean)
-  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:8081', 'capacitor://localhost', 'http://localhost'];
+  ? [process.env.ALLOWED_ORIGIN_WEB, 'capacitor://localhost', 'https://localhost', 'http://localhost'].filter(Boolean)
+  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:8081', 'capacitor://localhost', 'https://localhost', 'http://localhost'];
 
 // credentials: true is intentionally omitted — this app authenticates via a
 // JWT sent in the Authorization header (services/api.js), never cookies, so

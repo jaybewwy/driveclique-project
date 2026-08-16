@@ -16,7 +16,7 @@
         - connect-src allows any https: host rather than one hardcoded API
           origin, since VITE_API_URL varies per deployment (local/staging/prod)
     -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://images.unsplash.com https://*.tile.openstreetmap.org; connect-src 'self' https: http://localhost:*; base-uri 'self'; form-action 'self'; object-src 'none'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://images.unsplash.com https://*.tile.openstreetmap.org; connect-src 'self' https: http://localhost:* http://10.0.2.2:*; base-uri 'self'; form-action 'self'; object-src 'none'" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="256x256" href="/favicon.png" />
     <!-- viewport-fit=cover renders edge-to-edge on iPhone notch / Dynamic Island -->

@@ -151,7 +151,7 @@ const Sidebar = ({ user }) => {
                       </div>
                     )}
                   </div>
-                  <span className="text-sm text-zinc-400 truncate flex-1 group-hover:text-zinc-200 transition-colors">
+                  <span className="text-sm text-zinc-400 truncate flex-1 min-w-0 group-hover:text-zinc-200 transition-colors">
                     {club.name}
                   </span>
                 </button>

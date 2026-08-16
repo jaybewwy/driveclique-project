@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { SkeletonCard } from "../components/Skeleton";
 import { clubsAPI } from "../services/api";
+import { useClubs } from "../hooks/useClubs";
 import { Car, MapPin, Lock, Globe, Users, Calendar, X, Search, Sparkles, ArrowRight, Flag } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
@@ -12,6 +13,7 @@ import { trackEvent } from "../services/analytics";
 
 const FindClub = ({ user, onLogout }) => {
   const navigate = useNavigate();
+  const { refreshClubs } = useClubs();
   const [clubs, setClubs]               = useState([]);
   const [loading, setLoading]           = useState(true);
   const [popularClubs, setPopularClubs] = useState([]);
@@ -75,6 +77,7 @@ const FindClub = ({ user, onLogout }) => {
       if (response.data.success) {
         if (response.data.clubId) {
           trackEvent('CLUB_JOINED', { via: 'browse' });
+          await refreshClubs();
           navigate(`/club/${response.data.clubId}`);
         } else setActionSuccess("Join request sent! Awaiting leader approval.");
       }
@@ -98,6 +101,7 @@ const FindClub = ({ user, onLogout }) => {
           setActionSuccess("Join request sent! Awaiting leader approval.");
         } else {
           trackEvent('CLUB_JOINED', { via: 'inviteCode' });
+          await refreshClubs();
           const clubId = response.data.clubId || response.data.club?._id;
           if (clubId) navigate(`/club/${clubId}`);
           else { setShowJoinModal(false); setActionSuccess("Joined club successfully!"); }
@@ -178,7 +182,7 @@ const FindClub = ({ user, onLogout }) => {
         <Sidebar user={user} />
 
         {/* Main content */}
-        <div id="main-content" role="main" className="flex-1 max-w-4xl min-h-screen p-5 md:p-6">
+        <div id="main-content" role="main" className="flex-1 min-w-0 max-w-4xl min-h-screen p-5 md:p-6">
 
           {/* Page header */}
           <div className="mb-6">
@@ -280,7 +284,7 @@ const FindClub = ({ user, onLogout }) => {
                       <div className="flex-1 min-w-0">
                         {/* Name + badge row */}
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <h3 className="font-semibold text-white group-hover:text-red-400 transition-colors truncate">
+                          <h3 className="font-semibold text-white group-hover:text-red-400 transition-colors truncate min-w-0">
                             {club.name}
                           </h3>
                           {club.isPrivate ? (

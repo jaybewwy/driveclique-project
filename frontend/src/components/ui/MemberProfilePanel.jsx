@@ -71,7 +71,7 @@ const MemberProfilePanel = ({ userId, isOpen, onClose, canRemove, onRemove }) =>
 
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-1">Bio</p>
-            <p className="text-sm text-zinc-300">{profile.bio || "No bio yet."}</p>
+            <p className="text-sm text-zinc-300 break-words">{profile.bio || "No bio yet."}</p>
           </div>
 
           <div>

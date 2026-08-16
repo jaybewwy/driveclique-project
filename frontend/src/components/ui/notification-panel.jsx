@@ -126,7 +126,7 @@ const NotificationPanel = ({ notifications, unreadCount, markAllRead, markOneRea
 
                 {/* Text */}
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm leading-snug ${!n.read ? "text-zinc-100 font-medium" : "text-zinc-400"}`}>
+                  <p className={`text-sm leading-snug break-words ${!n.read ? "text-zinc-100 font-medium" : "text-zinc-400"}`}>
                     {n.message}
                   </p>
                   <p className="text-xs text-zinc-400 mt-1">{relativeTime(n.createdAt)}</p>
