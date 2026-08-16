@@ -100,3 +100,5 @@ frontend/.env.local
 # note like activeContext.md/progress.md above) — un-ignore it specifically
 # rather than widening the *.md rule for every doc in the repo.
 !README.md
+
+.fake
