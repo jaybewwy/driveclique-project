@@ -9,6 +9,7 @@ const {
   getProfile,
   updateProfile,
   searchUsers,
+  getPublicProfile,
   refreshAccessToken,
   logoutUser,
   forgotPassword,
@@ -67,7 +68,10 @@ router.post(
     username: { required: true, type: 'string', minLength: 3, maxLength: 30 },
     email: { required: true, type: 'string', email: true },
     password: { required: true, type: 'string', minLength: 8, maxLength: 100 },
-    name: { type: 'string', minLength: 1, maxLength: 100 }
+    name: { type: 'string', minLength: 1, maxLength: 100 },
+    firstName: { type: 'string', maxLength: 50 },
+    lastName: { type: 'string', maxLength: 50 },
+    location: { type: 'string', maxLength: 200 }
   }),
   registerUser
 );
@@ -105,7 +109,10 @@ router.put(
   validateInput({
     name: { type: 'string', maxLength: 100 },
     bio: { type: 'string', maxLength: 500 },
-    avatar: { type: 'string' }, // URL, could add pattern validation
+    avatar: { type: 'string', maxLength: 300000 }, // base64 data URI; same 300k-char cap as car photos below
+    firstName: { type: 'string', maxLength: 50 },
+    lastName: { type: 'string', maxLength: 50 },
+    location: { type: 'string', maxLength: 200 },
     useDisplayName: { type: 'boolean' },
     cars: {
       type: 'array',
@@ -145,13 +152,24 @@ router.get(
 );
 
 /**
+ * @route   GET /api/auth/users/:userId/public
+ * @desc    Get another user's public profile (safe subset + mutual clubs + participation)
+ * @access  Private
+ */
+router.get(
+  '/users/:userId/public',
+  protect,
+  getPublicProfile
+);
+
+/**
  * @route   POST /api/auth/refresh
  * @desc    Exchange a refresh token for a new access token
  * @access  Public
  */
 router.post(
   '/refresh',
-  validateInput({ refreshToken: { required: true, type: 'string' } }),
+  validateInput({ refreshToken: { required: true, type: 'string', minLength: 80, maxLength: 80 } }),
   refreshAccessToken
 );
 
@@ -160,7 +178,11 @@ router.post(
  * @desc    Revoke a refresh token
  * @access  Public
  */
-router.post('/logout', logoutUser);
+router.post(
+  '/logout',
+  validateInput({ refreshToken: { type: 'string', minLength: 80, maxLength: 80 } }),
+  logoutUser
+);
 
 /**
  * @route   POST /api/auth/forgot-password

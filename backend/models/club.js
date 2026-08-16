@@ -1,6 +1,13 @@
 const mongoose = require('mongoose');
 const crypto = require('crypto');
 
+const CLUB_TAGS = ['JDM', 'Muscle', 'Off-Road', 'Classic', 'Luxury', 'Track', 'EV', 'Trucks', 'General'];
+
+// Co-leaders are a moderator-tier role (UC-10) — capped small since they're a
+// high-trust delegation, matching this app's existing pattern of small caps
+// (5 tags, 5 cars per profile).
+const MAX_CO_LEADERS = 3;
+
 const ClubSchema = new mongoose.Schema({
   name: { 
     type: String, 
@@ -27,9 +34,15 @@ const ClubSchema = new mongoose.Schema({
     ref: 'User', 
     required: true 
   },
-  members: [{ 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User' 
+  members: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  // Co-leaders / moderators (UC-10) — a subset of leader powers, promoted by
+  // the leader. Always a subset of `members`; capped at MAX_CO_LEADERS.
+  coLeaders: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   }],
   inviteCode: { 
     type: String, 
@@ -39,9 +52,14 @@ const ClubSchema = new mongoose.Schema({
       return crypto.randomBytes(3).toString('hex').toUpperCase();
     }
   },
-  isPrivate: { 
-    type: Boolean, 
-    default: false 
+  isPrivate: {
+    type: Boolean,
+    default: false
+  },
+  tags: {
+    type: [String],
+    default: [],
+    enum: CLUB_TAGS
   },
   joinRequests: [{
     user: {
@@ -75,5 +93,9 @@ const ClubSchema = new mongoose.Schema({
 ClubSchema.index({ leader: 1 });
 // members array is used in $in lookups (getUserClubs, analytics member counts)
 ClubSchema.index({ members: 1 });
+// coLeaders is used in $or lookups alongside leader (getLeaderDashboard, analytics)
+ClubSchema.index({ coLeaders: 1 });
 
 module.exports = mongoose.model('Club', ClubSchema);
+module.exports.CLUB_TAGS = CLUB_TAGS;
+module.exports.MAX_CO_LEADERS = MAX_CO_LEADERS;

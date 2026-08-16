@@ -1,6 +1,7 @@
 /**
- * Simple test script to verify API endpoints are working
- * Run with: node test-api.js
+ * Manual API smoke-check script — not a unit test, do not run via `npm test`.
+ * Requires the backend dev server running on :5000.
+ * Run with: node scripts/manual-api-check.js
  */
 
 const axios = require('axios');

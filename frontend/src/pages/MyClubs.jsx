@@ -6,6 +6,7 @@ import { Users, Plus, Crown, Lock, X, TrendingUp, ArrowRight } from "lucide-reac
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 import { SkeletonClubCard } from "../components/Skeleton";
+import { trackEvent } from "../services/analytics";
 
 const MyClubs = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ const MyClubs = ({ user, onLogout }) => {
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [inviteCode, setInviteCode]       = useState("");
   const [joinError, setJoinError]         = useState("");
+  const [joinInfo, setJoinInfo]           = useState("");
   const [joinLoading, setJoinLoading]     = useState(false);
 
   const sortedClubs = [...clubs].sort((a, b) => {
@@ -25,12 +27,20 @@ const MyClubs = ({ user, onLogout }) => {
     if (!inviteCode.trim()) { setJoinError("Please enter an invite code"); return; }
     setJoinLoading(true);
     setJoinError("");
+    setJoinInfo("");
     try {
       const response = await clubsAPI.joinByInviteCode(inviteCode.trim());
       if (response.data.success) {
-        await refreshClubs();
-        setShowJoinModal(false);
-        setInviteCode("");
+        if (response.data.pending) {
+          // Private club — the code submitted a join request, not instant membership (UC-10)
+          setJoinInfo("Join request sent! Awaiting leader approval.");
+          setInviteCode("");
+        } else {
+          trackEvent('CLUB_JOINED', { via: 'inviteCode' });
+          await refreshClubs();
+          setShowJoinModal(false);
+          setInviteCode("");
+        }
       }
     } catch (error) {
       setJoinError(error.response?.data?.message || "Invalid invite code");
@@ -39,7 +49,7 @@ const MyClubs = ({ user, onLogout }) => {
     }
   };
 
-  const closeModal = () => { setShowJoinModal(false); setInviteCode(""); setJoinError(""); };
+  const closeModal = () => { setShowJoinModal(false); setInviteCode(""); setJoinError(""); setJoinInfo(""); };
 
   /* ── Loading ────────────────────────────────────────────────────────── */
   if (loading) {
@@ -66,11 +76,11 @@ const MyClubs = ({ user, onLogout }) => {
   if (showJoinModal) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-xl" onClick={closeModal} />
+        <div role="presentation" aria-hidden="true" className="fixed inset-0 bg-black/70 backdrop-blur-xl" onClick={closeModal} />
         <div className="relative glass-card p-8 max-w-sm w-full animate-fade-slide-up rounded-3xl">
           <button
             onClick={closeModal}
-            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/[0.07] rounded-lg transition-all"
+            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/[0.07] rounded-lg transition-all"
           >
             <X size={16} />
           </button>
@@ -80,7 +90,7 @@ const MyClubs = ({ user, onLogout }) => {
               <Lock className="w-8 h-8 text-white" />
             </div>
             <h2 className="text-xl font-bold text-white mb-1">Join with Invite Code</h2>
-            <p className="text-zinc-500 text-sm">Enter the code from a club leader</p>
+            <p className="text-zinc-400 text-sm">Enter the code from a club leader</p>
           </div>
 
           <div className="space-y-3">
@@ -91,8 +101,15 @@ const MyClubs = ({ user, onLogout }) => {
               onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
               placeholder="e.g. HRK707"
               className="w-full bg-white/[0.06] border border-white/[0.10] rounded-2xl px-4 py-3.5 text-center text-xl font-mono tracking-widest text-white placeholder-zinc-600 focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/20 transition-all"
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- focus follows the user's own "Join with Invite Code" click, not page load
               autoFocus
             />
+
+            {joinInfo && (
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3">
+                <p className="text-emerald-400 text-sm text-center">{joinInfo}</p>
+              </div>
+            )}
 
             {joinError && (
               <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3">
@@ -111,7 +128,7 @@ const MyClubs = ({ user, onLogout }) => {
             </button>
           </div>
 
-          <p className="text-zinc-600 text-xs text-center mt-5">
+          <p className="text-zinc-400 text-xs text-center mt-5">
             Contact the club leader to get an invite code
           </p>
         </div>
@@ -128,7 +145,7 @@ const MyClubs = ({ user, onLogout }) => {
         <Sidebar user={user} />
 
         {/* Main content */}
-        <div className="flex-1 max-w-4xl min-h-screen p-5 md:p-6">
+        <div id="main-content" role="main" className="flex-1 max-w-4xl min-h-screen p-5 md:p-6">
 
           {/* Header */}
           <div className="flex items-start justify-between mb-6">
@@ -148,10 +165,10 @@ const MyClubs = ({ user, onLogout }) => {
           {clubs.length === 0 ? (
             <div className="glass-card py-16 text-center rounded-3xl">
               <div className="w-16 h-16 bg-white/[0.04] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Users className="w-8 h-8 text-zinc-600" />
+                <Users className="w-8 h-8 text-zinc-400" />
               </div>
               <h2 className="text-lg font-semibold text-white mb-1">No clubs yet</h2>
-              <p className="text-zinc-500 text-sm mb-6 max-w-xs mx-auto">
+              <p className="text-zinc-400 text-sm mb-6 max-w-xs mx-auto">
                 You haven't joined or created any clubs. Start your journey!
               </p>
               <button
@@ -193,12 +210,12 @@ const MyClubs = ({ user, onLogout }) => {
                       </div>
                       <div className="text-right shrink-0">
                         <p className="text-lg font-bold text-white">{club.members.length}</p>
-                        <p className="text-[11px] text-zinc-600">members</p>
+                        <p className="text-[11px] text-zinc-400">members</p>
                       </div>
                     </div>
 
                     {/* Description */}
-                    <p className="text-xs text-zinc-500 mb-4 flex-1 line-clamp-2 leading-relaxed">
+                    <p className="text-xs text-zinc-400 mb-4 flex-1 line-clamp-2 leading-relaxed">
                       {club.description || "No description provided."}
                     </p>
 
@@ -223,7 +240,7 @@ const MyClubs = ({ user, onLogout }) => {
           <div>
             <p className="section-label mb-3">Your Clubs</p>
             {clubs.length === 0 ? (
-              <p className="text-zinc-600 text-xs">No clubs yet</p>
+              <p className="text-zinc-400 text-xs">No clubs yet</p>
             ) : (
               <div className="space-y-1.5">
                 {sortedClubs.map((club) => {
@@ -248,7 +265,7 @@ const MyClubs = ({ user, onLogout }) => {
                           <p className="text-xs font-medium text-zinc-300 group-hover:text-white transition-colors truncate">{club.name}</p>
                           {isLeader && <Crown className="w-3 h-3 text-amber-400 shrink-0" />}
                         </div>
-                        <p className="text-[11px] text-zinc-600">{club.members.length} members</p>
+                        <p className="text-[11px] text-zinc-400">{club.members.length} members</p>
                       </div>
                     </button>
                   );
@@ -260,16 +277,16 @@ const MyClubs = ({ user, onLogout }) => {
           {/* Quick stats */}
           <div className="glass-subtle p-4 rounded-2xl mt-auto">
             <div className="flex items-center gap-1.5 mb-3">
-              <TrendingUp className="w-3.5 h-3.5 text-zinc-500" />
+              <TrendingUp className="w-3.5 h-3.5 text-zinc-400" />
               <p className="section-label">Quick Stats</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between p-2.5 bg-white/[0.03] rounded-xl">
-                <p className="text-xs text-zinc-500">Clubs Joined</p>
+                <p className="text-xs text-zinc-400">Clubs Joined</p>
                 <p className="text-sm font-bold text-white">{clubs.length}</p>
               </div>
               <div className="flex items-center justify-between p-2.5 bg-white/[0.03] rounded-xl">
-                <p className="text-xs text-zinc-500">Total Members</p>
+                <p className="text-xs text-zinc-400">Total Members</p>
                 <p className="text-sm font-bold text-white">
                   {clubs.reduce((s, c) => s + (c.members?.length || 0), 0)}
                 </p>

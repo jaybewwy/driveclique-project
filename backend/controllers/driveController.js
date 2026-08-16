@@ -6,6 +6,7 @@ const DriveRating = require('../models/driveRating');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { notify } = require('../services/notificationEmitter');
 const { sendEmail, emailTemplates } = require('../services/emailService');
+const { isClubLeader, isClubCoLeader, hasLeaderPrivileges } = require('../utils/clubPermissions');
 
 // Shared validation for the optional drive meeting-point pin (UC-23)
 function validateCoordinates(coordinates) {
@@ -39,9 +40,9 @@ const createDrive = asyncHandler(async (req, res) => {
     throw new AppError('Club not found', 404);
   }
 
-  // Verify user is the club leader
-  if (club.leader.toString() !== req.user.id) {
-    throw new AppError('Only the club leader can create drives for this club', 403);
+  // Leader or co-leader can create drives (UC-10)
+  if (!hasLeaderPrivileges(club, req.user.id)) {
+    throw new AppError('Only the club leader or a co-leader can create drives for this club', 403);
   }
 
   // Validate drive date is in the future
@@ -279,9 +280,12 @@ const cancelDrive = asyncHandler(async (req, res) => {
     throw new AppError('Drive not found', 404);
   }
 
-  // Verify user is the club leader
-  if (drive.club.leader.toString() !== leaderId) {
-    throw new AppError('Only the club leader can cancel this drive', 403);
+  // Leader can cancel any drive; a co-leader can only cancel drives they
+  // created themselves (UC-10) — full edit/delete stays leader-only.
+  const canCancel = isClubLeader(drive.club, leaderId) ||
+    (isClubCoLeader(drive.club, leaderId) && drive.createdBy.toString() === leaderId);
+  if (!canCancel) {
+    throw new AppError('Only the club leader, or a co-leader who created this drive, can cancel it', 403);
   }
 
   // Update drive cancellation fields
@@ -413,9 +417,9 @@ const getDriveAttendees = asyncHandler(async (req, res) => {
     throw new AppError('Drive not found', 404);
   }
 
-  // Verify user is the club leader
-  if (drive.club.leader.toString() !== userId) {
-    throw new AppError('Only the club leader can view the attendees of this drive', 403);
+  // Leader or co-leader can view attendees (UC-10)
+  if (!hasLeaderPrivileges(drive.club, userId)) {
+    throw new AppError('Only the club leader or a co-leader can view the attendees of this drive', 403);
   }
 
   // Get all RSVPs with user info in a single query
@@ -546,8 +550,8 @@ const deleteDrive = asyncHandler(async (req, res) => {
 const getLeaderDashboard = asyncHandler(async (req, res) => {
   const userId = req.user.id;
 
-  // Find all clubs where user is the leader
-  const clubs = await Club.find({ leader: userId })
+  // Find all clubs where user is the leader or a co-leader (UC-10)
+  const clubs = await Club.find({ $or: [{ leader: userId }, { coLeaders: userId }] })
     .select('name description inviteCode members createdAt')
     .lean(); // Use lean() for better performance (read-only objects)
 
@@ -659,8 +663,8 @@ const getMyRSVPs = asyncHandler(async (req, res) => {
 const getClubAnalytics = asyncHandler(async (req, res) => {
   const userId = req.user.id;
 
-  // Batch query 1: all clubs led by this user
-  const clubs = await Club.find({ leader: userId })
+  // Batch query 1: all clubs led (or co-led, UC-10) by this user
+  const clubs = await Club.find({ $or: [{ leader: userId }, { coLeaders: userId }] })
     .select('name members')
     .lean();
 
@@ -828,8 +832,9 @@ const requestCheckin = asyncHandler(async (req, res) => {
   if (!drive) {
     throw new AppError('Drive not found', 404);
   }
-  if (drive.club.leader.toString() !== leaderId) {
-    throw new AppError('Only the club leader can request check-in for this drive', 403);
+  // Leader or co-leader can send/resend check-in requests (UC-10)
+  if (!hasLeaderPrivileges(drive.club, leaderId)) {
+    throw new AppError('Only the club leader or a co-leader can request check-in for this drive', 403);
   }
   if (drive.isCompleted) {
     throw new AppError('This drive has already been marked completed — check-in is closed', 400);

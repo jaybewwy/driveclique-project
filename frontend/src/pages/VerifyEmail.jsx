@@ -27,8 +27,9 @@ const VerifyEmail = () => {
           try {
             const profile = await authAPI.getProfile();
             if (profile.data.success) updateUser(profile.data.user);
-          } catch {
+          } catch (error) {
             // Non-critical — state will sync on next page load
+            console.error('Failed to sync profile after email verification:', error);
           }
         }
         setStatus('success');
@@ -99,7 +100,13 @@ const VerifyEmail = () => {
           {user ? (
             <button
               onClick={async () => {
-                try { await authAPI.resendVerification(); } catch { /* best-effort resend, ignore failures */ }
+                try {
+                  await authAPI.resendVerification();
+                } catch (error) {
+                  // Navigating to /dashboard regardless (below) — its own verification
+                  // banner has full retry/error handling, so this only needs to not be silent.
+                  console.error('Failed to resend verification email:', error);
+                }
                 navigate('/dashboard');
               }}
               className="w-full bg-red-600 hover:bg-red-700 py-4 rounded-2xl font-semibold text-lg transition mb-3"
@@ -116,7 +123,7 @@ const VerifyEmail = () => {
           )}
           <button
             onClick={() => navigate(user ? '/dashboard' : '/login')}
-            className="text-zinc-500 hover:text-zinc-300 text-sm"
+            className="text-zinc-400 hover:text-zinc-300 text-sm"
           >
             {user ? 'Back to Dashboard' : 'Back to Sign In'}
           </button>

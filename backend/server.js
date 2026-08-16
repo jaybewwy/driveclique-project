@@ -31,8 +31,15 @@ app.use((req, _res, next) => {
 // Security headers (CSP, X-Frame-Options, etc.)
 app.use(helmet());
 
-// HTTP request logging — routed through winston so all logs share one format
-app.use(morgan(':method :url :status :res[content-length]b :response-time ms', {
+// HTTP request logging — routed through winston so all logs share one format.
+// Custom :safe-url token redacts the `token` query param (the SSE stream
+// route authenticates via ?token=<JWT>, since EventSource can't set headers)
+// so a live access token is never written into application logs in the clear.
+morgan.token('safe-url', (req) => {
+  const url = req.originalUrl || req.url;
+  return url.replace(/([?&]token=)[^&]+/gi, '$1[REDACTED]');
+});
+app.use(morgan(':method :safe-url :status :res[content-length]b :response-time ms', {
   stream: { write: (msg) => logger.http(msg.trim()) },
 }));
 
@@ -42,13 +49,15 @@ const _allowedOrigins = process.env.NODE_ENV === 'production'
   ? [process.env.ALLOWED_ORIGIN_WEB, 'capacitor://localhost', 'http://localhost'].filter(Boolean)
   : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:8081', 'capacitor://localhost', 'http://localhost'];
 
+// credentials: true is intentionally omitted — this app authenticates via a
+// JWT sent in the Authorization header (services/api.js), never cookies, so
+// there's nothing that needs the browser to include ambient credentials.
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true); // curl, Postman, server-to-server
     if (_allowedOrigins.includes(origin)) return callback(null, true);
     callback(new Error(`CORS blocked: ${origin}`));
   },
-  credentials: true,
 }));
 
 // Parse JSON request bodies
@@ -77,6 +86,7 @@ app.use('/api/clubs', require('./routes/clubs'));
 app.use('/api/drives', require('./routes/drives'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/reports', require('./routes/reports'));
+app.use('/api/events', require('./routes/events'));
 
 // ============================================
 // Error Handling

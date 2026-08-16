@@ -41,7 +41,7 @@ const ForgotPassword = () => {
             <p className="text-zinc-300 mb-3">
               If an account with that email exists, we've sent a password reset link. It expires in 1 hour.
             </p>
-            <p className="text-zinc-500 text-sm mb-8">
+            <p className="text-zinc-400 text-sm mb-8">
               Don't see it? Check your spam folder.
             </p>
             <button

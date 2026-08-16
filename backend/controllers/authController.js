@@ -10,6 +10,7 @@ const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { validateInput, isValidEmail, isValidUsername } = require('../middleware/validation');
 const { sendEmail, emailTemplates } = require('../services/emailService');
 const { verifyEmailAddress } = require('../services/emailVerifier');
+const { escapeRegex } = require('../utils/regex');
 
 const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -23,6 +24,9 @@ const isPasswordReused = async (plainPassword, user) => {
   }
   return false;
 };
+
+/** SHA-256 hex digest — used to store secure random tokens (refresh/reset/verify) at rest without keeping the raw, directly-usable value in the DB */
+const hashToken = (rawToken) => crypto.createHash('sha256').update(rawToken).digest('hex');
 
 const MAX_CARS = 5;
 const MAX_PHOTOS_PER_CAR = 4;
@@ -50,11 +54,16 @@ const normalizeCars = (cars) => {
 const generateAccessToken = (userId) =>
   jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
 
-/** Opaque refresh token stored in DB */
+/**
+ * Opaque refresh token. Only the SHA-256 hash is persisted — same treatment as
+ * password-reset/email-verify tokens below — so a database read alone (backup
+ * leak, injection, insider access) can't be turned directly into a usable
+ * session; the raw value only ever exists in the response body and the client.
+ */
 const createRefreshToken = async (userId) => {
   const token = crypto.randomBytes(40).toString('hex');
   const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
-  await RefreshToken.create({ token, user: userId, expiresAt });
+  await RefreshToken.create({ token: hashToken(token), user: userId, expiresAt });
   return token;
 };
 
@@ -66,7 +75,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   const { refreshToken } = req.body;
   if (!refreshToken) throw new AppError('Refresh token required', 400);
 
-  const stored = await RefreshToken.findOne({ token: refreshToken });
+  const stored = await RefreshToken.findOne({ token: hashToken(refreshToken) });
   if (!stored || stored.revoked || stored.expiresAt < new Date()) {
     throw new AppError('Invalid or expired refresh token', 401);
   }
@@ -82,7 +91,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 const logoutUser = asyncHandler(async (req, res) => {
   const { refreshToken } = req.body;
   if (refreshToken) {
-    await RefreshToken.findOneAndUpdate({ token: refreshToken }, { revoked: true });
+    await RefreshToken.findOneAndUpdate({ token: hashToken(refreshToken) }, { revoked: true });
   }
   res.json({ success: true, message: 'Logged out successfully' });
 });
@@ -175,9 +184,6 @@ const searchUsers = asyncHandler(async (req, res) => {
     return res.json({ success: true, users: [] });
   }
 
-  // Escape user input to prevent ReDoS attacks
-  const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
   const users = await User.find({
     username: { $regex: escapeRegex(query.trim()), $options: 'i' }
   })
@@ -185,6 +191,45 @@ const searchUsers = asyncHandler(async (req, res) => {
   .limit(10);
 
   res.json({ success: true, users });
+});
+
+/**
+ * Get another user's public profile — a safe field subset plus derived
+ * context (clubs both users share, "going" RSVP count as a participation
+ * signal). Never returns email, password, or tokens.
+ * @route   GET /api/auth/users/:userId/public
+ * @access  Private
+ */
+const getPublicProfile = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+  const viewerId = req.user.id;
+
+  const user = await User.findById(userId)
+    .select('username name firstName lastName avatar bio location cars useDisplayName createdAt')
+    .lean();
+
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+
+  const [mutualClubs, goingCount] = await Promise.all([
+    Club.find({
+      $and: [
+        { $or: [{ leader: viewerId }, { members: viewerId }, { coLeaders: viewerId }] },
+        { $or: [{ leader: userId }, { members: userId }, { coLeaders: userId }] },
+      ],
+    }).select('name').lean(),
+    RSVP.countDocuments({ user: userId, status: 'going' }),
+  ]);
+
+  res.json({
+    success: true,
+    profile: {
+      ...user,
+      mutualClubs: mutualClubs.map((c) => ({ _id: c._id, name: c.name })),
+      goingCount,
+    },
+  });
 });
 
 /**
@@ -298,9 +343,8 @@ const forgotPassword = asyncHandler(async (req, res) => {
   if (!user) return genericResponse();
 
   const rawToken = crypto.randomBytes(40).toString('hex');
-  const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
 
-  user.passwordResetToken = hashedToken;
+  user.passwordResetToken = hashToken(rawToken);
   user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
   await user.save();
 
@@ -320,10 +364,8 @@ const forgotPassword = asyncHandler(async (req, res) => {
 const resetPassword = asyncHandler(async (req, res) => {
   const { token, password } = req.body;
 
-  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-
   const user = await User.findOne({
-    passwordResetToken: hashedToken,
+    passwordResetToken: hashToken(token),
     passwordResetExpires: { $gt: new Date() },
   });
 
@@ -339,6 +381,10 @@ const resetPassword = asyncHandler(async (req, res) => {
   user.passwordResetExpires = undefined;
   await user.save();
 
+  // A password reset means any previously-issued session (including one held
+  // by an attacker who had the old password) should not survive it.
+  await RefreshToken.deleteMany({ user: user._id });
+
   res.json({ success: true, message: 'Password reset successful. You can now sign in.' });
 });
 
@@ -349,10 +395,8 @@ const resetPassword = asyncHandler(async (req, res) => {
 const verifyEmail = asyncHandler(async (req, res) => {
   const { token } = req.query;
 
-  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-
   const user = await User.findOne({
-    emailVerifyToken: hashedToken,
+    emailVerifyToken: hashToken(token),
     emailVerifyExpiry: { $gt: new Date() },
   });
 
@@ -379,7 +423,7 @@ const resendVerification = asyncHandler(async (req, res) => {
   }
 
   const rawToken = crypto.randomBytes(40).toString('hex');
-  user.emailVerifyToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+  user.emailVerifyToken = hashToken(rawToken);
   user.emailVerifyExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
   await user.save();
 
@@ -464,7 +508,13 @@ const changePassword = asyncHandler(async (req, res) => {
   user.password = newPassword;
   await user.save(); // pre-save hook re-hashes when password is modified
 
-  res.json({ success: true, message: 'Password updated successfully.' });
+  // Revoke every outstanding session (this one included) so a stolen refresh
+  // token can't outlive an intentional password change. The frontend logs
+  // the user out immediately on success rather than waiting for their next
+  // access-token refresh to fail.
+  await RefreshToken.deleteMany({ user: user._id });
+
+  res.json({ success: true, message: 'Password updated successfully. Please sign in again.' });
 });
 
 /**
@@ -518,6 +568,7 @@ module.exports = {
   getProfile,
   updateProfile,
   searchUsers,
+  getPublicProfile,
   refreshAccessToken,
   logoutUser,
   forgotPassword,

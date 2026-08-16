@@ -17,7 +17,10 @@ const protect = (req, res, next) => {
     }
 
     try { //Verify token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        // Pin the algorithm explicitly rather than trusting the token's own
+        // header — defense-in-depth against alg-confusion-style bypasses if
+        // the secret or library configuration ever changes.
+        const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
         req.user = decoded; // Attach user info to request object
 
         next(); // Proceed to the next controller

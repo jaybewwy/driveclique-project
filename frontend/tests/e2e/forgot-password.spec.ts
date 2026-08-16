@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import crypto from 'crypto';
 
 const BASE = 'http://localhost:5173';
 const API  = 'http://localhost:5000/api';
@@ -268,9 +269,7 @@ test.describe('Forgot Password — API security & brute-force', () => {
   test('Brute-force: 10 sequential reset attempts with random tokens all return 400', async ({ request }) => {
     const results: number[] = [];
     for (let i = 0; i < 10; i++) {
-      const token = Array.from({ length: 80 }, () =>
-        Math.floor(Math.random() * 16).toString(16)
-      ).join('');
+      const token = crypto.randomBytes(40).toString('hex'); // 80 hex chars
       const res = await request.post(`${API}/auth/reset-password`, {
         data: { token, password: 'hackpassword1' },
       });

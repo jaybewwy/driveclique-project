@@ -144,7 +144,7 @@ const ResetPassword = () => {
           <div className="mt-6 text-center">
             <button
               onClick={() => navigate('/login')}
-              className="text-zinc-500 hover:text-zinc-300 text-sm"
+              className="text-zinc-400 hover:text-zinc-300 text-sm"
             >
               Back to Sign In
             </button>

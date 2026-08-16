@@ -100,7 +100,7 @@ export function UserDropdown({
         <Badge className={item.badge.className}>{item.badge.text}</Badge>
       )}
       {item.RightIcon && (
-        <item.RightIcon className="size-3.5 text-zinc-500" />
+        <item.RightIcon className="size-3.5 text-zinc-400" />
       )}
     </DropdownMenuItem>
   );
@@ -149,7 +149,7 @@ export function UserDropdown({
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-sm text-white truncate">{user.name}</h3>
-              <p className="text-zinc-500 text-xs truncate">{user.username}</p>
+              <p className="text-zinc-400 text-xs truncate">{user.username}</p>
             </div>
             <Badge className={cn("border text-[11px] rounded-md capitalize px-1.5 py-0.5", getStatusColor(selectedStatus))}>
               {selectedStatus}

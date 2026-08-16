@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
+import crypto from 'crypto';
 
 const BASE = 'http://localhost:5173';
 
 function randomString(len: number) {
-  return Math.random().toString(36).substring(2, 2 + len);
+  return crypto.randomBytes(Math.ceil(len / 2)).toString('hex').slice(0, len);
 }
 
 test('verify redesigned ProfileView settings layout', async ({ page }) => {

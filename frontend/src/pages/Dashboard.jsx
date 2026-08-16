@@ -10,6 +10,8 @@ import { clubsAPI, drivesAPI, authAPI } from "../services/api";
 import { SkeletonCard } from "../components/Skeleton";
 import { useAuth } from "../hooks/useAuth";
 import { useClubs } from "../hooks/useClubs";
+import OnboardingModal from "../components/ui/OnboardingModal";
+import OnboardingChecklist from "../components/ui/OnboardingChecklist";
 
 const Dashboard = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -28,14 +30,19 @@ const Dashboard = ({ user, onLogout }) => {
   const [drivesLoading, setDrivesLoading]   = useState(true);
   const [resendSent, setResendSent]         = useState(false);
   const [resendLoading, setResendLoading]   = useState(false);
+  const [resendError, setResendError]       = useState('');
+  const [showOnboarding, setShowOnboarding]   = useState(false);
+  const [showChecklist, setShowChecklist]     = useState(false);
+  const [hasRsvped, setHasRsvped]             = useState(false);
 
   const handleResendVerification = async () => {
     setResendLoading(true);
+    setResendError('');
     try {
       await authAPI.resendVerification();
       setResendSent(true);
-    } catch {
-      // fire-and-forget — user can try again
+    } catch (error) {
+      setResendError(error.response?.data?.message || 'Failed to resend. Please try again.');
     } finally {
       setResendLoading(false);
     }
@@ -48,6 +55,44 @@ const Dashboard = ({ user, onLogout }) => {
     }
   }, []);
 
+  // UC-26 — New-User Onboarding
+  useEffect(() => {
+    if (sessionStorage.getItem('justRegistered')) {
+      setShowOnboarding(true);
+      sessionStorage.removeItem('justRegistered');
+    }
+
+    if (localStorage.getItem('onboardingComplete')) return;
+    setShowChecklist(true);
+
+    drivesAPI.getMyRSVPs()
+      .then((res) => {
+        if (res.data.success) setHasRsvped((res.data.rsvps || []).length > 0);
+      })
+      .catch((error) => {
+        // best-effort — checklist item just won't auto-check this session
+        console.error('Failed to load RSVP history for onboarding checklist:', error);
+      });
+  }, []);
+
+  const onboardingItems = [
+    { key: 'club',    label: 'Join a club',          done: userClubs.length > 0,               path: '/find-club' },
+    { key: 'rsvp',    label: 'RSVP to a drive',      done: hasRsvped,                           path: '/my-clubs' },
+    { key: 'profile', label: 'Set up your profile',  done: Boolean(user?.bio || user?.avatar),  path: '/profile' },
+  ];
+  const onboardingAllDone = onboardingItems.every((i) => i.done);
+
+  useEffect(() => {
+    if (showChecklist && onboardingAllDone) {
+      localStorage.setItem('onboardingComplete', '1');
+      setShowChecklist(false);
+    }
+  }, [showChecklist, onboardingAllDone]);
+
+  const dismissChecklist = () => {
+    localStorage.setItem('onboardingComplete', '1');
+    setShowChecklist(false);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -85,9 +130,14 @@ const Dashboard = ({ user, onLogout }) => {
             upcoming.map(async (drive) => {
               try {
                 const r = await drivesAPI.getRSVPStatus(drive._id);
-                if (r.data.success) return { ...drive, attendees: r.data.counts?.going || 0 };
-              } catch { /* default 0 */ }
-              return { ...drive, attendees: 0 };
+                if (r.data.success) return { ...drive, attendees: r.data.counts?.going || 0, attendeesFailed: false };
+              } catch (error) {
+                // Distinguish "failed to load" from "legitimately zero" — silently
+                // defaulting to 0 here previously made a failed request indistinguishable
+                // from a drive with no RSVPs.
+                console.error(`Failed to load RSVP counts for drive ${drive._id}:`, error);
+              }
+              return { ...drive, attendees: null, attendeesFailed: true };
             })
           );
 
@@ -133,13 +183,15 @@ const Dashboard = ({ user, onLogout }) => {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
+      {showOnboarding && <OnboardingModal onClose={() => setShowOnboarding(false)} />}
       <NavBar user={user} onLogout={onLogout} />
 
       <div className="flex max-w-7xl mx-auto">
         <Sidebar user={user} />
 
         {/* ── Main feed ────────────────────────────────────────────────── */}
-        <div className="flex-1 max-w-3xl min-h-screen p-5 md:p-6">
+        <div id="main-content" role="main" className="flex-1 max-w-3xl min-h-screen p-5 md:p-6">
+          <h1 className="sr-only">Dashboard</h1>
 
           {/* Email verification banner */}
           {user?.emailVerified === false && (
@@ -155,9 +207,12 @@ const Dashboard = ({ user, onLogout }) => {
                 disabled={resendLoading || resendSent}
                 className="shrink-0 text-xs font-medium text-amber-400 hover:text-amber-300 disabled:opacity-60 transition"
               >
-                {resendSent ? 'Sent!' : resendLoading ? 'Sending…' : 'Resend email'}
+                {resendSent ? 'Sent!' : resendLoading ? 'Sending…' : resendError ? 'Retry' : 'Resend email'}
               </button>
             </div>
+          )}
+          {resendError && (
+            <p className="text-xs text-red-400 -mt-3 mb-5">{resendError}</p>
           )}
 
           {/* Welcome heading */}
@@ -170,8 +225,12 @@ const Dashboard = ({ user, onLogout }) => {
                   {displayName}
                 </span>
               </h2>
-              <p className="text-zinc-500 text-sm mt-1.5">Here's what's happening in your car community</p>
+              <p className="text-zinc-400 text-sm mt-1.5">Here's what's happening in your car community</p>
             </div>
+          )}
+
+          {showChecklist && (
+            <OnboardingChecklist items={onboardingItems} onDismiss={dismissChecklist} />
           )}
 
           {/* Quick action chips */}
@@ -184,7 +243,7 @@ const Dashboard = ({ user, onLogout }) => {
                 <div className="absolute top-0 right-0 w-16 h-16 bg-white/[0.03] rounded-full blur-xl" />
                 <Icon className={`w-5 h-5 ${iconCls} mb-2.5`} />
                 <p className="font-semibold text-xs text-white">{label}</p>
-                <p className="text-[11px] text-zinc-500 mt-0.5 leading-snug hidden sm:block">{desc}</p>
+                <p className="text-[11px] text-zinc-400 mt-0.5 leading-snug hidden sm:block">{desc}</p>
               </div>
             ))}
           </div>
@@ -201,10 +260,10 @@ const Dashboard = ({ user, onLogout }) => {
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-semibold text-white">Club Analytics</p>
-                  <p className="text-[11px] text-zinc-500">Performance insights for your clubs</p>
+                  <p className="text-[11px] text-zinc-400">Performance insights for your clubs</p>
                 </div>
               </div>
-              <ArrowRight className="w-4 h-4 text-zinc-600 group-hover:text-red-400 group-hover:translate-x-0.5 transition-all duration-200" />
+              <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-red-400 group-hover:translate-x-0.5 transition-all duration-200" />
             </button>
           )}
 
@@ -218,7 +277,7 @@ const Dashboard = ({ user, onLogout }) => {
                 </div>
                 <div>
                   <h3 className="font-semibold text-base text-white">Plan Your Next Event</h3>
-                  <p className="text-xs text-zinc-500 mt-0.5">Organize drives and connect with enthusiasts</p>
+                  <p className="text-xs text-zinc-400 mt-0.5">Organize drives and connect with enthusiasts</p>
                 </div>
               </div>
 
@@ -260,7 +319,7 @@ const Dashboard = ({ user, onLogout }) => {
               </div>
               <button
                 onClick={() => navigate("/my-clubs")}
-                className="text-xs text-zinc-500 hover:text-white flex items-center gap-1 transition-colors"
+                className="text-xs text-zinc-400 hover:text-white flex items-center gap-1 transition-colors"
               >
                 View All <ArrowRight className="w-3.5 h-3.5" />
               </button>
@@ -270,17 +329,18 @@ const Dashboard = ({ user, onLogout }) => {
               {drivesLoading && Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
 
               {!drivesLoading && upcomingDrives.map((drive) => (
-                <div
+                <button
+                  type="button"
                   key={drive._id}
                   onClick={() => drive.clubId && navigate(`/club/${drive.clubId}`)}
-                  className="glass-card p-4 hover:border-white/[0.12] hover:-translate-y-0.5 cursor-pointer group transition-all duration-200 rounded-2xl"
+                  className="w-full text-left glass-card p-4 hover:border-white/[0.12] hover:-translate-y-0.5 cursor-pointer group transition-all duration-200 rounded-2xl"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm text-white group-hover:text-red-400 transition-colors truncate mb-1.5">
                         {drive.name}
                       </p>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3.5 h-3.5" />
                           {formatDate(drive.date)}
@@ -293,22 +353,28 @@ const Dashboard = ({ user, onLogout }) => {
                         )}
                         <span className="flex items-center gap-1">
                           <Users className="w-3.5 h-3.5" />
-                          {drive.attendees} going
+                          {drive.attendeesFailed ? (
+                            <span className="text-amber-400" title="Couldn't load attendee count">
+                              — going
+                            </span>
+                          ) : (
+                            <>{drive.attendees} going</>
+                          )}
                         </span>
                       </div>
                     </div>
                     <div className="w-8 h-8 bg-white/[0.04] group-hover:bg-red-500/15 rounded-xl flex items-center justify-center transition-all duration-200 shrink-0">
-                      <ArrowRight className="w-3.5 h-3.5 text-zinc-600 group-hover:text-red-400" />
+                      <ArrowRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-red-400" />
                     </div>
                   </div>
-                </div>
+                </button>
               ))}
 
               {!drivesLoading && upcomingDrives.length === 0 && (
                 <div className="text-center py-10 glass-subtle rounded-2xl">
                   <Calendar className="w-10 h-10 text-zinc-700 mx-auto mb-2.5" />
-                  <p className="text-sm text-zinc-500 font-medium">No upcoming drives</p>
-                  <p className="text-xs text-zinc-600 mt-0.5">Join a club and RSVP to get started</p>
+                  <p className="text-sm text-zinc-400 font-medium">No upcoming drives</p>
+                  <p className="text-xs text-zinc-400 mt-0.5">Join a club and RSVP to get started</p>
                 </div>
               )}
             </div>
@@ -322,9 +388,10 @@ const Dashboard = ({ user, onLogout }) => {
           <div>
             <p className="section-label mb-3">Trending</p>
             {trendingClub ? (
-              <div
+              <button
+                type="button"
                 onClick={() => navigate(`/club/${trendingClub._id}`)}
-                className="glass-card p-4 cursor-pointer hover:border-white/[0.12] hover:-translate-y-0.5 transition-all duration-200 group rounded-2xl"
+                className="w-full text-left glass-card p-4 cursor-pointer hover:border-white/[0.12] hover:-translate-y-0.5 transition-all duration-200 group rounded-2xl"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl overflow-hidden ring-1 ring-white/[0.08] shrink-0">
@@ -340,17 +407,17 @@ const Dashboard = ({ user, onLogout }) => {
                     <p className="font-semibold text-sm truncate text-white group-hover:text-red-400 transition-colors">
                       {trendingClub.name}
                     </p>
-                    <p className="text-[11px] text-zinc-500 mt-0.5">
+                    <p className="text-[11px] text-zinc-400 mt-0.5">
                       {trendingClub.memberCount} members · {trendingClub.completedDrivesCount} drives
                     </p>
                   </div>
                   <TrendingUp className="w-4 h-4 text-red-500 shrink-0" />
                 </div>
-              </div>
+              </button>
             ) : (
               <div className="glass-subtle p-4 text-center rounded-2xl">
                 <TrendingUp className="w-7 h-7 text-zinc-700 mx-auto mb-1.5" />
-                <p className="text-xs text-zinc-600">No trending clubs yet</p>
+                <p className="text-xs text-zinc-400">No trending clubs yet</p>
               </div>
             )}
           </div>

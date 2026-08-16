@@ -2,12 +2,19 @@ services:
   mongodb:
     image: mongo:7
     restart: unless-stopped
+    # Auth is required — an unauthenticated mongod with 27017 published to the
+    # host is the single most common real-world MongoDB breach pattern (mass
+    # "ransom" scans hit exposed, credential-less instances). Set both vars in
+    # a root .env file before running `docker-compose up` (see .env.example).
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in a root .env file — see .env.example}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in a root .env file — see .env.example}
     ports:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.runCommand('ping').ok", "--quiet"]
+      test: ["CMD", "mongosh", "--eval", "db.runCommand('ping').ok", "--quiet", "-u", "$$MONGO_INITDB_ROOT_USERNAME", "-p", "$$MONGO_INITDB_ROOT_PASSWORD", "--authenticationDatabase", "admin"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -22,8 +29,9 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      # Override MONGO_URI so backend talks to the compose service, not localhost
-      MONGO_URI: mongodb://mongodb:27017/driveclique
+      # Override MONGO_URI so backend talks to the authenticated compose
+      # service, not an unauthenticated localhost instance.
+      MONGO_URI: mongodb://${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in a root .env file — see .env.example}:${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in a root .env file — see .env.example}@mongodb:27017/driveclique?authSource=admin
     depends_on:
       mongodb:
         condition: service_healthy

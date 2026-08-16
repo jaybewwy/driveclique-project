@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authentication');
+const { apiLimiter, strictLimiter } = require('../middleware/rateLimiters');
 const { validateParams, validateInput, validateQuery } = require('../middleware/validation');
+const { CLUB_TAGS } = require('../models/club');
 const {
   createClub,
   getUserClubs,
@@ -19,11 +21,24 @@ const {
   removeMember,
   transferOwnership,
   postAnnouncement,
-  deleteAnnouncement
+  deleteAnnouncement,
+  promoteCoLeader,
+  demoteCoLeader
 } = require('../controllers/clubController');
 
 // All routes require authentication
 router.use(protect);
+router.use(apiLimiter);
+
+// Shared by the create and update routes below
+const tagsRule = {
+  type: 'array',
+  custom: (value) => (
+    value.length <= 5 && value.every((t) => CLUB_TAGS.includes(t))
+      ? undefined
+      : `tags must be up to 5 values from: ${CLUB_TAGS.join(', ')}`
+  )
+};
 
 /**
  * @route   POST /api/clubs
@@ -37,7 +52,8 @@ router.post(
     description: { required: true, type: 'string', minLength: 10, maxLength: 1000 },
     location: { type: 'string', maxLength: 200 },
     maxMembers: { type: 'number', min: 2, max: 10000 },
-    isPrivate: { type: 'boolean' }
+    isPrivate: { type: 'boolean' },
+    tags: tagsRule
   }),
   createClub
 );
@@ -56,7 +72,7 @@ router.get('/', getUserClubs);
  */
 router.get(
   '/browse',
-  validateQuery({ query: { maxLength: 100 }, page: { type: 'number', min: 1 }, limit: { type: 'number', min: 1, max: 50 } }),
+  validateQuery({ query: { maxLength: 100 }, page: { type: 'number', min: 1 }, limit: { type: 'number', min: 1, max: 50 }, tags: { maxLength: 200 } }),
   searchClubs
 );
 
@@ -74,6 +90,7 @@ router.get('/trending', getTopClub);
  */
 router.post(
   '/join-by-code/:inviteCode',
+  strictLimiter, // invite codes are a 6-char secret (~16.7M keyspace) — bound guessing speed
   validateParams({
     inviteCode: { required: true, type: 'string' }
   }),
@@ -87,6 +104,7 @@ router.post(
  */
 router.get(
   '/invite/:inviteCode',
+  strictLimiter, // same brute-force protection as join-by-code above
   validateParams({
     inviteCode: { required: true, type: 'string' }
   }),
@@ -167,7 +185,8 @@ router.put(
     description: { type: 'string', minLength: 10, maxLength: 1000 },
     location: { type: 'string', maxLength: 200 },
     avatar: { type: 'string', maxLength: 100000 },
-    isPrivate: { type: 'boolean' }
+    isPrivate: { type: 'boolean' },
+    tags: tagsRule
   }),
   updateClub
 );
@@ -215,9 +234,33 @@ router.put(
 );
 
 /**
+ * @route   PUT /api/clubs/:clubId/promote
+ * @desc    Promote a member to co-leader (UC-10)
+ * @access  Private (Club Leader only)
+ */
+router.put(
+  '/:clubId/promote',
+  validateParams({ clubId: { required: true, objectId: true } }),
+  validateInput({ userId: { required: true, type: 'string' } }),
+  promoteCoLeader
+);
+
+/**
+ * @route   PUT /api/clubs/:clubId/demote
+ * @desc    Demote a co-leader back to regular member (UC-10)
+ * @access  Private (Club Leader only)
+ */
+router.put(
+  '/:clubId/demote',
+  validateParams({ clubId: { required: true, objectId: true } }),
+  validateInput({ userId: { required: true, type: 'string' } }),
+  demoteCoLeader
+);
+
+/**
  * @route   DELETE /api/clubs/:clubId/members/:memberId
- * @desc    Remove a member from a club (leader only)
- * @access  Private (Club Leaders only)
+ * @desc    Remove a member from a club (leader or co-leader)
+ * @access  Private (Club Leaders and Co-Leaders)
  */
 router.delete(
   '/:clubId/members/:memberId',

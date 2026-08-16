@@ -15,6 +15,7 @@ class AppError extends Error {
 }
 
 const logger = require('../utils/logger');
+const Event = require('../models/event');
 
 const errorHandler = (err, req, res, next) => {
   let error = { ...err };
@@ -60,7 +61,25 @@ const errorHandler = (err, req, res, next) => {
     error = new AppError(message, 401);
   }
 
-  res.status(error.statusCode || 500).json({
+  const finalStatus = error.statusCode || 500;
+
+  // Log every authorization denial as a distinct, aggregatable event so a
+  // spike on one endpoint (e.g. a frontend regression calling a leader-only
+  // route from a member context) is visible on the admin analytics dashboard
+  // instead of only existing as an unreviewed line in the request log.
+  // Every 403 in this app is thrown from inside an authenticated route
+  // (behind the `protect` middleware), so req.user is always present here —
+  // the guard below is defensive, not load-bearing.
+  if (finalStatus === 403 && req.user?.id) {
+    Event.create({
+      user: req.user.id,
+      type: 'AUTHZ_DENIED',
+      path: req.path,
+      metadata: { method: req.method, message: error.message, reqId: req.id },
+    }).catch((logErr) => logger.error('Failed to log AUTHZ_DENIED event', { err: logErr.message }));
+  }
+
+  res.status(finalStatus).json({
     success: false,
     message: error.message || 'Server Error',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })

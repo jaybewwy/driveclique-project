@@ -3,13 +3,36 @@ const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { notify } = require('../services/notificationEmitter');
 const { sendEmail, emailTemplates } = require('../services/emailService');
 const logger = require('../utils/logger');
+const { escapeRegex } = require('../utils/regex');
+const { isClubLeader, hasLeaderPrivileges } = require('../utils/clubPermissions');
+const { CLUB_TAGS, MAX_CO_LEADERS } = Club;
 
 /**
- * Escape special regex characters in a string to prevent ReDoS
- * @param {string} str
- * @returns {string}
+ * Push a pending join request onto a club and notify the leader + co-leaders.
+ * Shared by requestToJoinClub (the "Join" button) and joinClubByInviteCode
+ * (entering a valid code on a private club) — both land in the same
+ * leader/co-leader approval queue (UC-10).
  */
-const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const submitPendingJoinRequest = (club, userId) => {
+  const existingRequest = club.joinRequests.find(
+    (r) => r.user.toString() === userId && r.status === 'pending'
+  );
+  if (existingRequest) {
+    throw new AppError('Request already pending', 400);
+  }
+
+  club.joinRequests.push({ user: userId });
+
+  const leaderId = (club.leader._id || club.leader).toString();
+  const recipientIds = [leaderId, ...club.coLeaders.map((id) => (id._id || id).toString())];
+  recipientIds.forEach((recipientId) => {
+    notify(recipientId, {
+      type: 'JOIN_REQUEST',
+      message: `Someone requested to join "${club.name}"`,
+      data: { clubId: club._id }
+    });
+  });
+};
 
 /**
  * Create a new Club
@@ -17,7 +40,7 @@ const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
  * @access Private
  */
 const createClub = asyncHandler(async (req, res) => {
-  const { name, description, location, maxMembers, isPrivate } = req.body;
+  const { name, description, location, maxMembers, isPrivate, tags } = req.body;
   const userId = req.user?.id;
 
   if (!userId) {
@@ -36,6 +59,7 @@ const createClub = asyncHandler(async (req, res) => {
     location: location || '',
     maxMembers: maxMembers || null,
     isPrivate: isPrivate === true ? true : false,
+    tags: Array.isArray(tags) ? tags : [],
     leader: userId,
     members: [userId]
   });
@@ -77,6 +101,8 @@ const getClubById = asyncHandler(async (req, res) => {
   const club = await Club.findById(clubId)
     .populate('leader', 'username email avatar name useDisplayName cars')
     .populate('members', 'username email avatar name useDisplayName cars')
+    .populate('coLeaders', 'username email avatar name useDisplayName cars')
+    .populate('joinRequests.user', 'username email avatar name useDisplayName')
     .lean();
 
   if (!club) {
@@ -94,9 +120,14 @@ const getClubById = asyncHandler(async (req, res) => {
 const getClubByInviteCode = asyncHandler(async (req, res) => {
   const { inviteCode } = req.params;
 
+  // A valid invite code only proves the requester was given the code by
+  // someone — not that they're a member. Email is left out of this preview
+  // (unlike getClubById, which is reached only after actually joining/being
+  // a member) so guessing/leaking a code can't be used to harvest members'
+  // email addresses off a private club.
   const club = await Club.findOne({ inviteCode })
-    .populate('leader', 'username email avatar name useDisplayName cars')
-    .populate('members', 'username email avatar name useDisplayName cars')
+    .populate('leader', 'username avatar name useDisplayName cars')
+    .populate('members', 'username avatar name useDisplayName cars')
     .lean();
 
   if (!club) {
@@ -146,24 +177,9 @@ const requestToJoinClub = asyncHandler(async (req, res) => {
     });
   }
 
-  // For private clubs, check for existing pending request
-  const existingRequest = club.joinRequests.find(
-    (r) => r.user.toString() === userId && r.status === 'pending'
-  );
-
-  if (existingRequest) {
-    throw new AppError('Request already pending', 400);
-  }
-
-  club.joinRequests.push({ user: userId });
+  // For private clubs, submit a pending request for leader/co-leader approval
+  submitPendingJoinRequest(club, userId);
   await club.save();
-
-  // Notify the club leader of the new join request
-  notify(club.leader.toString(), {
-    type: 'JOIN_REQUEST',
-    message: `Someone requested to join "${club.name}"`,
-    data: { clubId: club._id }
-  });
 
   res.json({ success: true, message: 'Join request sent. Awaiting leader approval.' });
 });
@@ -188,9 +204,9 @@ const handleJoinRequest = asyncHandler(async (req, res) => {
     throw new AppError('Club not found', 404);
   }
 
-  // Verify user is the club leader
-  if (club.leader.toString() !== userId) {
-    throw new AppError('Only the leader can handle requests', 403);
+  // Leader or co-leader can handle requests (UC-10)
+  if (!hasLeaderPrivileges(club, userId)) {
+    throw new AppError('Only the leader or a co-leader can handle requests', 403);
   }
 
   // Find the request
@@ -243,7 +259,7 @@ const handleJoinRequest = asyncHandler(async (req, res) => {
  * @access Private
  */
 const searchClubs = asyncHandler(async (req, res) => {
-  const { query, page = 1, limit = 20 } = req.query;
+  const { query, page = 1, limit = 20, tags } = req.query;
 
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
   const limitNum = Math.min(50, Math.max(1, parseInt(limit, 10) || 20));
@@ -253,6 +269,16 @@ const searchClubs = asyncHandler(async (req, res) => {
   if (query) {
     const regex = { $regex: escapeRegex(query.trim()), $options: 'i' };
     searchQuery.$or = [{ name: regex }, { location: regex }];
+  }
+  if (tags) {
+    // Comma-separated tag list (e.g. "JDM,Track"); unknown values are silently
+    // dropped rather than rejected — this is a passive read-time filter, not a
+    // leader-facing write, so it fails open like the app's other read filters.
+    const validTags = tags.split(',').map((t) => t.trim()).filter((t) => CLUB_TAGS.includes(t));
+    if (validTags.length > 0) {
+      // $in against an array field matches clubs with ANY of the given tags (OR logic)
+      searchQuery.tags = { $in: validTags };
+    }
   }
 
   const [clubs, total] = await Promise.all([
@@ -338,14 +364,24 @@ const joinClubByInviteCode = asyncHandler(async (req, res) => {
     throw new AppError('Already a member', 400);
   }
 
-  // For private clubs, verify user has been invited (accepted request)
+  // For private clubs, a valid invite code submits a join request for
+  // leader/co-leader approval — same queue as the "Join" button (UC-10).
+  // Having the code isn't a bypass; it just gets you in front of the leader.
   if (club.isPrivate) {
-    const existingRequest = club.joinRequests.find(
+    const alreadyAccepted = club.joinRequests.find(
       (r) => r.user.toString() === userId && r.status === 'accepted'
     );
-    if (!existingRequest) {
-      throw new AppError('This is a private club. You need an invite from the leader.', 403);
+    if (!alreadyAccepted) {
+      submitPendingJoinRequest(club, userId);
+      await club.save();
+      return res.json({
+        success: true,
+        pending: true,
+        message: 'Join request sent. Awaiting leader approval.'
+      });
     }
+    // Already-accepted request that never completed membership (legacy edge
+    // case) — fall through and join immediately.
   }
 
   if (club.maxMembers && club.members.length >= club.maxMembers) {
@@ -365,7 +401,7 @@ const joinClubByInviteCode = asyncHandler(async (req, res) => {
  */
 const updateClub = asyncHandler(async (req, res) => {
   const { clubId } = req.params;
-  const { name, description, location, avatar, isPrivate } = req.body;
+  const { name, description, location, avatar, isPrivate, tags } = req.body;
   const userId = req.user?.id;
 
   if (!userId) {
@@ -396,6 +432,7 @@ const updateClub = asyncHandler(async (req, res) => {
   if (location !== undefined) club.location = location;
   if (avatar !== undefined) club.avatar = avatar;
   if (isPrivate !== undefined) club.isPrivate = isPrivate;
+  if (tags !== undefined) club.tags = tags;
 
   await club.save();
 
@@ -590,11 +627,14 @@ const transferOwnership = asyncHandler(async (req, res) => {
   }
 
   club.leader = newLeaderId;
+  // The new leader is redundant as a co-leader now — clear it if present.
+  club.coLeaders = club.coLeaders.filter((id) => id.toString() !== newLeaderId);
   await club.save();
 
   const updated = await Club.findById(clubId)
     .populate('leader', 'username email avatar name useDisplayName')
     .populate('members', 'username email avatar name useDisplayName cars')
+    .populate('coLeaders', 'username email avatar name useDisplayName cars')
     .lean();
 
   res.json({ success: true, message: 'Ownership transferred successfully', club: updated });
@@ -618,12 +658,17 @@ const removeMember = asyncHandler(async (req, res) => {
     throw new AppError('Club not found', 404);
   }
 
-  if (club.leader.toString() !== userId) {
-    throw new AppError('Only the club leader can remove members', 403);
+  if (!hasLeaderPrivileges(club, userId)) {
+    throw new AppError('Only the club leader or a co-leader can remove members', 403);
   }
 
   if (club.leader.toString() === memberId) {
     throw new AppError('Cannot remove the club leader', 400);
+  }
+
+  const targetIsCoLeader = club.coLeaders.some((id) => id.toString() === memberId);
+  if (targetIsCoLeader && !isClubLeader(club, userId)) {
+    throw new AppError('Only the club leader can remove a co-leader', 403);
   }
 
   const isMember = club.members.some((m) => m.toString() === memberId);
@@ -632,6 +677,11 @@ const removeMember = asyncHandler(async (req, res) => {
   }
 
   club.members = club.members.filter((m) => m.toString() !== memberId);
+  // Removing a co-leader from the club also ends their co-leader status —
+  // you can't be a co-leader of a club you're not a member of.
+  if (targetIsCoLeader) {
+    club.coLeaders = club.coLeaders.filter((id) => id.toString() !== memberId);
+  }
   await club.save();
 
   res.json({ success: true, message: 'Member removed successfully' });
@@ -652,7 +702,7 @@ const postAnnouncement = asyncHandler(async (req, res) => {
 
   const club = await Club.findById(clubId);
   if (!club) throw new AppError('Club not found', 404);
-  if (club.leader.toString() !== userId) throw new AppError('Only the club leader can post announcements', 403);
+  if (!hasLeaderPrivileges(club, userId)) throw new AppError('Only the club leader or a co-leader can post announcements', 403);
 
   const announcement = { title: title?.trim() || '', body: body.trim(), createdBy: userId };
   club.announcements.push(announcement);
@@ -687,7 +737,7 @@ const deleteAnnouncement = asyncHandler(async (req, res) => {
 
   const club = await Club.findById(clubId);
   if (!club) throw new AppError('Club not found', 404);
-  if (club.leader.toString() !== userId) throw new AppError('Only the club leader can delete announcements', 403);
+  if (!hasLeaderPrivileges(club, userId)) throw new AppError('Only the club leader or a co-leader can delete announcements', 403);
 
   const exists = club.announcements.id(announcementId);
   if (!exists) throw new AppError('Announcement not found', 404);
@@ -696,6 +746,97 @@ const deleteAnnouncement = asyncHandler(async (req, res) => {
   await club.save();
 
   res.json({ success: true, message: 'Announcement deleted' });
+});
+
+/**
+ * Promote a Member to Co-Leader (UC-10)
+ * @route PUT /api/clubs/:clubId/promote
+ * @access Private (Club Leader only)
+ */
+const promoteCoLeader = asyncHandler(async (req, res) => {
+  const { clubId } = req.params;
+  const { userId: targetUserId } = req.body;
+  const userId = req.user?.id;
+
+  if (!userId) throw new AppError('Authentication required', 401);
+  if (!targetUserId) throw new AppError('userId is required', 400);
+
+  const club = await Club.findById(clubId);
+  if (!club) throw new AppError('Club not found', 404);
+
+  if (!isClubLeader(club, userId)) {
+    throw new AppError('Only the club leader can promote a co-leader', 403);
+  }
+
+  if (club.leader.toString() === targetUserId) {
+    throw new AppError('The leader cannot be promoted to co-leader', 400);
+  }
+
+  const isMember = club.members.some((m) => m.toString() === targetUserId);
+  if (!isMember) {
+    throw new AppError('User must be a member of this club to be promoted', 400);
+  }
+
+  const alreadyCoLeader = club.coLeaders.some((id) => id.toString() === targetUserId);
+  if (alreadyCoLeader) {
+    throw new AppError('User is already a co-leader', 400);
+  }
+
+  if (club.coLeaders.length >= MAX_CO_LEADERS) {
+    throw new AppError(`A club can have at most ${MAX_CO_LEADERS} co-leaders`, 400);
+  }
+
+  club.coLeaders.push(targetUserId);
+  await club.save();
+
+  notify(targetUserId, {
+    type: 'COLEADER_PROMOTED',
+    message: `You were promoted to co-leader of "${club.name}"`,
+    data: { clubId: club._id }
+  });
+
+  const updated = await Club.findById(clubId)
+    .populate('coLeaders', 'username email avatar name useDisplayName cars')
+    .lean();
+
+  res.json({ success: true, message: 'Member promoted to co-leader', club: updated });
+});
+
+/**
+ * Demote a Co-Leader back to Regular Member (UC-10)
+ * @route PUT /api/clubs/:clubId/demote
+ * @access Private (Club Leader only)
+ */
+const demoteCoLeader = asyncHandler(async (req, res) => {
+  const { clubId } = req.params;
+  const { userId: targetUserId } = req.body;
+  const userId = req.user?.id;
+
+  if (!userId) throw new AppError('Authentication required', 401);
+  if (!targetUserId) throw new AppError('userId is required', 400);
+
+  const club = await Club.findById(clubId);
+  if (!club) throw new AppError('Club not found', 404);
+
+  if (!isClubLeader(club, userId)) {
+    throw new AppError('Only the club leader can demote a co-leader', 403);
+  }
+
+  const isCoLeader = club.coLeaders.some((id) => id.toString() === targetUserId);
+  if (!isCoLeader) {
+    throw new AppError('User is not a co-leader of this club', 400);
+  }
+
+  club.coLeaders = club.coLeaders.filter((id) => id.toString() !== targetUserId);
+  await club.save();
+
+  notify(targetUserId, {
+    type: 'COLEADER_DEMOTED',
+    message: `You are no longer a co-leader of "${club.name}"`,
+    data: { clubId: club._id }
+  });
+
+  res.json({ success: true, message: 'Co-leader demoted to member', club });
 });
 
 module.exports = {
@@ -715,5 +856,7 @@ module.exports = {
   removeMember,
   transferOwnership,
   postAnnouncement,
-  deleteAnnouncement
+  deleteAnnouncement,
+  promoteCoLeader,
+  demoteCoLeader
 };

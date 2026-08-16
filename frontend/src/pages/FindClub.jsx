@@ -7,6 +7,8 @@ import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 import ReportModal from "../components/ui/ReportModal";
 import { MobileDrawerButton } from "../components/ui/MobileDrawer";
+import ClubTagPicker from "../components/ui/ClubTagPicker";
+import { trackEvent } from "../services/analytics";
 
 const FindClub = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -14,6 +16,7 @@ const FindClub = ({ user, onLogout }) => {
   const [loading, setLoading]           = useState(true);
   const [popularClubs, setPopularClubs] = useState([]);
   const [searchQuery, setSearchQuery]   = useState("");
+  const [selectedTags, setSelectedTags] = useState([]);
   const [page, setPage]                 = useState(1);
   const [pagination, setPagination]     = useState(null);
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -34,16 +37,16 @@ const FindClub = ({ user, onLogout }) => {
           );
         }
       })
-      .catch(() => {});
+      .catch((error) => console.error('Failed to load popular clubs:', error));
   }, []);
 
-  useEffect(() => { setPage(1); }, [searchQuery]);
+  useEffect(() => { setPage(1); }, [searchQuery, selectedTags]);
 
   useEffect(() => {
     setLoading(true);
     const fetchClubs = async () => {
       try {
-        const response = await clubsAPI.searchPage(searchQuery.trim() || undefined, page, 20);
+        const response = await clubsAPI.searchPage(searchQuery.trim() || undefined, page, 20, selectedTags);
         if (response.data.success) {
           setClubs(response.data.clubs);
           setPagination(response.data.pagination);
@@ -56,7 +59,7 @@ const FindClub = ({ user, onLogout }) => {
     };
     const timer = setTimeout(fetchClubs, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery, page]);
+  }, [searchQuery, selectedTags, page]);
 
   const isUserMember = (club) =>
     club.members.some(m => typeof m === 'string' ? m === user?._id : m._id === user?._id);
@@ -70,8 +73,10 @@ const FindClub = ({ user, onLogout }) => {
     try {
       const response = await clubsAPI.requestToJoin(clubId);
       if (response.data.success) {
-        if (response.data.clubId) navigate(`/club/${response.data.clubId}`);
-        else setActionSuccess("Join request sent! Awaiting leader approval.");
+        if (response.data.clubId) {
+          trackEvent('CLUB_JOINED', { via: 'browse' });
+          navigate(`/club/${response.data.clubId}`);
+        } else setActionSuccess("Join request sent! Awaiting leader approval.");
       }
     } catch (error) {
       setActionError(error.response?.data?.message || "Failed to join club");
@@ -87,9 +92,16 @@ const FindClub = ({ user, onLogout }) => {
     try {
       const response = await clubsAPI.joinByInviteCode(inviteCode.trim());
       if (response.data.success) {
-        const clubId = response.data.clubId || response.data.club?._id;
-        if (clubId) navigate(`/club/${clubId}`);
-        else { setShowJoinModal(false); setActionSuccess("Joined club successfully!"); }
+        if (response.data.pending) {
+          // Private club — the code submitted a join request, not instant membership (UC-10)
+          setShowJoinModal(false);
+          setActionSuccess("Join request sent! Awaiting leader approval.");
+        } else {
+          trackEvent('CLUB_JOINED', { via: 'inviteCode' });
+          const clubId = response.data.clubId || response.data.club?._id;
+          if (clubId) navigate(`/club/${clubId}`);
+          else { setShowJoinModal(false); setActionSuccess("Joined club successfully!"); }
+        }
       }
     } catch {
       setJoinError("Invite code incorrect.");
@@ -104,11 +116,11 @@ const FindClub = ({ user, onLogout }) => {
   if (showJoinModal) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-xl" onClick={closeModal} />
+        <div role="presentation" aria-hidden="true" className="fixed inset-0 bg-black/70 backdrop-blur-xl" onClick={closeModal} />
         <div className="relative glass-card p-8 max-w-sm w-full animate-fade-slide-up rounded-3xl">
           <button
             onClick={closeModal}
-            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/[0.07] rounded-lg transition-all"
+            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/[0.07] rounded-lg transition-all"
           >
             <X size={16} />
           </button>
@@ -118,7 +130,7 @@ const FindClub = ({ user, onLogout }) => {
               <Lock className="w-8 h-8 text-white" />
             </div>
             <h2 className="text-xl font-bold text-white mb-1">Join with Invite Code</h2>
-            <p className="text-zinc-500 text-sm">Enter the code from a club leader</p>
+            <p className="text-zinc-400 text-sm">Enter the code from a club leader</p>
           </div>
 
           <div className="space-y-3">
@@ -128,6 +140,7 @@ const FindClub = ({ user, onLogout }) => {
               onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
               placeholder="e.g. HRK707"
               className="w-full bg-white/[0.06] border border-white/[0.10] rounded-2xl px-4 py-3.5 text-center text-xl font-mono tracking-widest text-white placeholder-zinc-600 focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/20 transition-all"
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- focus follows the user's own "Join with Invite Code" click, not page load
               autoFocus
             />
 
@@ -148,7 +161,7 @@ const FindClub = ({ user, onLogout }) => {
             </button>
           </div>
 
-          <p className="text-zinc-600 text-xs text-center mt-5">
+          <p className="text-zinc-400 text-xs text-center mt-5">
             Contact a club leader to get your invite code
           </p>
         </div>
@@ -165,13 +178,13 @@ const FindClub = ({ user, onLogout }) => {
         <Sidebar user={user} />
 
         {/* Main content */}
-        <div className="flex-1 max-w-4xl min-h-screen p-5 md:p-6">
+        <div id="main-content" role="main" className="flex-1 max-w-4xl min-h-screen p-5 md:p-6">
 
           {/* Page header */}
           <div className="mb-6">
             <p className="section-label mb-1.5">Discovery</p>
             <h1 className="text-2xl font-bold text-white">Find Clubs</h1>
-            <p className="text-zinc-500 text-sm mt-0.5">Discover and join car clubs near you</p>
+            <p className="text-zinc-400 text-sm mt-0.5">Discover and join car clubs near you</p>
           </div>
 
           {/* Feedback banners */}
@@ -191,7 +204,7 @@ const FindClub = ({ user, onLogout }) => {
           {/* Search bar */}
           <div className="mb-5">
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
               <input
                 type="text"
                 value={searchQuery}
@@ -202,15 +215,20 @@ const FindClub = ({ user, onLogout }) => {
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center text-zinc-500 hover:text-white transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
-            <p className="text-zinc-600 text-xs mt-2 pl-1">
+            <p className="text-zinc-400 text-xs mt-2 pl-1">
               <span className="text-zinc-400 font-medium">{pagination?.total ?? filteredClubs.length}</span> clubs found
             </p>
+          </div>
+
+          {/* Tag filters */}
+          <div className="mb-5">
+            <ClubTagPicker selected={selectedTags} onChange={setSelectedTags} />
           </div>
 
           {/* Results */}
@@ -222,7 +240,7 @@ const FindClub = ({ user, onLogout }) => {
             <div className="text-center py-16 glass-subtle rounded-3xl">
               <Car className="w-12 h-12 text-zinc-700 mx-auto mb-3" />
               <p className="text-base font-semibold text-zinc-400">No clubs found</p>
-              <p className="text-sm text-zinc-600 mt-1 mb-5">Try a different search or create your own</p>
+              <p className="text-sm text-zinc-400 mt-1 mb-5">Try a different search or create your own</p>
               <button
                 onClick={() => navigate("/create-club")}
                 className="btn-primary px-5 py-2.5 text-sm"
@@ -235,7 +253,15 @@ const FindClub = ({ user, onLogout }) => {
               {filteredClubs.map((club) => (
                 <div
                   key={club._id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => navigate(`/club/${club._id}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      navigate(`/club/${club._id}`);
+                    }
+                  }}
                   className="glass-card p-5 cursor-pointer hover:border-white/[0.12] hover:-translate-y-0.5 transition-all duration-200 group rounded-3xl"
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -258,7 +284,7 @@ const FindClub = ({ user, onLogout }) => {
                             {club.name}
                           </h3>
                           {club.isPrivate ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/[0.06] border border-white/[0.08] rounded-full text-[10px] text-zinc-500">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/[0.06] border border-white/[0.08] rounded-full text-[10px] text-zinc-400">
                               <Lock className="w-2.5 h-2.5" /> Private
                             </span>
                           ) : (
@@ -269,12 +295,12 @@ const FindClub = ({ user, onLogout }) => {
                         </div>
 
                         {/* Description */}
-                        <p className="text-xs text-zinc-500 line-clamp-1 mb-2">
+                        <p className="text-xs text-zinc-400 line-clamp-1 mb-2">
                           {club.description || "No description"}
                         </p>
 
                         {/* Meta */}
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-400">
                           <span className="flex items-center gap-1.5">
                             <Users className="w-3.5 h-3.5" />
                             {club.members.length} {club.members.length === 1 ? 'member' : 'members'}
@@ -286,6 +312,20 @@ const FindClub = ({ user, onLogout }) => {
                             </span>
                           )}
                         </div>
+
+                        {/* Tags */}
+                        {club.tags?.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {club.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="px-2 py-0.5 bg-white/[0.06] border border-white/[0.08] rounded-full text-[10px] text-zinc-400"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -293,7 +333,7 @@ const FindClub = ({ user, onLogout }) => {
                     <div className="shrink-0 self-center flex items-center gap-1.5">
                       <button
                         onClick={(e) => { e.stopPropagation(); setReportTarget({ type: 'club', id: club._id, name: club.name }); }}
-                        className="w-8 h-8 flex items-center justify-center text-zinc-600 hover:text-orange-400 hover:bg-orange-500/10 rounded-xl transition-all"
+                        className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-orange-400 hover:bg-orange-500/10 rounded-xl transition-all"
                         title="Report club"
                       >
                         <Flag className="w-3.5 h-3.5" />
@@ -330,7 +370,7 @@ const FindClub = ({ user, onLogout }) => {
               >
                 ← Prev
               </button>
-              <span className="text-xs text-zinc-500">
+              <span className="text-xs text-zinc-400">
                 <span className="text-white font-medium">{page}</span> / {pagination.totalPages}
               </span>
               <button
@@ -370,10 +410,11 @@ const FindClub = ({ user, onLogout }) => {
             <p className="section-label mb-3">Popular</p>
             <div className="space-y-2">
               {popularClubs.map((club) => (
-                <div
+                <button
+                  type="button"
                   key={club._id}
                   onClick={() => navigate(`/club/${club._id}`)}
-                  className="flex items-center gap-3 p-3 rounded-xl cursor-pointer hover:bg-white/[0.05] group transition-all duration-200"
+                  className="w-full text-left flex items-center gap-3 p-3 rounded-xl cursor-pointer hover:bg-white/[0.05] group transition-all duration-200"
                 >
                   <div className="w-9 h-9 rounded-xl shrink-0 overflow-hidden ring-1 ring-white/[0.08]">
                     {club.avatar ? (
@@ -386,9 +427,9 @@ const FindClub = ({ user, onLogout }) => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-xs text-zinc-300 group-hover:text-white transition-colors truncate">{club.name}</p>
-                    <p className="text-[11px] text-zinc-600">{club.members.length} {club.members.length === 1 ? 'member' : 'members'}</p>
+                    <p className="text-[11px] text-zinc-400">{club.members.length} {club.members.length === 1 ? 'member' : 'members'}</p>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -413,7 +454,7 @@ const FindClub = ({ user, onLogout }) => {
                 { icon: Calendar, text: "Access exclusive drives" },
                 { icon: Car,      text: "Share knowledge & tips" },
               ].map(({ icon: Icon, text }) => (
-                <li key={text} className="flex items-center gap-2 text-[11px] text-zinc-500">
+                <li key={text} className="flex items-center gap-2 text-[11px] text-zinc-400">
                   <Icon className="w-3 h-3 text-red-400 shrink-0" /> {text}
                 </li>
               ))}

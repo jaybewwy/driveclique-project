@@ -63,6 +63,12 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // Best-effort calls (e.g. analytics) must never clear the session or redirect —
+    // a failed/expired-token analytics ping should be invisible to the user.
+    if (originalRequest?.skipAuthRedirect) {
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       const refreshToken = localStorage.getItem('refreshToken');
 
@@ -142,13 +148,20 @@ export const authAPI = {
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('driveclique_user');
     if (refreshToken) {
-      try { await api.post('/auth/logout', { refreshToken }); } catch { /* best-effort */ }
+      // Client-side session is already cleared above regardless of outcome —
+      // this is just best-effort server-side token revocation.
+      try {
+        await api.post('/auth/logout', { refreshToken });
+      } catch (error) {
+        console.error('Failed to revoke refresh token server-side:', error);
+      }
     }
   },
   refresh: (refreshToken) => api.post('/auth/refresh', { refreshToken }),
   getProfile: () => api.get('/auth/profile'),
   updateProfile: (profileData) => api.put('/auth/profile', profileData),
   searchUsers: (query) => api.get('/auth/users/search', { params: { query } }),
+  getPublicProfile: (userId) => api.get(`/auth/users/${userId}/public`),
   forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
   resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }),
   verifyEmail: (token) => api.get('/auth/verify-email', { params: { token } }),
@@ -168,7 +181,7 @@ export const clubsAPI = {
   create: (clubData) => api.post('/clubs', clubData),
   update: (clubId, clubData) => api.put(`/clubs/${clubId}`, clubData),
   search: (params) => api.get('/clubs/browse', { params }),
-  searchPage: (query, page, limit = 20) => api.get('/clubs/browse', { params: { query, page, limit } }),
+  searchPage: (query, page, limit = 20, tags) => api.get('/clubs/browse', { params: { query, page, limit, tags: tags?.length ? tags.join(',') : undefined } }),
   requestToJoin: (clubId) => api.post(`/clubs/${clubId}/join`),
   handleJoinRequest: (clubId, requestId, status) => 
     api.post(`/clubs/${clubId}/handle-request`, { requestId, status }),
@@ -183,6 +196,8 @@ export const clubsAPI = {
   transfer: (clubId, newLeaderId) => api.put(`/clubs/${clubId}/transfer`, { newLeaderId }),
   postAnnouncement: (clubId, data) => api.post(`/clubs/${clubId}/announcements`, data),
   deleteAnnouncement: (clubId, announcementId) => api.delete(`/clubs/${clubId}/announcements/${announcementId}`),
+  promoteCoLeader: (clubId, userId) => api.put(`/clubs/${clubId}/promote`, { userId }),
+  demoteCoLeader: (clubId, userId) => api.put(`/clubs/${clubId}/demote`, { userId }),
 };
 
 /**
@@ -214,6 +229,29 @@ export const reportsAPI = {
 };
 
 /**
+ * Notifications API calls (persisted history + per-type preferences;
+ * the live stream itself is opened directly via EventSource in useNotifications)
+ */
+export const notificationsAPI = {
+  getAll: (limit = 50) => api.get('/notifications', { params: { limit } }),
+  markRead: (notificationId) => api.put(`/notifications/${notificationId}/read`),
+  markAllRead: () => api.put('/notifications/read-all'),
+  getPreferences: () => api.get('/notifications/preferences'),
+  updatePreferences: (updates) => api.put('/notifications/preferences', updates),
+};
+
+/**
+ * Events (product analytics) API calls
+ */
+export const eventsAPI = {
+  // skipAuthRedirect: a 401 here (e.g. stale token) must never clear the session or redirect —
+  // this is a best-effort background ping, not a user-initiated request.
+  track: ({ type, path, metadata }) => api.post('/events', { type, path, metadata }, { skipAuthRedirect: true }),
+  getMySummary: () => api.get('/events/my-summary'),
+  getAdminSummary: () => api.get('/events/admin-summary'),
+};
+
+/**
  * Export the raw axios instance for custom requests
  */
 export { api };
@@ -222,5 +260,7 @@ export default {
   clubs: clubsAPI,
   drives: drivesAPI,
   reports: reportsAPI,
+  events: eventsAPI,
+  notifications: notificationsAPI,
   raw: api,
 };

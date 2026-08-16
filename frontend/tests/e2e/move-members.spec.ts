@@ -1,4 +1,5 @@
 import { test, expect, Browser } from '@playwright/test';
+import crypto from 'crypto';
 
 const baseUrl = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5173';
 
@@ -9,7 +10,7 @@ const NUM_USERS = 1;
 function randomString(len = 8) {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
   let out = '';
-  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < len; i++) out += chars[crypto.randomInt(chars.length)];
   return out;
 }
 

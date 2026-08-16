@@ -34,6 +34,10 @@ const validateRequiredFields = (...fields) => {
  * @returns {boolean}
  */
 const isValidEmail = (email) => {
+  // Reject oversized input before the regex runs, bounding the worst-case
+  // polynomial backtracking cost regardless of how long the attacker's
+  // string is (CodeQL js/polynomial-redos). 254 is RFC 5321's max address length.
+  if (typeof email !== 'string' || email.length > 254) return false;
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 };
@@ -208,6 +212,19 @@ const validateQuery = (rules) => {
 
       if (rule.required && !value) {
         errors.push(`Query parameter '${field}' is required`);
+        continue;
+      }
+
+      // Express parses repeated keys (?field=a&field=b) or bracket syntax
+      // (?field[$ne]=x) into an array/object instead of a string. Reject
+      // those outright before any length/type/enum check runs against them —
+      // otherwise e.g. an array's .length (element count) or an object's
+      // missing .length (undefined, always passes "> maxLength") lets a
+      // non-string value slip through as if it were a validated string,
+      // and reach a downstream Mongo query as a raw operator object
+      // (CodeQL js/type-confusion-through-parameter-tampering).
+      if (value !== undefined && typeof value !== 'string') {
+        errors.push(`Query parameter '${field}' must be a single value`);
         continue;
       }
 

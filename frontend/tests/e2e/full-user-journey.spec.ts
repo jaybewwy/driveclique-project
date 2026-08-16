@@ -14,6 +14,7 @@
 import { test, expect, Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -29,7 +30,7 @@ if (!fs.existsSync(SCREENSHOT_DIR)) fs.mkdirSync(SCREENSHOT_DIR, { recursive: tr
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 function rand(len = 7) {
-  return Math.random().toString(36).slice(2, 2 + len);
+  return crypto.randomBytes(Math.ceil(len / 2)).toString('hex').slice(0, len);
 }
 
 function makeUsers() {
@@ -68,8 +69,21 @@ async function register(page: Page, u: { username: string; email: string; passwo
 }
 
 async function logout(page: Page) {
-  await page.getByRole('button', { name: /^[A-Z]{2}$/ }).last().click().catch(() => {});
-  await page.getByRole('menuitem', { name: /Log out/i }).click().catch(async () => {
+  const avatarBtn = page.getByRole('button', { name: /^[A-Z]{2}$/ }).last();
+  const menuItem = page.getByRole('menuitem', { name: /Log out/i });
+
+  // The avatar's Radix DropdownMenu occasionally doesn't register a click fired the
+  // instant it renders (portal/listeners not yet attached right after navigation) —
+  // confirmed via [role="menu"] never appearing in the DOM on the failing attempts.
+  // Retry the trigger click a few times, actually waiting for the menu to open each
+  // time, instead of assuming one click always works.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await avatarBtn.click().catch(() => {});
+    const opened = await menuItem.waitFor({ state: 'visible', timeout: 2_000 }).then(() => true).catch(() => false);
+    if (opened) break;
+  }
+
+  await menuItem.click().catch(async () => {
     await page.getByText(/Log out/i).click().catch(() => {});
   });
   await page.waitForURL(`${BASE}/login`, { timeout: 10_000 }).catch(() => {});

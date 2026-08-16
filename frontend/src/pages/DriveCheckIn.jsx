@@ -39,7 +39,8 @@ const DriveCheckIn = ({ user, onLogout }) => {
     <div className="min-h-screen bg-zinc-950 text-white">
       <NavBar user={user} onLogout={onLogout} showSearch={false} />
 
-      <div className="flex items-center justify-center p-6 pt-24">
+      <div id="main-content" role="main" className="flex items-center justify-center p-6 pt-24">
+        <h1 className="sr-only">Drive Check-In</h1>
         <div className="w-full max-w-md">
           <div className="glass-card rounded-3xl p-10 text-center">
             {loading ? (
@@ -57,7 +58,7 @@ const DriveCheckIn = ({ user, onLogout }) => {
               </>
             ) : status?.isCompleted ? (
               <>
-                <MapPin className="w-14 h-14 text-zinc-500 mx-auto mb-4" />
+                <MapPin className="w-14 h-14 text-zinc-400 mx-auto mb-4" />
                 <h2 className="text-2xl font-bold mb-2">Check-in closed</h2>
                 <p className="text-zinc-400 mb-6">
                   "{status.driveName}" has already been marked completed by the club leader.
@@ -74,7 +75,7 @@ const DriveCheckIn = ({ user, onLogout }) => {
                 {status.checkedIn === "present" ? (
                   <CheckCircle className="w-14 h-14 text-green-500 mx-auto mb-4" />
                 ) : (
-                  <XCircle className="w-14 h-14 text-zinc-500 mx-auto mb-4" />
+                  <XCircle className="w-14 h-14 text-zinc-400 mx-auto mb-4" />
                 )}
                 <h2 className="text-2xl font-bold mb-2">
                   {status.checkedIn === "present" ? "You're checked in!" : "Marked as not present"}
@@ -85,7 +86,7 @@ const DriveCheckIn = ({ user, onLogout }) => {
                 <button
                   onClick={() => handleSubmit(status.checkedIn !== "present")}
                   disabled={submitting}
-                  className="text-zinc-500 hover:text-zinc-300 text-sm disabled:opacity-50"
+                  className="text-zinc-400 hover:text-zinc-300 text-sm disabled:opacity-50"
                 >
                   Change my answer
                 </button>

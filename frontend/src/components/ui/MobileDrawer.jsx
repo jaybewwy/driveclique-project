@@ -34,6 +34,13 @@ export function MobileDrawer({ isOpen, onClose, side = "left", children }) {
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEscape = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [isOpen, onClose]);
+
   const panelSideClass = side === "left" ? "left-0 border-r" : "right-0 border-l";
   const translateClass = isOpen
     ? "translate-x-0"
@@ -44,6 +51,8 @@ export function MobileDrawer({ isOpen, onClose, side = "left", children }) {
   return (
     <div className={`fixed inset-0 z-50 ${isOpen ? "" : "pointer-events-none"}`}>
       <div
+        role="presentation"
+        aria-hidden="true"
         className={`absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-300 ${
           isOpen ? "opacity-100" : "opacity-0"
         }`}

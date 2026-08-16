@@ -92,6 +92,13 @@ const UserSchema = new mongoose.Schema({
   passwordHistory: {
     type: [String],
     default: []
+  },
+  // Per-notification-type opt-out map, e.g. { DRIVE_REMINDER: false }.
+  // A type absent from this object is treated as enabled (default-on for
+  // new types added later, with no migration needed).
+  notificationPreferences: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
   }
 }, { timestamps: true });
 

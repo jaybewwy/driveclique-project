@@ -34,6 +34,7 @@ function detectCountry() {
         return code;
       }),
     new Promise(resolve => setTimeout(() => resolve(''), 4000)),
+    // eslint-disable-next-line no-restricted-syntax -- fail-open by design: geolocation is an unrestricted-search fallback, and logging would be noisy (ad-blockers/VPNs block this constantly)
   ]).catch(() => '');
 
   return _detectionPromise;
@@ -67,7 +68,7 @@ function isoToCountryName(code) {
  *   countryCode string                      — optional ISO 3166-1 alpha-2 override (e.g. 'us')
  *                                             bypasses auto-detection when provided
  */
-export function LocationSearch({ value, onChange, onSelect, countryCode: propCountryCode }) {
+export function LocationSearch({ value, onChange, onSelect, countryCode: propCountryCode, id }) {
   const [query, setQuery]             = useState(value || '');
   const [suggestions, setSuggestions] = useState([]);
   const [open, setOpen]               = useState(false);
@@ -187,8 +188,9 @@ export function LocationSearch({ value, onChange, onSelect, countryCode: propCou
         "flex items-center w-full bg-white/[0.06] border border-white/[0.10] h-11 rounded-2xl overflow-hidden px-4 gap-3",
         "focus-within:border-red-500/60 focus-within:bg-white/[0.09] focus-within:ring-1 focus-within:ring-red-500/20 transition-all duration-200"
       )}>
-        <MapPin className="w-4 h-4 text-zinc-500 shrink-0" />
+        <MapPin className="w-4 h-4 text-zinc-400 shrink-0" />
         <input
+          id={id}
           type="text"
           value={query}
           onChange={handleInput}
@@ -198,7 +200,7 @@ export function LocationSearch({ value, onChange, onSelect, countryCode: propCou
           className="bg-transparent text-white placeholder-zinc-600 outline-none text-sm w-full h-full"
         />
         {searching && (
-          <Loader2 className="w-4 h-4 text-zinc-500 animate-spin shrink-0" />
+          <Loader2 className="w-4 h-4 text-zinc-400 animate-spin shrink-0" />
         )}
       </div>
 
@@ -206,7 +208,7 @@ export function LocationSearch({ value, onChange, onSelect, countryCode: propCou
       {activeCountry && !searching && (
         <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
           {!searching && query.length === 0 && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-white/[0.06] border border-white/[0.08] rounded-md text-[10px] text-zinc-500">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-white/[0.06] border border-white/[0.08] rounded-md text-[10px] text-zinc-400">
               <Globe className="w-2.5 h-2.5" />
               {activeCountry.toUpperCase()}
             </span>
@@ -227,20 +229,20 @@ export function LocationSearch({ value, onChange, onSelect, countryCode: propCou
                     onClick={() => handleSelect(result)}
                     className="w-full px-4 py-2.5 text-left text-sm text-zinc-300 hover:bg-white/[0.06] hover:text-white transition-colors flex items-center gap-2"
                   >
-                    <MapPin className="w-3 h-3 text-zinc-500 shrink-0" />
+                    <MapPin className="w-3 h-3 text-zinc-400 shrink-0" />
                     {result.label}
                   </button>
                 </li>
               ))}
               {countryName && (
                 <li className="px-4 py-2 border-t border-white/[0.06] flex items-center gap-1.5">
-                  <Globe className="w-3 h-3 text-zinc-600" />
-                  <span className="text-[11px] text-zinc-600">Showing results in {countryName}</span>
+                  <Globe className="w-3 h-3 text-zinc-400" />
+                  <span className="text-[11px] text-zinc-400">Showing results in {countryName}</span>
                 </li>
               )}
             </>
           ) : noResults ? (
-            <li className="px-4 py-3 text-sm text-zinc-500 text-center">
+            <li className="px-4 py-3 text-sm text-zinc-400 text-center">
               {countryName
                 ? `No locations found in ${countryName} — try a different city name`
                 : 'No locations found — try a different city name'}

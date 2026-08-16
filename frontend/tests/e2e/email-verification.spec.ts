@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import crypto from 'crypto';
 
 const BASE = 'http://localhost:5173';
 const API  = 'http://localhost:5000/api';
@@ -23,10 +24,15 @@ async function registerUser(page: any, suffix = Date.now()) {
 }
 
 // ─── Suite 1: Registration response ──────────────────────────────────────────
+//
+// authController.js's registerUser currently hardcodes emailVerified: true at
+// registration ("skipped for now; a different strategy will be used later").
+// These assertions match that deliberate current behavior, not the original
+// UC-02 spec of new accounts starting unverified — revisit if that decision changes.
 
 test.describe('Email verification — registration state', () => {
 
-  test('New user has emailVerified: false in registration response', async ({ request }) => {
+  test('New user has emailVerified: true in registration response', async ({ request }) => {
     const suffix = Date.now();
     const res = await request.post(`${API}/auth/register`, {
       data: {
@@ -38,10 +44,10 @@ test.describe('Email verification — registration state', () => {
     expect(res.status()).toBe(201);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.user.emailVerified).toBe(false);
+    expect(body.user.emailVerified).toBe(true);
   });
 
-  test('New user has emailVerified: false in login response', async ({ request }) => {
+  test('New user has emailVerified: true in login response', async ({ request }) => {
     const suffix = Date.now();
     // Register first
     await request.post(`${API}/auth/register`, {
@@ -56,7 +62,7 @@ test.describe('Email verification — registration state', () => {
       data: { username: `evlogin_${suffix}`, password: 'TestPass123!' },
     });
     const body = await loginRes.json();
-    expect(body.user.emailVerified).toBe(false);
+    expect(body.user.emailVerified).toBe(true);
   });
 });
 
@@ -71,6 +77,11 @@ test.describe('Email verification — dashboard banner', () => {
     );
     await page.route('**/api/clubs/trending', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, club: null }) })
+    );
+    // UC-26's onboarding checklist fetches this unconditionally on Dashboard mount;
+    // left unmocked, the fake token 401s and the api.js interceptor redirects to /login.
+    await page.route('**/api/drives/my-rsvps', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, rsvps: [] }) })
     );
     await page.goto(`${BASE}/login`);
     await page.evaluate(() => {
@@ -113,6 +124,10 @@ test.describe('Email verification — dashboard banner', () => {
     );
     await page.route('**/api/auth/resend-verification', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, message: 'Verification email sent!' }) })
+    );
+    // Same unmocked-401-redirect hazard as the test above.
+    await page.route('**/api/drives/my-rsvps', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, rsvps: [] }) })
     );
     await page.goto(`${BASE}/login`);
     await page.evaluate(() => {
@@ -242,9 +257,7 @@ test.describe('Email verification — API security', () => {
   test('Brute-force: 10 verify attempts with random tokens all return 400', async ({ request }) => {
     const results: number[] = [];
     for (let i = 0; i < 10; i++) {
-      const token = Array.from({ length: 80 }, () =>
-        Math.floor(Math.random() * 16).toString(16)
-      ).join('');
+      const token = crypto.randomBytes(40).toString('hex'); // 80 hex chars
       const res = await request.get(`${API}/auth/verify-email?token=${token}`);
       results.push(res.status());
     }
@@ -256,38 +269,38 @@ test.describe('Email verification — API security', () => {
 
 test.describe('Email verification — full flow', () => {
 
-  test('Register → emailVerified false → resend works → profile shows emailVerified false', async ({ request }) => {
+  test('Register → emailVerified true → resend is a no-op → profile still shows emailVerified true', async ({ request }) => {
     const suffix = Date.now();
-    // Step 1: Register
+    // Step 1: Register — emailVerified is true immediately (see Suite 1's note)
     const regRes = await request.post(`${API}/auth/register`, {
       data: { username: `fullev_${suffix}`, email: `fullev_${suffix}@mail.com`, password: 'TestPass123!' },
     });
     expect(regRes.status()).toBe(201);
     const { user: regUser, token } = await regRes.json();
-    expect(regUser.emailVerified).toBe(false);
+    expect(regUser.emailVerified).toBe(true);
 
     // Step 2: Profile endpoint includes emailVerified
     const profileRes = await request.get(`${API}/auth/profile`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const { user: profileUser } = await profileRes.json();
-    expect(profileUser.emailVerified).toBe(false);
+    expect(profileUser.emailVerified).toBe(true);
 
-    // Step 3: Resend verification succeeds
+    // Step 3: Resend short-circuits with "already verified" but still returns 200
     const resendRes = await request.post(`${API}/auth/resend-verification`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     expect(resendRes.status()).toBe(200);
 
-    // Step 4: Wrong verify token is correctly rejected
+    // Step 4: Wrong verify token is correctly rejected (no token exists to match)
     const badVerify = await request.get(`${API}/auth/verify-email?token=${'f'.repeat(80)}`);
     expect(badVerify.status()).toBe(400);
 
-    // Step 5: emailVerified is still false after failed verify
+    // Step 5: emailVerified remains true after the failed verify attempt
     const profileRes2 = await request.get(`${API}/auth/profile`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const { user: profileUser2 } = await profileRes2.json();
-    expect(profileUser2.emailVerified).toBe(false);
+    expect(profileUser2.emailVerified).toBe(true);
   });
 });
