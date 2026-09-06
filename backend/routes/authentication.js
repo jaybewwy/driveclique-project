@@ -19,6 +19,10 @@ const {
   deleteAccount,
   changeUsername,
   changePassword,
+  requestEmailChange,
+  confirmEmailChange,
+  registerPushToken,
+  unregisterPushToken,
 } = require('../controllers/authController');
 
 const isDev = process.env.NODE_ENV === 'development';
@@ -52,6 +56,14 @@ const resendVerificationLimiter = rateLimit({
   windowMs: isDev ? 60 * 1000 : 60 * 60 * 1000,   // 1 min in dev, 1 hr in prod
   max: isDev ? 50 : 3,
   message: { success: false, message: 'Too many verification requests. Please try again in an hour.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const emailChangeLimiter = rateLimit({
+  windowMs: isDev ? 60 * 1000 : 60 * 60 * 1000,   // 1 min in dev, 1 hr in prod
+  max: isDev ? 50 : 3,
+  message: { success: false, message: 'Too many email change requests. Please try again in an hour.' },
   standardHeaders: true,
   legacyHeaders: false
 });
@@ -274,6 +286,59 @@ router.put(
     newPassword:     { required: true, type: 'string', minLength: 8, maxLength: 100 },
   }),
   changePassword
+);
+
+/**
+ * @route   POST /api/auth/email-change
+ * @desc    Request an email address change — sends a confirmation link to the new address
+ * @access  Private
+ */
+router.post(
+  '/email-change',
+  protect,
+  emailChangeLimiter,
+  validateInput({
+    newEmail: { required: true, type: 'string', email: true, maxLength: 254 },
+  }),
+  requestEmailChange
+);
+
+/**
+ * @route   GET /api/auth/email-change/confirm
+ * @desc    Complete a pending email change using the token from the emailed link
+ * @access  Public
+ */
+router.get(
+  '/email-change/confirm',
+  validateQuery({ token: { required: true, type: 'string', minLength: 80, maxLength: 80 } }),
+  confirmEmailChange
+);
+
+/**
+ * @route   POST /api/auth/push-token
+ * @desc    Register (or refresh) this device's Expo push token
+ * @access  Private
+ */
+router.post(
+  '/push-token',
+  protect,
+  validateInput({
+    expoPushToken: { required: true, type: 'string', minLength: 10, maxLength: 200 },
+    platform: { type: 'string', enum: ['ios', 'android', 'web'] },
+  }),
+  registerPushToken
+);
+
+/**
+ * @route   DELETE /api/auth/push-token
+ * @desc    Unregister this device's Expo push token (called on logout)
+ * @access  Private
+ */
+router.delete(
+  '/push-token',
+  protect,
+  validateInput({ expoPushToken: { required: true, type: 'string', minLength: 10, maxLength: 200 } }),
+  unregisterPushToken
 );
 
 module.exports = router;

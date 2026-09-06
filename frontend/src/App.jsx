@@ -13,9 +13,11 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
+import ConfirmEmailChange from './pages/ConfirmEmailChange';
 
 // Authenticated pages are lazy-loaded — only downloaded after login
 const Dashboard    = lazy(() => import('./pages/Dashboard'));
+const CalendarPage = lazy(() => import('./pages/Calendar'));
 const MyClubs      = lazy(() => import('./pages/MyClubs'));
 const ClubDetail   = lazy(() => import('./pages/ClubDetail'));
 const CreateClub   = lazy(() => import('./pages/CreateClub'));
@@ -53,8 +55,10 @@ function AppRoutes() {
         <Route path="/forgot-password"  element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <ForgotPassword />} />
         <Route path="/reset-password"   element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <ResetPassword />} />
         <Route path="/verify-email"     element={<VerifyEmail />} />
+        <Route path="/confirm-email-change" element={<ConfirmEmailChange />} />
 
         <Route path="/dashboard"    element={isAuthenticated ? <Dashboard    user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
+        <Route path="/calendar"     element={isAuthenticated ? <CalendarPage user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/my-clubs"     element={isAuthenticated ? <MyClubs      user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/club/:clubId" element={isAuthenticated ? <ClubDetail   user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/create-club"  element={isAuthenticated ? <CreateClub /> : <Navigate to="/login" replace />} />

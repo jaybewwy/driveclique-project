@@ -562,6 +562,136 @@ const changeUsername = asyncHandler(async (req, res) => {
   });
 });
 
+const EMAIL_CHANGE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours, matches emailVerifyExpiry's window
+
+/**
+ * POST /api/auth/email-change — request changing the account's email address.
+ * Sends a confirmation link to the NEW address; the current email keeps
+ * working for login until that link is clicked.
+ * @access Private
+ */
+const requestEmailChange = asyncHandler(async (req, res) => {
+  const { newEmail } = req.body;
+  const normalizedEmail = newEmail.toLowerCase();
+
+  const user = await User.findById(req.user.id);
+  if (!user) throw new AppError('User not found', 404);
+
+  if (normalizedEmail === user.email) {
+    throw new AppError('That is already your current email address.', 400);
+  }
+
+  const taken = await User.findOne({ email: normalizedEmail });
+  if (taken) throw new AppError('That email is already registered.', 400);
+
+  const verifyResult = await verifyEmailAddress(normalizedEmail);
+  if (!verifyResult.valid) {
+    throw new AppError(verifyResult.reason || 'That email address could not be verified.', 400);
+  }
+
+  const rawToken = crypto.randomBytes(40).toString('hex');
+  user.pendingEmail = normalizedEmail;
+  user.emailChangeToken = hashToken(rawToken);
+  user.emailChangeExpires = new Date(Date.now() + EMAIL_CHANGE_TTL_MS);
+  await user.save();
+
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const confirmUrl = `${frontendUrl}/confirm-email-change?token=${rawToken}`;
+  const { subject, html } = emailTemplates.emailChangeVerification({
+    confirmUrl,
+    username: user.username,
+    newEmail: normalizedEmail,
+  });
+  sendEmail({ to: normalizedEmail, subject, html }); // fire-and-forget, sent to the NEW address — proves the user actually controls it
+
+  res.json({
+    success: true,
+    message: `Verification link sent to ${normalizedEmail}. Click it to complete the change.`,
+  });
+});
+
+/**
+ * GET /api/auth/email-change/confirm?token= — complete a pending email change
+ * @access Public (the token itself proves identity, same pattern as verifyEmail/resetPassword)
+ */
+const confirmEmailChange = asyncHandler(async (req, res) => {
+  const { token } = req.query;
+
+  const user = await User.findOne({
+    emailChangeToken: hashToken(token),
+    emailChangeExpires: { $gt: new Date() },
+  });
+
+  if (!user) throw new AppError('This email change link is invalid or has expired.', 400);
+
+  // The requested address may have been taken by someone else in the window
+  // since it was requested (up to 24h) — re-check rather than letting the
+  // schema's unique-index violation surface as a raw duplicate-key error.
+  const stillAvailable = await User.findOne({ email: user.pendingEmail, _id: { $ne: user._id } });
+  if (stillAvailable) throw new AppError('That email is already registered to another account.', 400);
+
+  const oldEmail = user.email;
+  const newEmail = user.pendingEmail;
+
+  user.email = newEmail;
+  user.emailVerified = true;
+  user.pendingEmail = undefined;
+  user.emailChangeToken = undefined;
+  user.emailChangeExpires = undefined;
+  await user.save();
+
+  // Best-effort heads-up to the OLD address — the standard mitigation against
+  // a hijacked session silently changing the account's email as the first
+  // step of a takeover (the same risk class changePassword's session
+  // revocation guards against, just via notification here instead).
+  const { subject, html } = emailTemplates.emailChangedNotice({ username: user.username, newEmail });
+  sendEmail({ to: oldEmail, subject, html });
+
+  res.json({ success: true, message: `Email updated to ${newEmail}.`, email: newEmail });
+});
+
+const MAX_PUSH_TOKENS = 10; // small-cap convention (see MAX_CARS above) — bounds re-registrations across many devices/reinstalls
+
+/**
+ * POST /api/auth/push-token — register (or refresh) this device's Expo push token
+ * @access Private
+ */
+const registerPushToken = asyncHandler(async (req, res) => {
+  const { expoPushToken, platform } = req.body;
+
+  const user = await User.findById(req.user.id);
+  if (!user) throw new AppError('User not found', 404);
+
+  const existing = user.pushTokens.find(t => t.token === expoPushToken);
+  if (existing) {
+    if (platform) existing.platform = platform;
+  } else {
+    user.pushTokens.push({ token: expoPushToken, platform: platform || 'unknown' });
+    // Keep the array bounded — drop the oldest entries first if over the cap.
+    if (user.pushTokens.length > MAX_PUSH_TOKENS) {
+      user.pushTokens.splice(0, user.pushTokens.length - MAX_PUSH_TOKENS);
+    }
+  }
+  await user.save();
+
+  res.json({ success: true, message: 'Push token registered.' });
+});
+
+/**
+ * DELETE /api/auth/push-token — unregister this device's Expo push token (called on logout)
+ * @access Private
+ */
+const unregisterPushToken = asyncHandler(async (req, res) => {
+  const { expoPushToken } = req.body;
+
+  await User.updateOne(
+    { _id: req.user.id },
+    { $pull: { pushTokens: { token: expoPushToken } } }
+  );
+
+  res.json({ success: true, message: 'Push token unregistered.' });
+});
+
 module.exports = {
   registerUser,
   loginUser,
@@ -578,4 +708,8 @@ module.exports = {
   deleteAccount,
   changeUsername,
   changePassword,
+  requestEmailChange,
+  confirmEmailChange,
+  registerPushToken,
+  unregisterPushToken,
 };

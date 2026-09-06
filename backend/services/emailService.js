@@ -131,6 +131,29 @@ const emailTemplates = {
       <p style="color:#aaa">Log in to view details or update your RSVP.</p>`),
   }),
 
+  emailChangeVerification: ({ confirmUrl, username, newEmail }) => ({
+    subject: 'Confirm your new DriveClique email address',
+    html: wrap(`
+      <p>Hi <strong>${username}</strong>,</p>
+      <p>You (or someone with access to your account) requested to change your DriveClique email address to <strong>${newEmail}</strong>. Click the button below to confirm this change.</p>
+      <div style="text-align:center;margin:32px 0">
+        <a href="${confirmUrl}"
+           style="background:#e53e3e;color:#fff;padding:14px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:16px;display:inline-block">
+          Confirm New Email
+        </a>
+      </div>
+      <p style="color:#aaa;font-size:13px">This link expires in <strong>24 hours</strong>. If you didn't request this change, you can safely ignore this email — your DriveClique email will stay the same.</p>
+      <p style="color:#666;font-size:12px;word-break:break-all">Or paste this URL into your browser:<br/>${confirmUrl}</p>`),
+  }),
+
+  emailChangedNotice: ({ username, newEmail }) => ({
+    subject: 'Your DriveClique email address was changed',
+    html: wrap(`
+      <p>Hi <strong>${username}</strong>,</p>
+      <p>This is a confirmation that your DriveClique account's email address was just changed to <strong>${newEmail}</strong>.</p>
+      <p style="color:#aaa;font-size:13px">If you made this change, no action is needed. If you didn't, your account may be compromised — reset your password immediately and contact support.</p>`),
+  }),
+
   passwordReset: ({ resetUrl, username }) => ({
     subject: 'Reset your DriveClique password',
     html: wrap(`

@@ -986,6 +986,58 @@ const getDriveRatings = asyncHandler(async (req, res) => {
   res.json({ success: true, average, count, ratings, myRating });
 });
 
+/**
+ * Get all drives across the user's clubs within a given month, for calendar display (UC-24)
+ * @route GET /api/drives/calendar?year=&month=
+ * @access Private
+ */
+const getCalendarDrives = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const year = parseInt(req.query.year, 10);
+  const month = parseInt(req.query.month, 10); // 1-12
+
+  const clubs = await Club.find({ members: userId }).select('name').lean();
+  if (clubs.length === 0) {
+    return res.json({ success: true, drives: [] });
+  }
+
+  const clubIds = clubs.map(c => c._id);
+  const clubNameMap = new Map(clubs.map(c => [c._id.toString(), c.name]));
+
+  const rangeStart = new Date(Date.UTC(year, month - 1, 1));
+  const rangeEnd = new Date(Date.UTC(year, month, 1)); // first day of next month, exclusive
+
+  // Cancelled drives are excluded here to match this app's existing "upcoming/past
+  // drives" list conventions elsewhere (ClubDetail.jsx filters them out of both).
+  const drives = await Drive.find({
+    club: { $in: clubIds },
+    isCancelled: false,
+    date: { $gte: rangeStart, $lt: rangeEnd }
+  })
+    .select('name date time location club isCompleted')
+    .sort({ date: 1 })
+    .lean();
+
+  const driveIds = drives.map(d => d._id);
+  const myRsvps = await RSVP.find({ drive: { $in: driveIds }, user: userId })
+    .select('drive status')
+    .lean();
+  const rsvpMap = new Map(myRsvps.map(r => [r.drive.toString(), r.status]));
+
+  const result = drives.map(d => ({
+    _id: d._id,
+    name: d.name,
+    date: d.date,
+    time: d.time,
+    location: d.location,
+    isCompleted: d.isCompleted,
+    club: { _id: d.club, name: clubNameMap.get(d.club.toString()) || 'Unknown Club' },
+    myRsvpStatus: rsvpMap.get(d._id.toString()) || null,
+  }));
+
+  res.json({ success: true, drives: result });
+});
+
 module.exports = {
   createDrive,
   getClubDrives,
@@ -1002,5 +1054,6 @@ module.exports = {
   getCheckinStatus,
   submitCheckin,
   submitRating,
-  getDriveRatings
+  getDriveRatings,
+  getCalendarDrives
 };

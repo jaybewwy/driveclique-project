@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authentication');
 const { apiLimiter } = require('../middleware/rateLimiters');
-const { validateParams, validateInput } = require('../middleware/validation');
+const { validateParams, validateInput, validateQuery } = require('../middleware/validation');
 const {
   createDrive,
   getClubDrives,
@@ -19,7 +19,8 @@ const {
   getCheckinStatus,
   submitCheckin,
   submitRating,
-  getDriveRatings
+  getDriveRatings,
+  getCalendarDrives
 } = require('../controllers/driveController');
 
 // All routes require authentication
@@ -66,6 +67,20 @@ router.get('/my-rsvps', getMyRSVPs);
  * @access  Private (Club Leaders only)
  */
 router.get('/analytics', getClubAnalytics);
+
+/**
+ * @route   GET /api/drives/calendar
+ * @desc    Get all drives across the user's clubs within a given month, for calendar display
+ * @access  Private
+ */
+router.get(
+  '/calendar',
+  validateQuery({
+    year: { required: true, type: 'number', min: 2000, max: 2100 },
+    month: { required: true, type: 'number', min: 1, max: 12 }
+  }),
+  getCalendarDrives
+);
 
 /**
  * @route   GET /api/drives/club/:clubId

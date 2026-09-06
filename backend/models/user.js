@@ -85,6 +85,23 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: undefined
   },
+  // A change-email request in progress. The current `email` field is left
+  // untouched (and keeps working for login) until the link sent to
+  // `pendingEmail` is actually clicked — see confirmEmailChange (UC-28).
+  pendingEmail: {
+    type: String,
+    trim: true,
+    lowercase: true,
+    default: undefined
+  },
+  emailChangeToken: {
+    type: String,
+    default: undefined
+  },
+  emailChangeExpires: {
+    type: Date,
+    default: undefined
+  },
   usernameChangedAt: {
     type: Date,
     default: null
@@ -99,6 +116,16 @@ const UserSchema = new mongoose.Schema({
   notificationPreferences: {
     type: mongoose.Schema.Types.Mixed,
     default: {}
+  },
+  // Expo push tokens for this user's mobile devices. A user can be logged in
+  // on more than one device, so this is an array rather than a single field;
+  // capped and de-duplicated by token value in the controller.
+  pushTokens: {
+    type: [{
+      token: { type: String, required: true },
+      platform: { type: String, enum: ['ios', 'android', 'web', 'unknown'], default: 'unknown' }
+    }],
+    default: []
   }
 }, { timestamps: true });
 

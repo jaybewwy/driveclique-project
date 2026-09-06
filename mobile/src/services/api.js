@@ -118,7 +118,10 @@ export const authAPI = {
   changeUsername: (username) => api.put("/auth/username", { username }),
   changePassword: (currentPassword, newPassword) =>
     api.put("/auth/password", { currentPassword, newPassword }),
-  registerPushToken: (expoPushToken) => api.post("/auth/push-token", { expoPushToken }),
+  registerPushToken: (expoPushToken, platform) =>
+    api.post("/auth/push-token", { expoPushToken, platform }),
+  unregisterPushToken: (expoPushToken) =>
+    api.delete("/auth/push-token", { data: { expoPushToken } }),
 };
 
 export const clubsAPI = {

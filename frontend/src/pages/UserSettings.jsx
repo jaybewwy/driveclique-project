@@ -737,6 +737,15 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
   const [usernameError,    setUsernameError]    = useState("");
   const [changingUsername, setChangingUsername] = useState(false);
 
+  // Email change state (UC-28) — unlike username, a submitted change doesn't
+  // take effect until the confirmation link sent to the new address is clicked,
+  // so formData.email is never optimistically updated here.
+  const [editingEmail,        setEditingEmail]        = useState(false);
+  const [newEmail,            setNewEmail]            = useState("");
+  const [emailChangeError,    setEmailChangeError]    = useState("");
+  const [emailChangeSuccess,  setEmailChangeSuccess]  = useState("");
+  const [requestingEmailChange, setRequestingEmailChange] = useState(false);
+
   const [pwForm, setPwForm]     = useState({ current: "", new: "", confirm: "" });
   const [pwError, setPwError]   = useState("");
   const [pwSuccess, setPwSuccess] = useState("");
@@ -828,6 +837,24 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
       setUsernameError(getErrorMessage(err));
     } finally {
       setChangingUsername(false);
+    }
+  };
+
+  const handleRequestEmailChange = async () => {
+    if (!newEmail.trim()) return;
+    setRequestingEmailChange(true);
+    setEmailChangeError("");
+    try {
+      const res = await authAPI.requestEmailChange(newEmail.trim());
+      if (res.data.success) {
+        setEmailChangeSuccess(res.data.message);
+        setEditingEmail(false);
+        setNewEmail("");
+      }
+    } catch (err) {
+      setEmailChangeError(getErrorMessage(err));
+    } finally {
+      setRequestingEmailChange(false);
     }
   };
 
@@ -1076,16 +1103,68 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
           </div>
 
           {/* Email */}
-          <SettingsField label="Email" htmlFor="pv-email" hint="Email cannot be changed.">
-            <input
-              id="pv-email"
-              type="email"
-              name="email"
-              value={formData.email}
-              disabled
-              className={settingsInputDisabledClass}
-            />
-          </SettingsField>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label htmlFor="pv-email" className="text-sm font-medium text-zinc-300">Email</label>
+              {!editingEmail && (
+                <button
+                  type="button"
+                  onClick={() => { setEditingEmail(true); setNewEmail(""); setEmailChangeError(""); setEmailChangeSuccess(""); }}
+                  className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition-colors"
+                >
+                  <Pencil size={11} /> Change
+                </button>
+              )}
+            </div>
+
+            {editingEmail ? (
+              <div className="space-y-2">
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={e => { setNewEmail(e.target.value); setEmailChangeError(""); }}
+                  placeholder="new@email.com"
+                  // eslint-disable-next-line jsx-a11y/no-autofocus -- focus follows the user's own "Change" click, not page load
+                  autoFocus
+                  className={settingsInputClass}
+                />
+                {emailChangeError && <p className="text-red-400 text-xs">{emailChangeError}</p>}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleRequestEmailChange}
+                    disabled={requestingEmailChange || !newEmail.trim()}
+                    className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-xl text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Save size={14} />
+                    {requestingEmailChange ? "Sending…" : "Send verification link"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setEditingEmail(false); setEmailChangeError(""); }}
+                    className="px-4 py-2 rounded-xl text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <input
+                id="pv-email"
+                type="email"
+                name="email"
+                value={formData.email}
+                disabled
+                className={settingsInputDisabledClass}
+              />
+            )}
+
+            {emailChangeSuccess ? (
+              <p className="text-xs text-green-400 mt-1.5">{emailChangeSuccess}</p>
+            ) : (
+              <p className="text-xs text-zinc-400 mt-1.5">Changing your email requires confirming a link sent to the new address.</p>
+            )}
+          </div>
 
           {/* Location */}
           <SettingsField label="Location" hint="Used to suggest nearby clubs.">
