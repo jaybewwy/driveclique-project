@@ -126,7 +126,26 @@ const UserSchema = new mongoose.Schema({
       platform: { type: String, enum: ['ios', 'android', 'web', 'unknown'], default: 'unknown' }
     }],
     default: []
-  }
+  },
+  // UC-32 — users this account has blocked. One-directional: only affects
+  // what the blocked user can do toward the blocker (currently: viewing the
+  // blocker's public profile), never the reverse. Not enforced against
+  // reporting — blocking someone must not be usable to suppress a
+  // legitimate report against you.
+  blockedUsers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  // Clubs this user has blocked — the reciprocal of a leader/co-leader's
+  // per-club ban (Club.bannedUsers): a user-initiated restriction rather
+  // than a leader-initiated one. Hides the club from search/browse for this
+  // user and blocks future joins (direct join, join request, invite code)
+  // until unblocked. Only ever populated for clubs the user isn't currently
+  // a member of — blocking is offered only after leaving.
+  blockedClubs: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Club'
+  }]
 }, { timestamps: true });
 
 // Hash password before saving

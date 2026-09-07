@@ -44,6 +44,13 @@ const ClubSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  // UC-32 — users a leader/co-leader has banned after removing them, so they
+  // can't immediately rejoin (public club) or re-request (private club/invite
+  // code). Never overlaps with `members` — removal always precedes a ban.
+  bannedUsers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   inviteCode: { 
     type: String, 
     unique: true,

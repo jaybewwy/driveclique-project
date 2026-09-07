@@ -23,6 +23,7 @@ import {
   ShieldOff,
   UserCheck,
   UserX,
+  Ban,
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
@@ -32,6 +33,7 @@ import ScheduleDriveModal from "../components/ui/ScheduleDriveModal";
 import DriveDetailModal from "../components/ui/DriveDetailModal";
 import EditDriveModal from "../components/ui/EditDriveModal";
 import MemberProfilePanel from "../components/ui/MemberProfilePanel";
+import BannedMembersPanel from "../components/ui/BannedMembersPanel";
 import ClubTagPicker from "../components/ui/ClubTagPicker";
 import { compressImage } from "../utils/imageCompressor";
 import { clubsAPI, drivesAPI, authAPI } from "../services/api";
@@ -113,10 +115,18 @@ const ClubDetail = ({ user, onLogout }) => {
   const [showScheduleDriveModal, setShowScheduleDriveModal] = useState(false);
   const [joinLoading, setJoinLoading] = useState(false);
   const [joinFeedback, setJoinFeedback] = useState('');
+  const [isClubBlocked, setIsClubBlocked] = useState(false);
+  const [blockClubLoading, setBlockClubLoading] = useState(false);
+  const [blockClubError, setBlockClubError] = useState('');
   const [clubEditError, setClubEditError] = useState('');
   const [memberActionError, setMemberActionError] = useState('');
   const [driveToDelete, setDriveToDelete] = useState(null);
   const [memberToRemove, setMemberToRemove] = useState(null);
+  // UC-32 — checkbox on the remove-member modal; whether to also ban the
+  // removed user from rejoining. showBannedMembers opens the separate,
+  // self-contained (Modal-based, not part of isAnyOverlayOpen) banned list.
+  const [banOnRemove, setBanOnRemove] = useState(false);
+  const [showBannedMembers, setShowBannedMembers] = useState(false);
   // UC-22 — { userId, canRemove } | null. canRemove is decided by the caller
   // at click time (member list vs. drive attendee list both know their own
   // leader/co-leader context; the panel itself doesn't).
@@ -167,7 +177,7 @@ const ClubDetail = ({ user, onLogout }) => {
       else if (showLeaveConfirm) setShowLeaveConfirm(false);
       else if (showDeleteConfirm) { setShowDeleteConfirm(false); setDeleteEmail(''); setDeleteReason(''); }
       else if (driveToDelete) setDriveToDelete(null);
-      else if (memberToRemove) { setMemberToRemove(null); setMemberActionError(''); }
+      else if (memberToRemove) { setMemberToRemove(null); setMemberActionError(''); setBanOnRemove(false); }
       else if (driveToCancel) { setDriveToCancel(null); setCancelDriveError(''); }
     };
     document.addEventListener('keydown', handleEscape);
@@ -187,6 +197,7 @@ const ClubDetail = ({ user, onLogout }) => {
         if (clubResponse.data?.success) {
           setClub(clubResponse.data.club);
           setAnnouncements((clubResponse.data.club.announcements || []).slice().reverse());
+          setIsClubBlocked(Boolean(clubResponse.data.isBlockedByViewer));
         }
         if (drivesResponse.data?.success) setDrives(drivesResponse.data.drives || []);
       } catch (error) {
@@ -573,18 +584,20 @@ const ClubDetail = ({ user, onLogout }) => {
   const handleRemoveMember = (memberId, memberUsername) => {
     setMemberToRemove({ id: memberId, username: memberUsername });
     setMemberActionError('');
+    setBanOnRemove(false);
   };
 
   const confirmRemoveMember = async () => {
     if (!memberToRemove) return;
     try {
-      const response = await clubsAPI.removeMember(clubId, memberToRemove.id);
+      const response = await clubsAPI.removeMember(clubId, memberToRemove.id, banOnRemove);
       if (response.data?.success) {
         setClub(prevClub => ({
           ...prevClub,
           members: prevClub.members.filter(m => m._id !== memberToRemove.id)
         }));
         setMemberToRemove(null);
+        setBanOnRemove(false);
       }
     } catch (error) {
       setMemberActionError(error.response?.data?.message || 'Failed to remove member');
@@ -680,6 +693,24 @@ const ClubDetail = ({ user, onLogout }) => {
       setJoinFeedback(err.response?.data?.message || 'Failed to send join request.');
     } finally {
       setJoinLoading(false);
+    }
+  };
+
+  const handleToggleBlockClub = async () => {
+    setBlockClubLoading(true);
+    setBlockClubError('');
+    try {
+      if (isClubBlocked) {
+        await clubsAPI.unblockClub(clubId);
+        setIsClubBlocked(false);
+      } else {
+        await clubsAPI.blockClub(clubId);
+        setIsClubBlocked(true);
+      }
+    } catch (err) {
+      setBlockClubError(err.response?.data?.message || 'Failed to update block status.');
+    } finally {
+      setBlockClubLoading(false);
     }
   };
 
@@ -1244,23 +1275,54 @@ const ClubDetail = ({ user, onLogout }) => {
 
             {!isLeader && !isMember && (
               <div className="mt-3 xl:mt-6 pt-3 xl:pt-5 border-t border-zinc-800">
-                {joinFeedback && (
-                  <p className="text-sm text-center mb-3 text-zinc-400">{joinFeedback}</p>
+                {blockClubError && (
+                  <p className="text-sm text-center mb-3 text-red-400">{blockClubError}</p>
                 )}
-                {!hasPendingRequest && !joinFeedback && (
-                  <button
-                    onClick={handleJoinClub}
-                    disabled={joinLoading}
-                    className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-2xl font-medium flex items-center justify-center gap-2 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Plus size={18} />
-                    {joinLoading ? 'Joining...' : 'Join Club'}
-                  </button>
-                )}
-                {hasPendingRequest && !joinFeedback && (
-                  <p className="text-sm text-center text-zinc-400">
-                    Join request pending approval
-                  </p>
+                {isClubBlocked ? (
+                  <>
+                    <p className="text-sm text-center mb-3 text-zinc-400">
+                      You've blocked this club — unblock it to join.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleToggleBlockClub}
+                      disabled={blockClubLoading}
+                      className="w-full bg-zinc-800 hover:bg-zinc-700 text-white py-3 rounded-2xl font-medium flex items-center justify-center gap-2 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <ShieldOff size={18} />
+                      {blockClubLoading ? 'Unblocking…' : 'Unblock Club'}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {joinFeedback && (
+                      <p className="text-sm text-center mb-3 text-zinc-400">{joinFeedback}</p>
+                    )}
+                    {!hasPendingRequest && !joinFeedback && (
+                      <button
+                        onClick={handleJoinClub}
+                        disabled={joinLoading}
+                        className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-2xl font-medium flex items-center justify-center gap-2 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Plus size={18} />
+                        {joinLoading ? 'Joining...' : 'Join Club'}
+                      </button>
+                    )}
+                    {hasPendingRequest && !joinFeedback && (
+                      <p className="text-sm text-center text-zinc-400">
+                        Join request pending approval
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleToggleBlockClub}
+                      disabled={blockClubLoading}
+                      className="w-full mt-2 text-xs text-zinc-500 hover:text-red-400 py-2 flex items-center justify-center gap-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Ban size={13} />
+                      {blockClubLoading ? 'Blocking…' : 'Block this club'}
+                    </button>
+                  </>
                 )}
               </div>
             )}
@@ -1414,6 +1476,16 @@ const ClubDetail = ({ user, onLogout }) => {
                 <X size={24} />
               </button>
             </div>
+
+            {canModerate && (
+              <button
+                type="button"
+                onClick={() => setShowBannedMembers(true)}
+                className="text-xs text-zinc-400 hover:text-red-400 transition mb-4 -mt-2 self-start flex items-center gap-1.5"
+              >
+                <Ban size={12} /> View banned members
+              </button>
+            )}
 
             {coLeaderActionError && (
               <p className="text-red-400 text-xs mb-3">{coLeaderActionError}</p>
@@ -1686,6 +1758,12 @@ const ClubDetail = ({ user, onLogout }) => {
           const target = club?.members?.find(m => m._id === profilePanelTarget?.userId);
           handleRemoveMember(profilePanelTarget.userId, target?.username || 'this member');
         }}
+      />
+
+      <BannedMembersPanel
+        clubId={clubId}
+        isOpen={showBannedMembers}
+        onClose={() => setShowBannedMembers(false)}
       />
 
       {/* Club Edit Modal */}
@@ -2040,13 +2118,22 @@ const ClubDetail = ({ user, onLogout }) => {
             <p className="text-zinc-400 text-sm mb-2">
               Are you sure you want to remove <span className="text-white font-medium">@{memberToRemove.username}</span> from this club?
             </p>
+            <label className="flex items-center gap-2 text-sm text-zinc-400 mt-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={banOnRemove}
+                onChange={(e) => setBanOnRemove(e.target.checked)}
+                className="w-4 h-4 rounded border-zinc-600 bg-black text-red-600 focus:ring-red-600 focus:ring-offset-zinc-900"
+              />
+              Also ban this user from rejoining
+            </label>
             {memberActionError && (
-              <p className="text-red-400 text-sm mb-3">{memberActionError}</p>
+              <p className="text-red-400 text-sm mb-3 mt-3">{memberActionError}</p>
             )}
             <div className="flex gap-3 mt-4">
               <button
                 type="button"
-                onClick={() => { setMemberToRemove(null); setMemberActionError(''); }}
+                onClick={() => { setMemberToRemove(null); setMemberActionError(''); setBanOnRemove(false); }}
                 className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-3 rounded-xl font-medium transition"
               >
                 Cancel

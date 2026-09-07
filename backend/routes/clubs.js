@@ -19,6 +19,11 @@ const {
   getTopClub,
   leaveClub,
   removeMember,
+  getBannedMembers,
+  unbanMember,
+  blockClub,
+  unblockClub,
+  getBlockedClubs,
   transferOwnership,
   postAnnouncement,
   deleteAnnouncement,
@@ -82,6 +87,16 @@ router.get(
  * @access  Private
  */
 router.get('/trending', getTopClub);
+
+/**
+ * @route   GET /api/clubs/blocked
+ * @desc    List the current user's blocked clubs
+ * @access  Private
+ * @note    Must stay registered before /:clubId — Express matches by
+ *          registration order, and GET /:clubId would otherwise swallow
+ *          this fixed-segment path with clubId="blocked".
+ */
+router.get('/blocked', getBlockedClubs);
 
 /**
  * @route   POST /api/clubs/join-by-code/:inviteCode
@@ -222,6 +237,29 @@ router.put(
 );
 
 /**
+ * @route   POST /api/clubs/:clubId/block
+ * @desc    Block a club — hides it from search and blocks future joins for
+ *          the requesting user only. Rejected if still a member (leave first).
+ * @access  Private
+ */
+router.post(
+  '/:clubId/block',
+  validateParams({ clubId: { required: true, objectId: true } }),
+  blockClub
+);
+
+/**
+ * @route   DELETE /api/clubs/:clubId/block
+ * @desc    Unblock a previously-blocked club
+ * @access  Private
+ */
+router.delete(
+  '/:clubId/block',
+  validateParams({ clubId: { required: true, objectId: true } }),
+  unblockClub
+);
+
+/**
  * @route   PUT /api/clubs/:clubId/transfer
  * @desc    Transfer club ownership to another member
  * @access  Private (Club Leaders only)
@@ -259,7 +297,8 @@ router.put(
 
 /**
  * @route   DELETE /api/clubs/:clubId/members/:memberId
- * @desc    Remove a member from a club (leader or co-leader)
+ * @desc    Remove a member from a club (leader or co-leader). Optional
+ *          `ban: true` in the body also bans them from rejoining (UC-32).
  * @access  Private (Club Leaders and Co-Leaders)
  */
 router.delete(
@@ -268,7 +307,35 @@ router.delete(
     clubId: { required: true, objectId: true },
     memberId: { required: true, objectId: true }
   }),
+  validateInput({
+    ban: { type: 'boolean' }
+  }),
   removeMember
+);
+
+/**
+ * @route   GET /api/clubs/:clubId/banned
+ * @desc    List a club's banned users (UC-32)
+ * @access  Private (Club Leaders and Co-Leaders)
+ */
+router.get(
+  '/:clubId/banned',
+  validateParams({ clubId: { required: true, objectId: true } }),
+  getBannedMembers
+);
+
+/**
+ * @route   DELETE /api/clubs/:clubId/banned/:userId
+ * @desc    Unban a previously-removed user (UC-32)
+ * @access  Private (Club Leaders and Co-Leaders)
+ */
+router.delete(
+  '/:clubId/banned/:userId',
+  validateParams({
+    clubId: { required: true, objectId: true },
+    userId: { required: true, objectId: true }
+  }),
+  unbanMember
 );
 
 /**

@@ -5,11 +5,12 @@ import {
   Car, Star, Award, AlertCircle, Plus, Activity,
   Home, User as UserIcon, ChevronDown, ChevronRight,
   MapPin, Clock, XCircle, ThumbsUp, UserCheck,
-  Save, X, Pencil, Lock
+  Save, X, Pencil, Lock, CalendarPlus
 } from "lucide-react";
 import NavBar from "../components/NavBar";
 import { drivesAPI, authAPI, notificationsAPI, getErrorMessage } from "../services/api";
 import { getMyActivitySummary } from "../services/analytics";
+import { downloadBlobResponse } from "../lib/downloadBlob";
 import { LocationSearch } from "../components/ui/location-search";
 import { MobileDrawerButton, MobileDrawer } from "../components/ui/MobileDrawer";
 
@@ -272,6 +273,8 @@ const PersonalAnalytics = ({ user: _user }) => {
   const [error, setError] = useState(null);
   const [tab, setTab] = useState("upcoming");
   const [activitySummary, setActivitySummary] = useState(null);
+  const [isExportingSchedule, setIsExportingSchedule] = useState(false);
+  const [scheduleExportError, setScheduleExportError] = useState("");
 
   useEffect(() => {
     drivesAPI.getMyRSVPs()
@@ -316,6 +319,19 @@ const PersonalAnalytics = ({ user: _user }) => {
   const favouriteClub = Object.values(clubCount).sort((a, b) => b.count - a.count)[0] || null;
 
   const list = tab === "upcoming" ? upcoming : past;
+
+  const handleExportSchedule = async () => {
+    setIsExportingSchedule(true);
+    setScheduleExportError("");
+    try {
+      const response = await drivesAPI.exportMyScheduleIcs();
+      downloadBlobResponse(response, "driveclique-schedule.ics");
+    } catch (err) {
+      setScheduleExportError(getErrorMessage(err));
+    } finally {
+      setIsExportingSchedule(false);
+    }
+  };
 
   return (
     <div>
@@ -367,24 +383,39 @@ const PersonalAnalytics = ({ user: _user }) => {
           {/* Drive history list */}
           <div className="glass-card rounded-3xl p-6">
             {/* Tabs */}
-            <div className="flex gap-2 mb-6">
-              {["upcoming", "past"].map(t => (
-                <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className={`px-4 py-1.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                    tab === t
-                      ? "bg-red-600 text-white"
-                      : "bg-zinc-800/60 text-zinc-400 hover:text-zinc-200"
-                  }`}
-                >
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
-                  <span className="ml-1.5 text-xs opacity-70">
-                    {t === "upcoming" ? upcoming.length : past.length}
-                  </span>
-                </button>
-              ))}
+            <div className="flex items-center justify-between gap-2 mb-6">
+              <div className="flex gap-2">
+                {["upcoming", "past"].map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setTab(t)}
+                    className={`px-4 py-1.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                      tab === t
+                        ? "bg-red-600 text-white"
+                        : "bg-zinc-800/60 text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                    <span className="ml-1.5 text-xs opacity-70">
+                      {t === "upcoming" ? upcoming.length : past.length}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={handleExportSchedule}
+                disabled={isExportingSchedule || upcoming.length === 0}
+                title={upcoming.length === 0 ? "No upcoming drives to export" : "Export your upcoming schedule as an .ics file"}
+                className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-white transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-zinc-400"
+              >
+                <CalendarPlus size={14} />
+                {isExportingSchedule ? "Exporting…" : "Export My Schedule"}
+              </button>
             </div>
+            {scheduleExportError && (
+              <p className="text-red-400 text-xs mb-4 -mt-3">{scheduleExportError}</p>
+            )}
 
             {/* Empty state */}
             {list.length === 0 && (

@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { SkeletonCard } from "../components/Skeleton";
 import { clubsAPI } from "../services/api";
 import { useClubs } from "../hooks/useClubs";
-import { Car, MapPin, Lock, Globe, Users, Calendar, X, Search, Sparkles, ArrowRight, Flag } from "lucide-react";
+import { Car, MapPin, Lock, Globe, Users, Calendar, X, Search, Sparkles, ArrowRight, Flag, Ban, ShieldOff } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 import ReportModal from "../components/ui/ReportModal";
+import BlockedClubsPanel from "../components/ui/BlockedClubsPanel";
 import { MobileDrawerButton } from "../components/ui/MobileDrawer";
 import ClubTagPicker from "../components/ui/ClubTagPicker";
 import { trackEvent } from "../services/analytics";
@@ -29,6 +30,8 @@ const FindClub = ({ user, onLogout }) => {
   const [actionSuccess, setActionSuccess] = useState("");
   const [reportTarget, setReportTarget] = useState(null);
   const [mobilePopularOpen, setMobilePopularOpen] = useState(false);
+  const [blockingId, setBlockingId] = useState(null);
+  const [showBlockedClubs, setShowBlockedClubs] = useState(false);
 
   useEffect(() => {
     clubsAPI.searchPage(undefined, 1, 50)
@@ -83,6 +86,27 @@ const FindClub = ({ user, onLogout }) => {
       }
     } catch (error) {
       setActionError(error.response?.data?.message || "Failed to join club");
+    }
+  };
+
+  const handleBlockClub = async (clubId, e) => {
+    e.stopPropagation();
+    setActionError('');
+    setActionSuccess('');
+    setBlockingId(clubId);
+    try {
+      const response = await clubsAPI.blockClub(clubId);
+      if (response.data.success) {
+        // Blocked clubs never appear in browse results — mirror that
+        // locally instead of waiting on a refetch, so the card disappears
+        // immediately.
+        setClubs((prev) => prev.filter((c) => c._id !== clubId));
+        setActionSuccess("Club blocked. It won't show up in search anymore.");
+      }
+    } catch (error) {
+      setActionError(error.response?.data?.message || "Failed to block club");
+    } finally {
+      setBlockingId(null);
     }
   };
 
@@ -342,6 +366,16 @@ const FindClub = ({ user, onLogout }) => {
                       >
                         <Flag className="w-3.5 h-3.5" />
                       </button>
+                      {!isUserMember(club) && (
+                        <button
+                          onClick={(e) => handleBlockClub(club._id, e)}
+                          disabled={blockingId === club._id}
+                          className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Block club"
+                        >
+                          <Ban className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       {isUserMember(club) ? (
                         <button
                           onClick={(e) => { e.stopPropagation(); navigate(`/club/${club._id}`); }}
@@ -446,6 +480,15 @@ const FindClub = ({ user, onLogout }) => {
             <Lock className="w-4 h-4" /> Join with Code
           </button>
 
+          {/* Blocked clubs */}
+          <button
+            type="button"
+            onClick={() => setShowBlockedClubs(true)}
+            className="w-full btn-ghost px-4 py-3 text-sm flex items-center justify-center gap-2"
+          >
+            <ShieldOff className="w-4 h-4" /> Blocked Clubs
+          </button>
+
           {/* Why join card */}
           <div className="relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-red-500/8 to-orange-500/6 border border-red-500/15">
             <div className="flex items-start gap-2 mb-3">
@@ -466,6 +509,8 @@ const FindClub = ({ user, onLogout }) => {
           </div>
         </div>
       </div>
+
+      <BlockedClubsPanel isOpen={showBlockedClubs} onClose={() => setShowBlockedClubs(false)} />
 
       {/* Report modal */}
       {reportTarget && (

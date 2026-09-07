@@ -216,13 +216,26 @@ const getPublicProfile = asyncHandler(async (req, res) => {
   const { userId } = req.params;
   const viewerId = req.user.id;
 
-  const user = await User.findById(userId)
-    .select('username name firstName lastName avatar bio location cars useDisplayName createdAt')
-    .lean();
+  const [user, viewer] = await Promise.all([
+    User.findById(userId)
+      .select('username name firstName lastName avatar bio location cars useDisplayName createdAt blockedUsers')
+      .lean(),
+    User.findById(viewerId).select('blockedUsers').lean(),
+  ]);
 
   if (!user) {
     throw new AppError('User not found', 404);
   }
+
+  // UC-32 — if the target has blocked the viewer, hide the profile entirely
+  // rather than a distinct "you're blocked" error, so a blocked viewer can't
+  // tell the difference between a nonexistent user and one who blocked them.
+  const viewerIsBlocked = (user.blockedUsers || []).some((id) => id.toString() === viewerId);
+  if (viewerIsBlocked) {
+    throw new AppError('User not found', 404);
+  }
+
+  const isBlockedByViewer = (viewer?.blockedUsers || []).some((id) => id.toString() === userId);
 
   const [mutualClubs, goingCount] = await Promise.all([
     Club.find({
@@ -234,14 +247,59 @@ const getPublicProfile = asyncHandler(async (req, res) => {
     RSVP.countDocuments({ user: userId, status: 'going' }),
   ]);
 
+  // blockedUsers was only selected to compute the check above — strip it
+  // before spreading `user` into the response so a viewer never sees the
+  // target's own block list.
+  const { blockedUsers: _omit, ...safeUser } = user;
+
   res.json({
     success: true,
     profile: {
-      ...user,
+      ...safeUser,
       mutualClubs: mutualClubs.map((c) => ({ _id: c._id, name: c.name })),
       goingCount,
+      isBlockedByViewer,
     },
   });
+});
+
+/**
+ * Block Another User (UC-32) — one-directional: only affects what the
+ * blocked user can do toward the blocker (currently: viewing the blocker's
+ * public profile via getPublicProfile above). Deliberately never affects
+ * reporting — blocking must not be usable to suppress a legitimate report
+ * against you.
+ * @route   POST /api/auth/users/:userId/block
+ * @access  Private
+ */
+const blockUser = asyncHandler(async (req, res) => {
+  const { userId: targetId } = req.params;
+  const viewerId = req.user.id;
+
+  if (targetId === viewerId) {
+    throw new AppError('You cannot block yourself.', 400);
+  }
+
+  const targetExists = await User.exists({ _id: targetId });
+  if (!targetExists) throw new AppError('User not found', 404);
+
+  await User.updateOne({ _id: viewerId }, { $addToSet: { blockedUsers: targetId } });
+
+  res.json({ success: true, message: 'User blocked.' });
+});
+
+/**
+ * Unblock a Previously-Blocked User (UC-32)
+ * @route   DELETE /api/auth/users/:userId/block
+ * @access  Private
+ */
+const unblockUser = asyncHandler(async (req, res) => {
+  const { userId: targetId } = req.params;
+  const viewerId = req.user.id;
+
+  await User.updateOne({ _id: viewerId }, { $pull: { blockedUsers: targetId } });
+
+  res.json({ success: true, message: 'User unblocked.' });
 });
 
 /**
@@ -750,6 +808,8 @@ module.exports = {
   updateProfile,
   searchUsers,
   getPublicProfile,
+  blockUser,
+  unblockUser,
   refreshAccessToken,
   logoutUser,
   forgotPassword,

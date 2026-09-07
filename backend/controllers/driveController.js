@@ -7,6 +7,7 @@ const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { notify } = require('../services/notificationEmitter');
 const { sendEmail, emailTemplates } = require('../services/emailService');
 const { isClubLeader, isClubCoLeader, hasLeaderPrivileges } = require('../utils/clubPermissions');
+const { buildVEvent, buildVCalendar } = require('../utils/ics');
 
 // Shared validation for the optional drive meeting-point pin (UC-23)
 function validateCoordinates(coordinates) {
@@ -403,6 +404,30 @@ const getDriveRSVPStatus = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Export a single drive as a calendar event (UC-33)
+ * @route GET /api/drives/:driveId/export.ics
+ * @access Private (any club member)
+ */
+const exportDriveIcs = asyncHandler(async (req, res) => {
+  const { driveId } = req.params;
+  const userId = req.user.id;
+
+  const drive = await Drive.findById(driveId).populate('club', 'name members').lean();
+  if (!drive) {
+    throw new AppError('Drive not found', 404);
+  }
+  if (!drive.club || !drive.club.members.some((m) => m.toString() === userId)) {
+    throw new AppError('You must be a member of this club to export this drive', 403);
+  }
+
+  const ics = buildVCalendar([buildVEvent(drive, drive.club.name)]);
+
+  res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${drive.name.replace(/[^a-z0-9]/gi, '-')}.ics"`);
+  res.send(ics);
+});
+
+/**
  * Get Drive Attendees and Stats
  * @route GET /api/drives/:driveId/attendees
  * @access Private (Club Leaders only)
@@ -653,6 +678,33 @@ const getMyRSVPs = asyncHandler(async (req, res) => {
   const valid = rsvps.filter(r => r.drive);
 
   res.json({ success: true, rsvps: valid });
+});
+
+/**
+ * Export the requesting user's upcoming schedule (UC-33)
+ * @route GET /api/drives/my-rsvps/export.ics
+ * @access Private
+ */
+const exportMyScheduleIcs = asyncHandler(async (req, res) => {
+  const now = new Date();
+  const rsvps = await RSVP.find({ user: req.user.id, status: { $in: ['going', 'maybe'] } })
+    .populate({
+      path: 'drive',
+      select: 'name date time location description isCancelled club',
+      populate: { path: 'club', select: 'name' }
+    })
+    .lean();
+
+  const upcoming = rsvps.filter(
+    (r) => r.drive && !r.drive.isCancelled && new Date(r.drive.date) >= now
+  );
+
+  const vevents = upcoming.map((r) => buildVEvent(r.drive, r.drive.club?.name || 'DriveClique'));
+  const ics = buildVCalendar(vevents);
+
+  res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="driveclique-schedule.ics"');
+  res.send(ics);
 });
 
 /**
@@ -1055,5 +1107,7 @@ module.exports = {
   submitCheckin,
   submitRating,
   getDriveRatings,
-  getCalendarDrives
+  getCalendarDrives,
+  exportDriveIcs,
+  exportMyScheduleIcs
 };

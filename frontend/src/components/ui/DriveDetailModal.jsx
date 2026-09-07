@@ -1,15 +1,38 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Calendar, Clock, MapPin, Navigation, ChevronDown, Star } from "lucide-react";
+import { X, Calendar, Clock, MapPin, Navigation, ChevronDown, Star, CalendarPlus } from "lucide-react";
 import { DriveMapPreview } from "./drive-map-preview";
 import RsvpButtonGroup from "./RsvpButtonGroup";
+import { drivesAPI, getErrorMessage } from "../../services/api";
+import { downloadBlobResponse } from "../../lib/downloadBlob";
 
 // Purely presentational: all state (RSVP, check-in, attendees, rating) and every handler
 // stay owned by ClubDetail.jsx, since `selectedDrive` is also shared with the separate
 // Edit Drive modal there and the RSVP/rating data is pre-fetched by ClubDetail.jsx's
 // handleDriveClick *before* this modal ever mounts (so there's no loading flash to manage
 // here). This component only renders what it's given and reports interactions back up.
+//
+// The "Add to Calendar" export (UC-33) is the one exception — like the "Get
+// Directions" link right above it in the JSX, it has zero shared state with
+// the rest of the page (no counts/state ClubDetail.jsx or any sibling
+// section reads), so it's handled entirely locally rather than lifted.
 const DriveDetailModal = ({ drive, isMember, canModerate, onClose, onViewProfile, rsvp, checkin, attendees, rating }) => {
   const navigate = useNavigate();
+  const [isExportingIcs, setIsExportingIcs] = useState(false);
+  const [icsExportError, setIcsExportError] = useState("");
+
+  const handleExportIcs = async () => {
+    setIsExportingIcs(true);
+    setIcsExportError("");
+    try {
+      const response = await drivesAPI.exportDriveIcs(drive._id);
+      downloadBlobResponse(response, `${drive.name}.ics`);
+    } catch (err) {
+      setIcsExportError(getErrorMessage(err));
+    } finally {
+      setIsExportingIcs(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -54,6 +77,17 @@ const DriveDetailModal = ({ drive, isMember, canModerate, onClose, onViewProfile
                 <span>{drive.location}</span>
               </div>
             )}
+
+            <button
+              type="button"
+              onClick={handleExportIcs}
+              disabled={isExportingIcs}
+              className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <CalendarPlus size={16} />
+              {isExportingIcs ? "Exporting…" : "Add to Calendar"}
+            </button>
+            {icsExportError && <p className="text-red-400 text-xs">{icsExportError}</p>}
           </div>
 
           {drive.coordinates?.lat && (

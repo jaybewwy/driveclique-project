@@ -1,4 +1,5 @@
 const Club = require('../models/club');
+const User = require('../models/user');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { notify } = require('../services/notificationEmitter');
 const { sendEmail, emailTemplates } = require('../services/emailService');
@@ -32,6 +33,31 @@ const submitPendingJoinRequest = (club, userId) => {
       data: { clubId: club._id }
     });
   });
+};
+
+/**
+ * Reject a join attempt from a user a leader/co-leader has previously banned
+ * from this club (UC-32). Shared by both join paths (the "Join" button and
+ * entering an invite code) so neither is a way around the ban.
+ */
+const assertNotBanned = (club, userId) => {
+  const isBanned = club.bannedUsers.some((id) => id.toString() === userId);
+  if (isBanned) {
+    throw new AppError('You have been removed from this club by its leader and cannot rejoin.', 403);
+  }
+};
+
+/**
+ * Reject a join attempt against a club the requesting user has blocked
+ * themselves — the reciprocal of assertNotBanned (a user-initiated
+ * restriction rather than a leader-initiated one). Shared by both join
+ * paths so neither is a way around a self-block.
+ */
+const assertClubNotBlockedByUser = (blockedClubs, clubId) => {
+  const isBlocked = (blockedClubs || []).some((id) => id.toString() === clubId.toString());
+  if (isBlocked) {
+    throw new AppError('You have blocked this club. Unblock it first to join.', 403);
+  }
 };
 
 /**
@@ -97,6 +123,7 @@ const getUserClubs = asyncHandler(async (req, res) => {
  */
 const getClubById = asyncHandler(async (req, res) => {
   const { clubId } = req.params;
+  const userId = req.user?.id;
 
   const club = await Club.findById(clubId)
     .populate('leader', 'username email avatar name useDisplayName cars')
@@ -109,7 +136,17 @@ const getClubById = asyncHandler(async (req, res) => {
     throw new AppError('Club not found', 404);
   }
 
-  res.json({ success: true, club });
+  // A blocked club is excluded from search, but is still reachable by direct
+  // link (a bookmark, a shared URL) — the frontend needs to know whether the
+  // viewer has blocked it to render the correct Block/Unblock affordance,
+  // mirroring getPublicProfile's isBlockedByViewer (UC-32's user-block feature).
+  let isBlockedByViewer = false;
+  if (userId) {
+    const requestingUser = await User.findById(userId).select('blockedClubs').lean();
+    isBlockedByViewer = (requestingUser?.blockedClubs || []).some((id) => id.toString() === clubId);
+  }
+
+  res.json({ success: true, club, isBlockedByViewer });
 });
 
 /**
@@ -160,6 +197,10 @@ const requestToJoinClub = asyncHandler(async (req, res) => {
   if (isMember) {
     throw new AppError('Already a member', 400);
   }
+
+  assertNotBanned(club, userId);
+  const requestingUser = await User.findById(userId).select('blockedClubs');
+  assertClubNotBlockedByUser(requestingUser?.blockedClubs, clubId);
 
   // For public clubs (isPrivate is false), add user directly without requiring approval
   if (club.isPrivate === false) {
@@ -241,7 +282,6 @@ const handleJoinRequest = asyncHandler(async (req, res) => {
   });
 
   // Send email confirmation to the requesting user
-  const User = require('../models/user');
   const requestingUser = await User.findById(request.user).select('email');
   if (requestingUser?.email) {
     const joinTpl = status === 'accepted'
@@ -260,12 +300,23 @@ const handleJoinRequest = asyncHandler(async (req, res) => {
  */
 const searchClubs = asyncHandler(async (req, res) => {
   const { query, page = 1, limit = 20, tags } = req.query;
+  const userId = req.user?.id;
 
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
   const limitNum = Math.min(50, Math.max(1, parseInt(limit, 10) || 20));
   const skip = (pageNum - 1) * limitNum;
 
+  // Clubs this user has blocked never surface in browse/search results
+  // (UC-32's reciprocal user-blocks-club feature) — the same route a leader
+  // ban is enforced at join time, not discovery time, since a ban is about
+  // preventing rejoining, not about hiding the club from view.
+  const requestingUser = userId ? await User.findById(userId).select('blockedClubs').lean() : null;
+  const blockedClubIds = requestingUser?.blockedClubs || [];
+
   const searchQuery = { isPrivate: false };
+  if (blockedClubIds.length > 0) {
+    searchQuery._id = { $nin: blockedClubIds };
+  }
   if (query) {
     const regex = { $regex: escapeRegex(query.trim()), $options: 'i' };
     searchQuery.$or = [{ name: regex }, { location: regex }];
@@ -363,6 +414,10 @@ const joinClubByInviteCode = asyncHandler(async (req, res) => {
   if (isMember) {
     throw new AppError('Already a member', 400);
   }
+
+  assertNotBanned(club, userId);
+  const requestingUser = await User.findById(userId).select('blockedClubs');
+  assertClubNotBlockedByUser(requestingUser?.blockedClubs, club._id);
 
   // For private clubs, a valid invite code submits a join request for
   // leader/co-leader approval — same queue as the "Join" button (UC-10).
@@ -647,6 +702,9 @@ const transferOwnership = asyncHandler(async (req, res) => {
  */
 const removeMember = asyncHandler(async (req, res) => {
   const { clubId, memberId } = req.params;
+  // UC-32 — optional: also ban this user from rejoining. Defaults to false
+  // (unchecked), so a plain removal behaves exactly as it always has.
+  const { ban } = req.body;
   const userId = req.user?.id;
 
   if (!userId) {
@@ -682,9 +740,114 @@ const removeMember = asyncHandler(async (req, res) => {
   if (targetIsCoLeader) {
     club.coLeaders = club.coLeaders.filter((id) => id.toString() !== memberId);
   }
+  if (ban === true && !club.bannedUsers.some((id) => id.toString() === memberId)) {
+    club.bannedUsers.push(memberId);
+  }
   await club.save();
 
   res.json({ success: true, message: 'Member removed successfully' });
+});
+
+/**
+ * List a Club's Banned Users (UC-32)
+ * @route GET /api/clubs/:clubId/banned
+ * @access Private (Club Leaders/Co-Leaders only)
+ */
+const getBannedMembers = asyncHandler(async (req, res) => {
+  const { clubId } = req.params;
+  const userId = req.user?.id;
+
+  if (!userId) throw new AppError('Authentication required', 401);
+
+  const club = await Club.findById(clubId).populate('bannedUsers', 'username avatar name useDisplayName');
+  if (!club) throw new AppError('Club not found', 404);
+  if (!hasLeaderPrivileges(club, userId)) {
+    throw new AppError('Only the club leader or a co-leader can view banned members', 403);
+  }
+
+  res.json({ success: true, bannedUsers: club.bannedUsers });
+});
+
+/**
+ * Unban a Previously-Removed User (UC-32)
+ * @route DELETE /api/clubs/:clubId/banned/:userId
+ * @access Private (Club Leaders/Co-Leaders only)
+ */
+const unbanMember = asyncHandler(async (req, res) => {
+  const { clubId, userId: targetUserId } = req.params;
+  const userId = req.user?.id;
+
+  if (!userId) throw new AppError('Authentication required', 401);
+
+  const club = await Club.findById(clubId);
+  if (!club) throw new AppError('Club not found', 404);
+  if (!hasLeaderPrivileges(club, userId)) {
+    throw new AppError('Only the club leader or a co-leader can unban members', 403);
+  }
+
+  const wasBanned = club.bannedUsers.some((id) => id.toString() === targetUserId);
+  if (!wasBanned) throw new AppError('That user is not banned from this club', 400);
+
+  club.bannedUsers = club.bannedUsers.filter((id) => id.toString() !== targetUserId);
+  await club.save();
+
+  res.json({ success: true, message: 'User unbanned successfully' });
+});
+
+/**
+ * Block a Club — the reciprocal of a leader/co-leader's ban (any user can
+ * do this to any club, member or not; leaders have no say in it). Hides the
+ * club from browse/search and blocks future joins for the blocking user
+ * only, until unblocked. Only offered on clubs the user isn't currently a
+ * member of — leave first (existing Leave Club flow) if you belong to it.
+ * @route POST /api/clubs/:clubId/block
+ * @access Private
+ */
+const blockClub = asyncHandler(async (req, res) => {
+  const { clubId } = req.params;
+  const userId = req.user?.id;
+  if (!userId) throw new AppError('Authentication required', 401);
+
+  const club = await Club.findById(clubId).select('members');
+  if (!club) throw new AppError('Club not found', 404);
+
+  if (club.members.some((m) => m.toString() === userId)) {
+    throw new AppError('Leave this club before blocking it.', 400);
+  }
+
+  await User.updateOne({ _id: userId }, { $addToSet: { blockedClubs: clubId } });
+  res.json({ success: true, message: 'Club blocked.' });
+});
+
+/**
+ * Unblock a previously-blocked club.
+ * @route DELETE /api/clubs/:clubId/block
+ * @access Private
+ */
+const unblockClub = asyncHandler(async (req, res) => {
+  const { clubId } = req.params;
+  const userId = req.user?.id;
+  if (!userId) throw new AppError('Authentication required', 401);
+
+  await User.updateOne({ _id: userId }, { $pull: { blockedClubs: clubId } });
+  res.json({ success: true, message: 'Club unblocked.' });
+});
+
+/**
+ * List the requesting user's blocked clubs.
+ * @route GET /api/clubs/blocked
+ * @access Private
+ */
+const getBlockedClubs = asyncHandler(async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) throw new AppError('Authentication required', 401);
+
+  const user = await User.findById(userId)
+    .populate('blockedClubs', 'name description location avatar')
+    .select('blockedClubs')
+    .lean();
+
+  res.json({ success: true, blockedClubs: user?.blockedClubs || [] });
 });
 
 /**
@@ -854,6 +1017,11 @@ module.exports = {
   getTopClub,
   leaveClub,
   removeMember,
+  getBannedMembers,
+  unbanMember,
+  blockClub,
+  unblockClub,
+  getBlockedClubs,
   transferOwnership,
   postAnnouncement,
   deleteAnnouncement,

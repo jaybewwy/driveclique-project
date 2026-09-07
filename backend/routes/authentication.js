@@ -10,6 +10,8 @@ const {
   updateProfile,
   searchUsers,
   getPublicProfile,
+  blockUser,
+  unblockUser,
   refreshAccessToken,
   logoutUser,
   forgotPassword,
@@ -172,6 +174,29 @@ router.get(
   '/users/:userId/public',
   protect,
   getPublicProfile
+);
+
+/**
+ * @route   POST /api/auth/users/:userId/block
+ * @desc    Block another user (UC-32) — one-directional, only affects
+ *          visibility of the blocker's own profile to the blocked user
+ * @access  Private
+ */
+router.post(
+  '/users/:userId/block',
+  protect,
+  blockUser
+);
+
+/**
+ * @route   DELETE /api/auth/users/:userId/block
+ * @desc    Unblock a previously-blocked user (UC-32)
+ * @access  Private
+ */
+router.delete(
+  '/users/:userId/block',
+  protect,
+  unblockUser
 );
 
 /**

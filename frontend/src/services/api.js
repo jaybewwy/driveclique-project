@@ -160,6 +160,8 @@ export const authAPI = {
   updateProfile: (profileData) => api.put('/auth/profile', profileData),
   searchUsers: (query) => api.get('/auth/users/search', { params: { query } }),
   getPublicProfile: (userId) => api.get(`/auth/users/${userId}/public`),
+  blockUser: (userId) => api.post(`/auth/users/${userId}/block`),
+  unblockUser: (userId) => api.delete(`/auth/users/${userId}/block`),
   forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
   resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }),
   verifyEmail: (token) => api.get('/auth/verify-email', { params: { token } }),
@@ -192,7 +194,12 @@ export const clubsAPI = {
     api.delete(`/clubs/${clubId}`, { data: { deletionReason, leaderEmail } }),
   getTopClub: () => api.get('/clubs/trending'),
   leave: (clubId) => api.put(`/clubs/${clubId}/leave`),
-  removeMember: (clubId, memberId) => api.delete(`/clubs/${clubId}/members/${memberId}`),
+  removeMember: (clubId, memberId, ban = false) => api.delete(`/clubs/${clubId}/members/${memberId}`, { data: { ban } }),
+  getBannedMembers: (clubId) => api.get(`/clubs/${clubId}/banned`),
+  unbanMember: (clubId, userId) => api.delete(`/clubs/${clubId}/banned/${userId}`),
+  blockClub: (clubId) => api.post(`/clubs/${clubId}/block`),
+  unblockClub: (clubId) => api.delete(`/clubs/${clubId}/block`),
+  getBlockedClubs: () => api.get('/clubs/blocked'),
   transfer: (clubId, newLeaderId) => api.put(`/clubs/${clubId}/transfer`, { newLeaderId }),
   postAnnouncement: (clubId, data) => api.post(`/clubs/${clubId}/announcements`, data),
   deleteAnnouncement: (clubId, announcementId) => api.delete(`/clubs/${clubId}/announcements/${announcementId}`),
@@ -222,6 +229,8 @@ export const drivesAPI = {
   submitCheckin: (driveId, present) => api.post(`/drives/${driveId}/checkin`, { present }),
   submitRating: (driveId, stars, comment) => api.post(`/drives/${driveId}/ratings`, { stars, comment }),
   getDriveRatings: (driveId) => api.get(`/drives/${driveId}/ratings`),
+  exportDriveIcs: (driveId) => api.get(`/drives/${driveId}/export.ics`, { responseType: 'blob' }),
+  exportMyScheduleIcs: () => api.get('/drives/my-rsvps/export.ics', { responseType: 'blob' }),
 };
 
 export const reportsAPI = {
