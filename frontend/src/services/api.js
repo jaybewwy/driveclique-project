@@ -104,11 +104,18 @@ api.interceptors.response.use(
         }
       }
 
-      // No refresh token — only redirect if a token existed (session expired, not unauthenticated)
-      const hadToken = Boolean(localStorage.getItem('token'));
-      localStorage.removeItem('token');
-      localStorage.removeItem('driveclique_user');
-      if (hadToken && !_isPublicPath()) window.location.href = '/login';
+      // Only clear the session / redirect if *this request* actually carried a token (session
+      // expired) — a request sent while unauthenticated (no token at all) is expected to 401 and
+      // must not touch localStorage. Checked against what this request actually sent, not the
+      // current localStorage value: a tokenless request's 401 can arrive after a token was set
+      // elsewhere (e.g. a login completing while that earlier request is still in flight), and
+      // re-reading localStorage at response time would then wipe that just-set session by mistake.
+      const hadToken = Boolean(originalRequest?.headers?.Authorization);
+      if (hadToken) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('driveclique_user');
+        if (!_isPublicPath()) window.location.href = '/login';
+      }
     }
 
     if (error.response?.status === 403) {
