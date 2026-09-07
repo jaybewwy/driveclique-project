@@ -3,6 +3,7 @@ const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const { protect } = require('../middleware/authentication');
 const { validateInput, validateQuery } = require('../middleware/validation');
+const { apiLimiter } = require('../middleware/rateLimiters');
 const {
   registerUser,
   loginUser,
@@ -185,6 +186,7 @@ router.get(
 router.post(
   '/users/:userId/block',
   protect,
+  apiLimiter,
   blockUser
 );
 
@@ -196,6 +198,7 @@ router.post(
 router.delete(
   '/users/:userId/block',
   protect,
+  apiLimiter,
   unblockUser
 );
 
@@ -335,6 +338,7 @@ router.post(
  */
 router.get(
   '/email-change/confirm',
+  apiLimiter,
   validateQuery({ token: { required: true, type: 'string', minLength: 80, maxLength: 80 } }),
   confirmEmailChange
 );
@@ -347,6 +351,7 @@ router.get(
 router.post(
   '/push-token',
   protect,
+  apiLimiter,
   validateInput({
     expoPushToken: { required: true, type: 'string', minLength: 10, maxLength: 200 },
     platform: { type: 'string', enum: ['ios', 'android', 'web'] },
@@ -362,6 +367,7 @@ router.post(
 router.delete(
   '/push-token',
   protect,
+  apiLimiter,
   validateInput({ expoPushToken: { required: true, type: 'string', minLength: 10, maxLength: 200 } }),
   unregisterPushToken
 );
