@@ -71,6 +71,13 @@ const emailChangeLimiter = rateLimit({
   legacyHeaders: false
 });
 
+// General-purpose ceiling on every route in this file, public and private
+// alike — mirrors clubs.js/drives.js/notifications.js/reports.js's own
+// router.use(apiLimiter). Sits alongside (not instead of) the tighter
+// per-route limiters above for login/register/reset/etc.; a request has to
+// clear both, so this is purely additive.
+router.use(apiLimiter);
+
 /**
  * @route   POST /api/auth/register
  * @desc    Register a new user
@@ -186,7 +193,6 @@ router.get(
 router.post(
   '/users/:userId/block',
   protect,
-  apiLimiter,
   blockUser
 );
 
@@ -198,7 +204,6 @@ router.post(
 router.delete(
   '/users/:userId/block',
   protect,
-  apiLimiter,
   unblockUser
 );
 
@@ -338,7 +343,6 @@ router.post(
  */
 router.get(
   '/email-change/confirm',
-  apiLimiter,
   validateQuery({ token: { required: true, type: 'string', minLength: 80, maxLength: 80 } }),
   confirmEmailChange
 );
@@ -351,7 +355,6 @@ router.get(
 router.post(
   '/push-token',
   protect,
-  apiLimiter,
   validateInput({
     expoPushToken: { required: true, type: 'string', minLength: 10, maxLength: 200 },
     platform: { type: 'string', enum: ['ios', 'android', 'web'] },
@@ -367,7 +370,6 @@ router.post(
 router.delete(
   '/push-token',
   protect,
-  apiLimiter,
   validateInput({ expoPushToken: { required: true, type: 'string', minLength: 10, maxLength: 200 } }),
   unregisterPushToken
 );
