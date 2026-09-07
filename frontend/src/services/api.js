@@ -5,6 +5,7 @@
  */
 
 import axios from 'axios';
+import { PUBLIC_ROUTES } from '../lib/publicRoutes';
 
 // API base URL — env var is required in production/Capacitor builds.
 const API_BASE_URL = import.meta.env.VITE_API_URL
@@ -48,10 +49,7 @@ let _isRefreshing = false;
 let _refreshSubscribers = [];
 
 // Pages that are intentionally unauthenticated — never redirect away from these
-const _isPublicPath = () =>
-  ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email'].includes(
-    window.location.pathname
-  );
+const _isPublicPath = () => PUBLIC_ROUTES.includes(window.location.pathname);
 
 const onRefreshed = (newToken) => {
   _refreshSubscribers.forEach(cb => cb(newToken));
@@ -106,11 +104,18 @@ api.interceptors.response.use(
         }
       }
 
-      // No refresh token — only redirect if a token existed (session expired, not unauthenticated)
-      const hadToken = Boolean(localStorage.getItem('token'));
-      localStorage.removeItem('token');
-      localStorage.removeItem('driveclique_user');
-      if (hadToken && !_isPublicPath()) window.location.href = '/login';
+      // Only clear the session / redirect if *this request* actually carried a token (session
+      // expired) — a request sent while unauthenticated (no token at all) is expected to 401 and
+      // must not touch localStorage. Checked against what this request actually sent, not the
+      // current localStorage value: a tokenless request's 401 can arrive after a token was set
+      // elsewhere (e.g. a login completing while that earlier request is still in flight), and
+      // re-reading localStorage at response time would then wipe that just-set session by mistake.
+      const hadToken = Boolean(originalRequest?.headers?.Authorization);
+      if (hadToken) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('driveclique_user');
+        if (!_isPublicPath()) window.location.href = '/login';
+      }
     }
 
     if (error.response?.status === 403) {
@@ -162,10 +167,14 @@ export const authAPI = {
   updateProfile: (profileData) => api.put('/auth/profile', profileData),
   searchUsers: (query) => api.get('/auth/users/search', { params: { query } }),
   getPublicProfile: (userId) => api.get(`/auth/users/${userId}/public`),
+  blockUser: (userId) => api.post(`/auth/users/${userId}/block`),
+  unblockUser: (userId) => api.delete(`/auth/users/${userId}/block`),
   forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
   resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }),
   verifyEmail: (token) => api.get('/auth/verify-email', { params: { token } }),
   resendVerification: () => api.post('/auth/resend-verification'),
+  requestEmailChange: (newEmail) => api.post('/auth/email-change', { newEmail }),
+  confirmEmailChange: (token) => api.get('/auth/email-change/confirm', { params: { token } }),
   deleteAccount: (password) => api.delete('/auth/account', { data: { password } }),
   changeUsername: (username) => api.put('/auth/username', { username }),
   changePassword: (currentPassword, newPassword) => api.put('/auth/password', { currentPassword, newPassword }),
@@ -192,7 +201,12 @@ export const clubsAPI = {
     api.delete(`/clubs/${clubId}`, { data: { deletionReason, leaderEmail } }),
   getTopClub: () => api.get('/clubs/trending'),
   leave: (clubId) => api.put(`/clubs/${clubId}/leave`),
-  removeMember: (clubId, memberId) => api.delete(`/clubs/${clubId}/members/${memberId}`),
+  removeMember: (clubId, memberId, ban = false) => api.delete(`/clubs/${clubId}/members/${memberId}`, { data: { ban } }),
+  getBannedMembers: (clubId) => api.get(`/clubs/${clubId}/banned`),
+  unbanMember: (clubId, userId) => api.delete(`/clubs/${clubId}/banned/${userId}`),
+  blockClub: (clubId) => api.post(`/clubs/${clubId}/block`),
+  unblockClub: (clubId) => api.delete(`/clubs/${clubId}/block`),
+  getBlockedClubs: () => api.get('/clubs/blocked'),
   transfer: (clubId, newLeaderId) => api.put(`/clubs/${clubId}/transfer`, { newLeaderId }),
   postAnnouncement: (clubId, data) => api.post(`/clubs/${clubId}/announcements`, data),
   deleteAnnouncement: (clubId, announcementId) => api.delete(`/clubs/${clubId}/announcements/${announcementId}`),
@@ -216,11 +230,14 @@ export const drivesAPI = {
   getLeaderDashboard: () => api.get('/drives/dashboard'),
   getAnalytics: () => api.get('/drives/analytics'),
   getMyRSVPs: () => api.get('/drives/my-rsvps'),
+  getCalendar: (year, month) => api.get('/drives/calendar', { params: { year, month } }),
   requestCheckin: (driveId) => api.post(`/drives/${driveId}/request-checkin`),
   getCheckinStatus: (driveId) => api.get(`/drives/${driveId}/checkin-status`),
   submitCheckin: (driveId, present) => api.post(`/drives/${driveId}/checkin`, { present }),
   submitRating: (driveId, stars, comment) => api.post(`/drives/${driveId}/ratings`, { stars, comment }),
   getDriveRatings: (driveId) => api.get(`/drives/${driveId}/ratings`),
+  exportDriveIcs: (driveId) => api.get(`/drives/${driveId}/export.ics`, { responseType: 'blob' }),
+  exportMyScheduleIcs: () => api.get('/drives/my-rsvps/export.ics', { responseType: 'blob' }),
 };
 
 export const reportsAPI = {

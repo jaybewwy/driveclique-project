@@ -1,14 +1,38 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Calendar, Clock, MapPin, Navigation, CheckCircle, CalendarDays, ChevronDown, Star } from "lucide-react";
+import { X, Calendar, Clock, MapPin, Navigation, ChevronDown, Star, CalendarPlus } from "lucide-react";
 import { DriveMapPreview } from "./drive-map-preview";
+import RsvpButtonGroup from "./RsvpButtonGroup";
+import { drivesAPI, getErrorMessage } from "../../services/api";
+import { downloadBlobResponse } from "../../lib/downloadBlob";
 
 // Purely presentational: all state (RSVP, check-in, attendees, rating) and every handler
 // stay owned by ClubDetail.jsx, since `selectedDrive` is also shared with the separate
 // Edit Drive modal there and the RSVP/rating data is pre-fetched by ClubDetail.jsx's
 // handleDriveClick *before* this modal ever mounts (so there's no loading flash to manage
 // here). This component only renders what it's given and reports interactions back up.
+//
+// The "Add to Calendar" export (UC-33) is the one exception — like the "Get
+// Directions" link right above it in the JSX, it has zero shared state with
+// the rest of the page (no counts/state ClubDetail.jsx or any sibling
+// section reads), so it's handled entirely locally rather than lifted.
 const DriveDetailModal = ({ drive, isMember, canModerate, onClose, onViewProfile, rsvp, checkin, attendees, rating }) => {
   const navigate = useNavigate();
+  const [isExportingIcs, setIsExportingIcs] = useState(false);
+  const [icsExportError, setIcsExportError] = useState("");
+
+  const handleExportIcs = async () => {
+    setIsExportingIcs(true);
+    setIcsExportError("");
+    try {
+      const response = await drivesAPI.exportDriveIcs(drive._id);
+      downloadBlobResponse(response, `${drive.name}.ics`);
+    } catch (err) {
+      setIcsExportError(getErrorMessage(err));
+    } finally {
+      setIsExportingIcs(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -53,6 +77,17 @@ const DriveDetailModal = ({ drive, isMember, canModerate, onClose, onViewProfile
                 <span>{drive.location}</span>
               </div>
             )}
+
+            <button
+              type="button"
+              onClick={handleExportIcs}
+              disabled={isExportingIcs}
+              className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <CalendarPlus size={16} />
+              {isExportingIcs ? "Exporting…" : "Add to Calendar"}
+            </button>
+            {icsExportError && <p className="text-red-400 text-xs">{icsExportError}</p>}
           </div>
 
           {drive.coordinates?.lat && (
@@ -80,7 +115,7 @@ const DriveDetailModal = ({ drive, isMember, canModerate, onClose, onViewProfile
           {drive.description && (
             <div className="bg-black rounded-xl p-4">
               <h3 className="text-sm font-medium text-zinc-400 mb-2">Description</h3>
-              <p className="text-zinc-300 text-sm whitespace-pre-wrap">{drive.description}</p>
+              <p className="text-zinc-300 text-sm whitespace-pre-wrap break-words">{drive.description}</p>
             </div>
           )}
 
@@ -114,59 +149,13 @@ const DriveDetailModal = ({ drive, isMember, canModerate, onClose, onViewProfile
                     </div>
                   ) : (
                     /* State 2 (drive full) or State 3 (normal) */
-                    <div className="flex gap-3 mb-4">
-                      {/* Going — or Join Waitlist when drive is at capacity */}
-                      {rsvp.counts.going >= (drive?.maxAttendees ?? Infinity) && rsvp.status !== 'going' ? (
-                        <button
-                          type="button"
-                          onClick={() => rsvp.onSubmit('going')}
-                          disabled={rsvp.isLoading}
-                          className="flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 bg-zinc-800 hover:bg-amber-900/30 text-white hover:text-amber-400 border border-zinc-700 hover:border-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <Clock size={18} />
-                          Join Waitlist
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => rsvp.onSubmit('going')}
-                          disabled={rsvp.isLoading}
-                          className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
-                            rsvp.status === 'going'
-                              ? 'bg-green-600 text-white'
-                              : 'bg-zinc-800 hover:bg-green-900/30 text-white hover:text-green-400 border border-zinc-700 hover:border-green-600'
-                          } disabled:opacity-50 disabled:cursor-not-allowed`}
-                        >
-                          <CheckCircle size={18} />
-                          Going
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => rsvp.onSubmit('maybe')}
-                        disabled={rsvp.isLoading}
-                        className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
-                          rsvp.status === 'maybe'
-                            ? 'bg-yellow-600 text-white'
-                            : 'bg-zinc-800 hover:bg-yellow-900/30 text-white hover:text-yellow-400 border border-zinc-700 hover:border-yellow-600'
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                      >
-                        <CalendarDays size={18} />
-                        Maybe
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => rsvp.onSubmit('not-going')}
-                        disabled={rsvp.isLoading}
-                        className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
-                          rsvp.status === 'not-going'
-                            ? 'bg-red-600 text-white'
-                            : 'bg-zinc-800 hover:bg-red-900/30 text-white hover:text-red-400 border border-zinc-700 hover:border-red-600'
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                      >
-                        <X size={18} />
-                        Not Going
-                      </button>
+                    <div className="mb-4">
+                      <RsvpButtonGroup
+                        status={rsvp.status}
+                        isLoading={rsvp.isLoading}
+                        onSubmit={rsvp.onSubmit}
+                        goingAtCapacity={rsvp.counts.going >= (drive?.maxAttendees ?? Infinity) && rsvp.status !== 'going'}
+                      />
                     </div>
                   )}
 
@@ -235,18 +224,18 @@ const DriveDetailModal = ({ drive, isMember, canModerate, onClose, onViewProfile
                                 {attendees.data.rsvps.map((attendeeRsvp) => (
                                   <div
                                     key={attendeeRsvp._id}
-                                    className="flex items-center justify-between bg-black rounded-xl px-3 py-2"
+                                    className="flex items-center justify-between gap-3 bg-black rounded-xl px-3 py-2"
                                   >
                                     {attendeeRsvp.user?._id ? (
                                       <button
                                         type="button"
                                         onClick={() => onViewProfile?.(attendeeRsvp.user._id)}
-                                        className="text-sm text-white truncate hover:text-red-400 transition-colors text-left"
+                                        className="text-sm text-white truncate min-w-0 hover:text-red-400 transition-colors text-left"
                                       >
                                         {attendeeRsvp.user?.username || 'Unknown member'}
                                       </button>
                                     ) : (
-                                      <span className="text-sm text-white truncate">
+                                      <span className="text-sm text-white truncate min-w-0">
                                         {attendeeRsvp.user?.username || 'Unknown member'}
                                       </span>
                                     )}

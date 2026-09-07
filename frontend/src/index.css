@@ -34,6 +34,17 @@
   --border: 39  39  42;  /* zinc-800 */
   --input:  63  63  70;  /* zinc-700 */
   --ring:   220 38  38;  /* red-600  */
+
+  /*
+    Device safe-area (status bar / notch / gesture bar) height.
+    Capacitor's core SystemBars plugin injects --safe-area-inset-* as inline
+    styles on <html> (not the standard env() function — Android's WebView has
+    no native env(safe-area-inset-*) support below WebView 140, unlike iOS's
+    WKWebView), so that takes priority; env() is the fallback for a plain
+    browser tab or an installed PWA, where Capacitor never runs.
+  */
+  --sat: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --sab: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
 }
 
 /* ─── Base ────────────────────────────────────────────────────────────────── */

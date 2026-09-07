@@ -80,6 +80,11 @@ test.describe('Accessibility (axe-core)', () => {
     await page.goto(`${baseUrl}/settings`);
     const settingsResults = await new AxeBuilder({ page }).analyze();
     expectNoSeriousViolations(settingsResults, 'settings');
+
+    await page.goto(`${baseUrl}/calendar`);
+    await page.waitForTimeout(500); // let the month grid finish its initial fetch
+    const calendarResults = await new AxeBuilder({ page }).analyze();
+    expectNoSeriousViolations(calendarResults, 'calendar');
   });
 
   test('club detail page and Schedule Drive modal have no critical/serious violations', async ({ page }) => {

@@ -2,15 +2,26 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   BarChart2, Users, Calendar, CheckCircle, TrendingUp,
-  Car, Star, Award, AlertCircle, Plus,
+  Car, Star, Award, AlertCircle, Plus, Activity,
   Home, User as UserIcon, ChevronDown, ChevronRight,
   MapPin, Clock, XCircle, ThumbsUp, UserCheck,
-  Save, X, Pencil, Lock
+  Save, X, Pencil, Lock, CalendarPlus
 } from "lucide-react";
 import NavBar from "../components/NavBar";
 import { drivesAPI, authAPI, notificationsAPI, getErrorMessage } from "../services/api";
+import { getMyActivitySummary } from "../services/analytics";
+import { downloadBlobResponse } from "../lib/downloadBlob";
 import { LocationSearch } from "../components/ui/location-search";
 import { MobileDrawerButton, MobileDrawer } from "../components/ui/MobileDrawer";
+
+const ACTIVITY_LABELS = {
+  CLUB_CREATED:     "Clubs Created",
+  CLUB_JOINED:      "Clubs Joined",
+  DRIVE_SCHEDULED:  "Drives Scheduled",
+  RSVP_SUBMITTED:   "RSVPs Submitted",
+  RATING_SUBMITTED: "Ratings Given",
+  REPORT_SUBMITTED: "Reports Filed",
+};
 
 /* ─── Sidebar ─────────────────────────────────────────────────────────── */
 
@@ -261,12 +272,24 @@ const PersonalAnalytics = ({ user: _user }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tab, setTab] = useState("upcoming");
+  const [activitySummary, setActivitySummary] = useState(null);
+  const [isExportingSchedule, setIsExportingSchedule] = useState(false);
+  const [scheduleExportError, setScheduleExportError] = useState("");
 
   useEffect(() => {
     drivesAPI.getMyRSVPs()
       .then(res => { if (res.data.success) setRsvps(res.data.rsvps); })
       .catch(err => setError(err?.response?.data?.message || "Failed to load drive history."))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    getMyActivitySummary()
+      .then((res) => { if (res.data?.success) setActivitySummary(res.data.summary); })
+      // A failure here just means the "Your Activity" card doesn't render (activitySummary
+      // stays null, distinct from a real all-zero summary) — not a fake fallback value —
+      // but still worth logging rather than staying fully silent.
+      .catch((error) => console.error('Failed to load activity summary:', error));
   }, []);
 
   const now = new Date();
@@ -297,6 +320,19 @@ const PersonalAnalytics = ({ user: _user }) => {
 
   const list = tab === "upcoming" ? upcoming : past;
 
+  const handleExportSchedule = async () => {
+    setIsExportingSchedule(true);
+    setScheduleExportError("");
+    try {
+      const response = await drivesAPI.exportMyScheduleIcs();
+      downloadBlobResponse(response, "driveclique-schedule.ics");
+    } catch (err) {
+      setScheduleExportError(getErrorMessage(err));
+    } finally {
+      setIsExportingSchedule(false);
+    }
+  };
+
   return (
     <div>
       {/* Page header */}
@@ -326,7 +362,7 @@ const PersonalAnalytics = ({ user: _user }) => {
             <StatChip icon={Calendar}    label="Total RSVPs"  value={rsvps.length}     accent="text-red-400" />
             <StatChip icon={CheckCircle} label="Attended"     value={attended}          accent="text-emerald-400" />
             <StatChip icon={TrendingUp}  label="Upcoming"     value={upcoming.length}   accent="text-blue-400" />
-            <div className="bg-zinc-800/60 rounded-2xl p-4 flex flex-col gap-1">
+            <div className="bg-zinc-800/60 rounded-2xl p-4 flex flex-col gap-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <Star size={15} className="text-yellow-400" />
                 <span className="text-xs text-zinc-400 uppercase tracking-wide">Fav Club</span>
@@ -334,7 +370,7 @@ const PersonalAnalytics = ({ user: _user }) => {
               {favouriteClub ? (
                 <button
                   onClick={() => navigate(`/club/${favouriteClub.id}`)}
-                  className="text-sm font-bold text-yellow-400 truncate text-left hover:underline"
+                  className="text-sm font-bold text-yellow-400 truncate text-left hover:underline min-w-0"
                 >
                   {favouriteClub.name}
                 </button>
@@ -347,24 +383,39 @@ const PersonalAnalytics = ({ user: _user }) => {
           {/* Drive history list */}
           <div className="glass-card rounded-3xl p-6">
             {/* Tabs */}
-            <div className="flex gap-2 mb-6">
-              {["upcoming", "past"].map(t => (
-                <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className={`px-4 py-1.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                    tab === t
-                      ? "bg-red-600 text-white"
-                      : "bg-zinc-800/60 text-zinc-400 hover:text-zinc-200"
-                  }`}
-                >
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
-                  <span className="ml-1.5 text-xs opacity-70">
-                    {t === "upcoming" ? upcoming.length : past.length}
-                  </span>
-                </button>
-              ))}
+            <div className="flex items-center justify-between gap-2 mb-6">
+              <div className="flex gap-2">
+                {["upcoming", "past"].map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setTab(t)}
+                    className={`px-4 py-1.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                      tab === t
+                        ? "bg-red-600 text-white"
+                        : "bg-zinc-800/60 text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                    <span className="ml-1.5 text-xs opacity-70">
+                      {t === "upcoming" ? upcoming.length : past.length}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={handleExportSchedule}
+                disabled={isExportingSchedule || upcoming.length === 0}
+                title={upcoming.length === 0 ? "No upcoming drives to export" : "Export your upcoming schedule as an .ics file"}
+                className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-white transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-zinc-400"
+              >
+                <CalendarPlus size={14} />
+                {isExportingSchedule ? "Exporting…" : "Export My Schedule"}
+              </button>
             </div>
+            {scheduleExportError && (
+              <p className="text-red-400 text-xs mb-4 -mt-3">{scheduleExportError}</p>
+            )}
 
             {/* Empty state */}
             {list.length === 0 && (
@@ -403,7 +454,7 @@ const PersonalAnalytics = ({ user: _user }) => {
                     {/* Details */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <p className="font-semibold text-sm text-white truncate">{drive.name}</p>
+                        <p className="font-semibold text-sm text-white truncate min-w-0">{drive.name}</p>
                         {drive.isCancelled && (
                           <span className="text-xs text-red-400 flex items-center gap-0.5">
                             <XCircle size={11} /> Cancelled
@@ -443,6 +494,23 @@ const PersonalAnalytics = ({ user: _user }) => {
               })}
             </div>
           </div>
+
+          {activitySummary && (
+            <div className="glass-card p-6 mt-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Activity className="w-4 h-4 text-red-400" />
+                <p className="section-label">Your Activity</p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {Object.entries(ACTIVITY_LABELS).map(([type, label]) => (
+                  <div key={type}>
+                    <p className="text-2xl font-bold text-white">{activitySummary[type] ?? 0}</p>
+                    <p className="text-xs text-zinc-400">{label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -700,6 +768,15 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
   const [usernameError,    setUsernameError]    = useState("");
   const [changingUsername, setChangingUsername] = useState(false);
 
+  // Email change state (UC-28) — unlike username, a submitted change doesn't
+  // take effect until the confirmation link sent to the new address is clicked,
+  // so formData.email is never optimistically updated here.
+  const [editingEmail,        setEditingEmail]        = useState(false);
+  const [newEmail,            setNewEmail]            = useState("");
+  const [emailChangeError,    setEmailChangeError]    = useState("");
+  const [emailChangeSuccess,  setEmailChangeSuccess]  = useState("");
+  const [requestingEmailChange, setRequestingEmailChange] = useState(false);
+
   const [pwForm, setPwForm]     = useState({ current: "", new: "", confirm: "" });
   const [pwError, setPwError]   = useState("");
   const [pwSuccess, setPwSuccess] = useState("");
@@ -791,6 +868,24 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
       setUsernameError(getErrorMessage(err));
     } finally {
       setChangingUsername(false);
+    }
+  };
+
+  const handleRequestEmailChange = async () => {
+    if (!newEmail.trim()) return;
+    setRequestingEmailChange(true);
+    setEmailChangeError("");
+    try {
+      const res = await authAPI.requestEmailChange(newEmail.trim());
+      if (res.data.success) {
+        setEmailChangeSuccess(res.data.message);
+        setEditingEmail(false);
+        setNewEmail("");
+      }
+    } catch (err) {
+      setEmailChangeError(getErrorMessage(err));
+    } finally {
+      setRequestingEmailChange(false);
     }
   };
 
@@ -1039,16 +1134,68 @@ const ProfileView = ({ onLogout, onUpdateUser }) => {
           </div>
 
           {/* Email */}
-          <SettingsField label="Email" htmlFor="pv-email" hint="Email cannot be changed.">
-            <input
-              id="pv-email"
-              type="email"
-              name="email"
-              value={formData.email}
-              disabled
-              className={settingsInputDisabledClass}
-            />
-          </SettingsField>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label htmlFor="pv-email" className="text-sm font-medium text-zinc-300">Email</label>
+              {!editingEmail && (
+                <button
+                  type="button"
+                  onClick={() => { setEditingEmail(true); setNewEmail(""); setEmailChangeError(""); setEmailChangeSuccess(""); }}
+                  className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition-colors"
+                >
+                  <Pencil size={11} /> Change
+                </button>
+              )}
+            </div>
+
+            {editingEmail ? (
+              <div className="space-y-2">
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={e => { setNewEmail(e.target.value); setEmailChangeError(""); }}
+                  placeholder="new@email.com"
+                  // eslint-disable-next-line jsx-a11y/no-autofocus -- focus follows the user's own "Change" click, not page load
+                  autoFocus
+                  className={settingsInputClass}
+                />
+                {emailChangeError && <p className="text-red-400 text-xs">{emailChangeError}</p>}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleRequestEmailChange}
+                    disabled={requestingEmailChange || !newEmail.trim()}
+                    className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-xl text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Save size={14} />
+                    {requestingEmailChange ? "Sending…" : "Send verification link"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setEditingEmail(false); setEmailChangeError(""); }}
+                    className="px-4 py-2 rounded-xl text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <input
+                id="pv-email"
+                type="email"
+                name="email"
+                value={formData.email}
+                disabled
+                className={settingsInputDisabledClass}
+              />
+            )}
+
+            {emailChangeSuccess ? (
+              <p className="text-xs text-green-400 mt-1.5">{emailChangeSuccess}</p>
+            ) : (
+              <p className="text-xs text-zinc-400 mt-1.5">Changing your email requires confirming a link sent to the new address.</p>
+            )}
+          </div>
 
           {/* Location */}
           <SettingsField label="Location" hint="Used to suggest nearby clubs.">
@@ -1260,7 +1407,7 @@ const UserSettings = ({ user, onLogout, onUpdateUser }) => {
       <NavBar user={user} onLogout={onLogout} />
       <div className="flex flex-1">
         <AnalyticsSidebar user={user} activeView={activeView} onViewChange={setActiveView} />
-        <main id="main-content" className="flex-1 p-6 max-w-5xl mx-auto w-full">
+        <main id="main-content" className="flex-1 min-w-0 p-6 max-w-5xl mx-auto w-full">
           {activeView === "personal" && <PersonalAnalytics user={user} />}
           {activeView === "clubs"    && <ClubsAnalytics />}
           {activeView === "profile"  && <ProfileView onLogout={onLogout} onUpdateUser={onUpdateUser} />}

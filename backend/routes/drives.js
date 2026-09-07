@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authentication');
 const { apiLimiter } = require('../middleware/rateLimiters');
-const { validateParams, validateInput } = require('../middleware/validation');
+const { validateParams, validateInput, validateQuery } = require('../middleware/validation');
 const {
   createDrive,
   getClubDrives,
@@ -19,7 +19,10 @@ const {
   getCheckinStatus,
   submitCheckin,
   submitRating,
-  getDriveRatings
+  getDriveRatings,
+  getCalendarDrives,
+  exportDriveIcs,
+  exportMyScheduleIcs
 } = require('../controllers/driveController');
 
 // All routes require authentication
@@ -61,11 +64,35 @@ router.get('/dashboard', getLeaderDashboard);
 router.get('/my-rsvps', getMyRSVPs);
 
 /**
+ * @route   GET /api/drives/my-rsvps/export.ics
+ * @desc    Export the current user's upcoming going/maybe drives as an iCalendar file (UC-33)
+ * @access  Private
+ * @note    Must stay registered before /:driveId routes — Express matches by
+ *          registration order, and /:driveId/export.ics would otherwise
+ *          swallow this fixed-segment path with driveId="my-rsvps".
+ */
+router.get('/my-rsvps/export.ics', exportMyScheduleIcs);
+
+/**
  * @route   GET /api/drives/analytics
  * @desc    Get club analytics summary for all clubs the user leads
  * @access  Private (Club Leaders only)
  */
 router.get('/analytics', getClubAnalytics);
+
+/**
+ * @route   GET /api/drives/calendar
+ * @desc    Get all drives across the user's clubs within a given month, for calendar display
+ * @access  Private
+ */
+router.get(
+  '/calendar',
+  validateQuery({
+    year: { required: true, type: 'number', min: 2000, max: 2100 },
+    month: { required: true, type: 'number', min: 1, max: 12 }
+  }),
+  getCalendarDrives
+);
 
 /**
  * @route   GET /api/drives/club/:clubId
@@ -91,6 +118,19 @@ router.get(
     driveId: { required: true, objectId: true }
   }),
   getDriveRSVPStatus
+);
+
+/**
+ * @route   GET /api/drives/:driveId/export.ics
+ * @desc    Export a single drive as an iCalendar file (UC-33)
+ * @access  Private (any club member)
+ */
+router.get(
+  '/:driveId/export.ics',
+  validateParams({
+    driveId: { required: true, objectId: true }
+  }),
+  exportDriveIcs
 );
 
 /**

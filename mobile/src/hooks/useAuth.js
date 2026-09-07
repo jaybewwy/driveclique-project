@@ -1,6 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { authAPI, getErrorMessage, setSessionExpiredHandler } from "../services/api";
 import { tokenStorage, userStorage, clearSession } from "../services/storage";
+import {
+  registerForPushNotificationsAsync,
+  unregisterCurrentPushTokenAsync,
+} from "../services/pushNotifications";
 
 const AuthContext = createContext(null);
 
@@ -23,6 +27,9 @@ export function AuthProvider({ children }) {
         ]);
         if (token && storedUser) {
           setUser(storedUser);
+          // Fire-and-forget: refresh/re-register this device's push token on
+          // every app open, not just at login — a token can rotate.
+          registerForPushNotificationsAsync();
           // Refresh from server in the background to catch any profile changes
           try {
             const { data } = await authAPI.getProfile();
@@ -55,6 +62,7 @@ export function AuthProvider({ children }) {
 
     await userStorage.setUser(fullUser);
     setUser(fullUser);
+    registerForPushNotificationsAsync(); // fire-and-forget
     return fullUser;
   }, []);
 
@@ -64,10 +72,14 @@ export function AuthProvider({ children }) {
     if (data.refreshToken) await tokenStorage.setRefreshToken(data.refreshToken);
     await userStorage.setUser(data.user);
     setUser(data.user);
+    registerForPushNotificationsAsync(); // fire-and-forget
     return data.user;
   }, []);
 
   const logout = useCallback(async () => {
+    // Must run before authAPI.logout() clears the auth token below — the
+    // unregister request needs it.
+    await unregisterCurrentPushTokenAsync();
     try {
       await authAPI.logout();
     } catch {

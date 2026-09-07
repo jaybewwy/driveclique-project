@@ -6,6 +6,7 @@ import { ClubsProvider } from './hooks/useClubs';
 import ToastProvider from './components/Toast';
 import PageViewTracker from './components/PageViewTracker';
 import SkipToContent from './components/SkipToContent';
+import { PUBLIC_ROUTES } from './lib/publicRoutes';
 
 // Auth pages are small and eagerly loaded — users hit these before JS finishes parsing
 import Login from './pages/Login';
@@ -13,9 +14,11 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
+import ConfirmEmailChange from './pages/ConfirmEmailChange';
 
 // Authenticated pages are lazy-loaded — only downloaded after login
 const Dashboard    = lazy(() => import('./pages/Dashboard'));
+const CalendarPage = lazy(() => import('./pages/Calendar'));
 const MyClubs      = lazy(() => import('./pages/MyClubs'));
 const ClubDetail   = lazy(() => import('./pages/ClubDetail'));
 const CreateClub   = lazy(() => import('./pages/CreateClub'));
@@ -43,6 +46,22 @@ function AppRoutes() {
     );
   }
 
+  // Dev-only guard against the route table and PUBLIC_ROUTES (which
+  // services/api.js's 401 interceptor relies on) drifting apart — a route
+  // added to one but not the other fails silently in production (a visitor
+  // gets bounced to /login on a stray background 401) with nothing to point
+  // at the actual cause, so this makes the drift loud in the dev console
+  // immediately instead. The list below must mirror exactly the <Route>
+  // paths declared without an isAuthenticated ? ... : ... auth gate.
+  if (import.meta.env.DEV) {
+    const declaredPublicPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/confirm-email-change'];
+    const missing = PUBLIC_ROUTES.filter((p) => !declaredPublicPaths.includes(p));
+    const extra = declaredPublicPaths.filter((p) => !PUBLIC_ROUTES.includes(p));
+    if (missing.length || extra.length) {
+      console.error('[publicRoutes] App.jsx route table and PUBLIC_ROUTES have drifted:', { missing, extra });
+    }
+  }
+
   return (
     <Suspense fallback={<PageSpinner />}>
       <SkipToContent />
@@ -53,8 +72,10 @@ function AppRoutes() {
         <Route path="/forgot-password"  element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <ForgotPassword />} />
         <Route path="/reset-password"   element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <ResetPassword />} />
         <Route path="/verify-email"     element={<VerifyEmail />} />
+        <Route path="/confirm-email-change" element={<ConfirmEmailChange />} />
 
         <Route path="/dashboard"    element={isAuthenticated ? <Dashboard    user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
+        <Route path="/calendar"     element={isAuthenticated ? <CalendarPage user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/my-clubs"     element={isAuthenticated ? <MyClubs      user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/club/:clubId" element={isAuthenticated ? <ClubDetail   user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/create-club"  element={isAuthenticated ? <CreateClub /> : <Navigate to="/login" replace />} />

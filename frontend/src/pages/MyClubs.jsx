@@ -145,7 +145,7 @@ const MyClubs = ({ user, onLogout }) => {
         <Sidebar user={user} />
 
         {/* Main content */}
-        <div id="main-content" role="main" className="flex-1 max-w-4xl min-h-screen p-5 md:p-6">
+        <div id="main-content" role="main" className="flex-1 min-w-0 max-w-4xl min-h-screen p-5 md:p-6">
 
           {/* Header */}
           <div className="flex items-start justify-between mb-6">
@@ -261,8 +261,8 @@ const MyClubs = ({ user, onLogout }) => {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1">
-                          <p className="text-xs font-medium text-zinc-300 group-hover:text-white transition-colors truncate">{club.name}</p>
+                        <div className="flex items-center gap-1 min-w-0">
+                          <p className="text-xs font-medium text-zinc-300 group-hover:text-white transition-colors truncate min-w-0">{club.name}</p>
                           {isLeader && <Crown className="w-3 h-3 text-amber-400 shrink-0" />}
                         </div>
                         <p className="text-[11px] text-zinc-400">{club.members.length} members</p>

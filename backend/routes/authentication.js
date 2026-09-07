@@ -3,6 +3,7 @@ const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const { protect } = require('../middleware/authentication');
 const { validateInput, validateQuery } = require('../middleware/validation');
+const { apiLimiter } = require('../middleware/rateLimiters');
 const {
   registerUser,
   loginUser,
@@ -10,6 +11,8 @@ const {
   updateProfile,
   searchUsers,
   getPublicProfile,
+  blockUser,
+  unblockUser,
   refreshAccessToken,
   logoutUser,
   forgotPassword,
@@ -19,6 +22,10 @@ const {
   deleteAccount,
   changeUsername,
   changePassword,
+  requestEmailChange,
+  confirmEmailChange,
+  registerPushToken,
+  unregisterPushToken,
 } = require('../controllers/authController');
 
 const isDev = process.env.NODE_ENV === 'development';
@@ -55,6 +62,21 @@ const resendVerificationLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false
 });
+
+const emailChangeLimiter = rateLimit({
+  windowMs: isDev ? 60 * 1000 : 60 * 60 * 1000,   // 1 min in dev, 1 hr in prod
+  max: isDev ? 50 : 3,
+  message: { success: false, message: 'Too many email change requests. Please try again in an hour.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// General-purpose ceiling on every route in this file, public and private
+// alike — mirrors clubs.js/drives.js/notifications.js/reports.js's own
+// router.use(apiLimiter). Sits alongside (not instead of) the tighter
+// per-route limiters above for login/register/reset/etc.; a request has to
+// clear both, so this is purely additive.
+router.use(apiLimiter);
 
 /**
  * @route   POST /api/auth/register
@@ -160,6 +182,29 @@ router.get(
   '/users/:userId/public',
   protect,
   getPublicProfile
+);
+
+/**
+ * @route   POST /api/auth/users/:userId/block
+ * @desc    Block another user (UC-32) — one-directional, only affects
+ *          visibility of the blocker's own profile to the blocked user
+ * @access  Private
+ */
+router.post(
+  '/users/:userId/block',
+  protect,
+  blockUser
+);
+
+/**
+ * @route   DELETE /api/auth/users/:userId/block
+ * @desc    Unblock a previously-blocked user (UC-32)
+ * @access  Private
+ */
+router.delete(
+  '/users/:userId/block',
+  protect,
+  unblockUser
 );
 
 /**
@@ -274,6 +319,59 @@ router.put(
     newPassword:     { required: true, type: 'string', minLength: 8, maxLength: 100 },
   }),
   changePassword
+);
+
+/**
+ * @route   POST /api/auth/email-change
+ * @desc    Request an email address change — sends a confirmation link to the new address
+ * @access  Private
+ */
+router.post(
+  '/email-change',
+  protect,
+  emailChangeLimiter,
+  validateInput({
+    newEmail: { required: true, type: 'string', email: true, maxLength: 254 },
+  }),
+  requestEmailChange
+);
+
+/**
+ * @route   GET /api/auth/email-change/confirm
+ * @desc    Complete a pending email change using the token from the emailed link
+ * @access  Public
+ */
+router.get(
+  '/email-change/confirm',
+  validateQuery({ token: { required: true, type: 'string', minLength: 80, maxLength: 80 } }),
+  confirmEmailChange
+);
+
+/**
+ * @route   POST /api/auth/push-token
+ * @desc    Register (or refresh) this device's Expo push token
+ * @access  Private
+ */
+router.post(
+  '/push-token',
+  protect,
+  validateInput({
+    expoPushToken: { required: true, type: 'string', minLength: 10, maxLength: 200 },
+    platform: { type: 'string', enum: ['ios', 'android', 'web'] },
+  }),
+  registerPushToken
+);
+
+/**
+ * @route   DELETE /api/auth/push-token
+ * @desc    Unregister this device's Expo push token (called on logout)
+ * @access  Private
+ */
+router.delete(
+  '/push-token',
+  protect,
+  validateInput({ expoPushToken: { required: true, type: 'string', minLength: 10, maxLength: 200 } }),
+  unregisterPushToken
 );
 
 module.exports = router;

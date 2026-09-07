@@ -85,6 +85,23 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: undefined
   },
+  // A change-email request in progress. The current `email` field is left
+  // untouched (and keeps working for login) until the link sent to
+  // `pendingEmail` is actually clicked — see confirmEmailChange (UC-28).
+  pendingEmail: {
+    type: String,
+    trim: true,
+    lowercase: true,
+    default: undefined
+  },
+  emailChangeToken: {
+    type: String,
+    default: undefined
+  },
+  emailChangeExpires: {
+    type: Date,
+    default: undefined
+  },
   usernameChangedAt: {
     type: Date,
     default: null
@@ -99,7 +116,36 @@ const UserSchema = new mongoose.Schema({
   notificationPreferences: {
     type: mongoose.Schema.Types.Mixed,
     default: {}
-  }
+  },
+  // Expo push tokens for this user's mobile devices. A user can be logged in
+  // on more than one device, so this is an array rather than a single field;
+  // capped and de-duplicated by token value in the controller.
+  pushTokens: {
+    type: [{
+      token: { type: String, required: true },
+      platform: { type: String, enum: ['ios', 'android', 'web', 'unknown'], default: 'unknown' }
+    }],
+    default: []
+  },
+  // UC-32 — users this account has blocked. One-directional: only affects
+  // what the blocked user can do toward the blocker (currently: viewing the
+  // blocker's public profile), never the reverse. Not enforced against
+  // reporting — blocking someone must not be usable to suppress a
+  // legitimate report against you.
+  blockedUsers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  // Clubs this user has blocked — the reciprocal of a leader/co-leader's
+  // per-club ban (Club.bannedUsers): a user-initiated restriction rather
+  // than a leader-initiated one. Hides the club from search/browse for this
+  // user and blocks future joins (direct join, join request, invite code)
+  // until unblocked. Only ever populated for clubs the user isn't currently
+  // a member of — blocking is offered only after leaving.
+  blockedClubs: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Club'
+  }]
 }, { timestamps: true });
 
 // Hash password before saving

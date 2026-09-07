@@ -101,10 +101,16 @@ const sanitizeString = (value) => {
 const validateInput = (rules) => {
   return (req, res, next) => {
     const errors = [];
-    const sanitizedBody = { ...req.body };
+    // A bodyless request (e.g. a DELETE sent with no Content-Type/body, as a
+    // bare `fetch`/`curl`/Playwright `request.delete()` call commonly does)
+    // leaves express.json() from ever running, so req.body stays `undefined`
+    // rather than `{}` — every rule here must tolerate that, not just routes
+    // where every field happens to be `required`.
+    const body = req.body || {};
+    const sanitizedBody = { ...body };
 
     for (const [field, rule] of Object.entries(rules)) {
-      const value = req.body[field];
+      const value = body[field];
 
       // Check required
       if (rule.required && (value === undefined || value === null || value === '')) {
@@ -225,6 +231,11 @@ const validateQuery = (rules) => {
       // (CodeQL js/type-confusion-through-parameter-tampering).
       if (value !== undefined && typeof value !== 'string') {
         errors.push(`Query parameter '${field}' must be a single value`);
+        continue;
+      }
+
+      if (value && rule.minLength && value.length < rule.minLength) {
+        errors.push(`Query parameter '${field}' must be at least ${rule.minLength} characters`);
         continue;
       }
 

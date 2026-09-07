@@ -2,16 +2,19 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { SkeletonCard } from "../components/Skeleton";
 import { clubsAPI } from "../services/api";
-import { Car, MapPin, Lock, Globe, Users, Calendar, X, Search, Sparkles, ArrowRight, Flag } from "lucide-react";
+import { useClubs } from "../hooks/useClubs";
+import { Car, MapPin, Lock, Globe, Users, Calendar, X, Search, Sparkles, ArrowRight, Flag, Ban, ShieldOff } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 import ReportModal from "../components/ui/ReportModal";
+import BlockedClubsPanel from "../components/ui/BlockedClubsPanel";
 import { MobileDrawerButton } from "../components/ui/MobileDrawer";
 import ClubTagPicker from "../components/ui/ClubTagPicker";
 import { trackEvent } from "../services/analytics";
 
 const FindClub = ({ user, onLogout }) => {
   const navigate = useNavigate();
+  const { refreshClubs } = useClubs();
   const [clubs, setClubs]               = useState([]);
   const [loading, setLoading]           = useState(true);
   const [popularClubs, setPopularClubs] = useState([]);
@@ -27,6 +30,8 @@ const FindClub = ({ user, onLogout }) => {
   const [actionSuccess, setActionSuccess] = useState("");
   const [reportTarget, setReportTarget] = useState(null);
   const [mobilePopularOpen, setMobilePopularOpen] = useState(false);
+  const [blockingId, setBlockingId] = useState(null);
+  const [showBlockedClubs, setShowBlockedClubs] = useState(false);
 
   useEffect(() => {
     clubsAPI.searchPage(undefined, 1, 50)
@@ -75,11 +80,36 @@ const FindClub = ({ user, onLogout }) => {
       if (response.data.success) {
         if (response.data.clubId) {
           trackEvent('CLUB_JOINED', { via: 'browse' });
+          await refreshClubs();
           navigate(`/club/${response.data.clubId}`);
         } else setActionSuccess("Join request sent! Awaiting leader approval.");
       }
     } catch (error) {
       setActionError(error.response?.data?.message || "Failed to join club");
+    }
+  };
+
+  const handleBlockClub = async (clubId, e) => {
+    e.stopPropagation();
+    setActionError('');
+    setActionSuccess('');
+    setBlockingId(clubId);
+    try {
+      const response = await clubsAPI.blockClub(clubId);
+      if (response.data.success) {
+        // Blocked clubs never appear in browse results — mirror that
+        // locally instead of waiting on a refetch, so the card disappears
+        // immediately. The Popular sidebar is a separate, independently
+        // fetched list, so it needs the same local filter or a newly
+        // blocked club can keep showing there too.
+        setClubs((prev) => prev.filter((c) => c._id !== clubId));
+        setPopularClubs((prev) => prev.filter((c) => c._id !== clubId));
+        setActionSuccess("Club blocked. It won't show up in search anymore.");
+      }
+    } catch (error) {
+      setActionError(error.response?.data?.message || "Failed to block club");
+    } finally {
+      setBlockingId(null);
     }
   };
 
@@ -98,6 +128,7 @@ const FindClub = ({ user, onLogout }) => {
           setActionSuccess("Join request sent! Awaiting leader approval.");
         } else {
           trackEvent('CLUB_JOINED', { via: 'inviteCode' });
+          await refreshClubs();
           const clubId = response.data.clubId || response.data.club?._id;
           if (clubId) navigate(`/club/${clubId}`);
           else { setShowJoinModal(false); setActionSuccess("Joined club successfully!"); }
@@ -178,7 +209,7 @@ const FindClub = ({ user, onLogout }) => {
         <Sidebar user={user} />
 
         {/* Main content */}
-        <div id="main-content" role="main" className="flex-1 max-w-4xl min-h-screen p-5 md:p-6">
+        <div id="main-content" role="main" className="flex-1 min-w-0 max-w-4xl min-h-screen p-5 md:p-6">
 
           {/* Page header */}
           <div className="mb-6">
@@ -280,7 +311,7 @@ const FindClub = ({ user, onLogout }) => {
                       <div className="flex-1 min-w-0">
                         {/* Name + badge row */}
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <h3 className="font-semibold text-white group-hover:text-red-400 transition-colors truncate">
+                          <h3 className="font-semibold text-white group-hover:text-red-400 transition-colors truncate min-w-0">
                             {club.name}
                           </h3>
                           {club.isPrivate ? (
@@ -338,6 +369,16 @@ const FindClub = ({ user, onLogout }) => {
                       >
                         <Flag className="w-3.5 h-3.5" />
                       </button>
+                      {!isUserMember(club) && (
+                        <button
+                          onClick={(e) => handleBlockClub(club._id, e)}
+                          disabled={blockingId === club._id}
+                          className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Block club"
+                        >
+                          <Ban className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       {isUserMember(club) ? (
                         <button
                           onClick={(e) => { e.stopPropagation(); navigate(`/club/${club._id}`); }}
@@ -390,7 +431,7 @@ const FindClub = ({ user, onLogout }) => {
         <div
           className={
             mobilePopularOpen
-              ? "flex fixed inset-0 z-50 bg-zinc-950 flex-col p-5 pt-16 overflow-y-auto gap-5 xl:inset-auto xl:z-auto xl:bg-transparent xl:w-72 xl:pt-5 xl:sticky xl:top-[49px] xl:h-[calc(100vh-49px)]"
+              ? "flex fixed inset-0 z-50 bg-zinc-950 flex-col p-5 pt-[calc(4rem+var(--sat))] overflow-y-auto gap-5 xl:inset-auto xl:z-auto xl:bg-transparent xl:w-72 xl:pt-5 xl:sticky xl:top-[49px] xl:h-[calc(100vh-49px)]"
               : "hidden xl:flex xl:flex-col xl:w-72 xl:p-5 xl:sticky xl:top-[49px] xl:h-[calc(100vh-49px)] xl:overflow-y-auto xl:gap-5"
           }
         >
@@ -399,7 +440,7 @@ const FindClub = ({ user, onLogout }) => {
               type="button"
               onClick={() => setMobilePopularOpen(false)}
               aria-label="Close popular clubs"
-              className="xl:hidden absolute top-4 right-4 p-2 rounded-lg bg-zinc-900/80 text-zinc-400 hover:text-white transition-colors"
+              className="xl:hidden absolute top-[calc(1rem+var(--sat))] right-4 p-2 rounded-lg bg-zinc-900/80 text-zinc-400 hover:text-white transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -442,6 +483,15 @@ const FindClub = ({ user, onLogout }) => {
             <Lock className="w-4 h-4" /> Join with Code
           </button>
 
+          {/* Blocked clubs */}
+          <button
+            type="button"
+            onClick={() => setShowBlockedClubs(true)}
+            className="w-full btn-ghost px-4 py-3 text-sm flex items-center justify-center gap-2"
+          >
+            <ShieldOff className="w-4 h-4" /> Blocked Clubs
+          </button>
+
           {/* Why join card */}
           <div className="relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-red-500/8 to-orange-500/6 border border-red-500/15">
             <div className="flex items-start gap-2 mb-3">
@@ -462,6 +512,8 @@ const FindClub = ({ user, onLogout }) => {
           </div>
         </div>
       </div>
+
+      <BlockedClubsPanel isOpen={showBlockedClubs} onClose={() => setShowBlockedClubs(false)} />
 
       {/* Report modal */}
       {reportTarget && (

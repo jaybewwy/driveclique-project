@@ -190,7 +190,7 @@ const Dashboard = ({ user, onLogout }) => {
         <Sidebar user={user} />
 
         {/* ── Main feed ────────────────────────────────────────────────── */}
-        <div id="main-content" role="main" className="flex-1 max-w-3xl min-h-screen p-5 md:p-6">
+        <div id="main-content" role="main" className="flex-1 min-w-0 max-w-3xl min-h-screen p-5 md:p-6">
           <h1 className="sr-only">Dashboard</h1>
 
           {/* Email verification banner */}

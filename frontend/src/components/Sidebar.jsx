@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Home, User, Users, Search, ChevronRight } from "lucide-react";
+import { Home, User, Users, Search, ChevronRight, Calendar } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { drivesAPI } from "../services/api";
 import { useClubs } from "../hooks/useClubs";
@@ -90,6 +90,7 @@ const Sidebar = ({ user }) => {
               badge={scheduledDrivesCount}
               onClick={() => goTo("/dashboard")}
             />
+            <NavItem icon={Calendar} label="Calendar" active={isActive("/calendar")} onClick={() => goTo("/calendar")} />
             <NavItem icon={User} label="Profile" active={isActive("/profile")} onClick={() => goTo("/profile")} />
           </div>
         </div>
@@ -151,7 +152,7 @@ const Sidebar = ({ user }) => {
                       </div>
                     )}
                   </div>
-                  <span className="text-sm text-zinc-400 truncate flex-1 group-hover:text-zinc-200 transition-colors">
+                  <span className="text-sm text-zinc-400 truncate flex-1 min-w-0 group-hover:text-zinc-200 transition-colors">
                     {club.name}
                   </span>
                 </button>

@@ -159,7 +159,7 @@ export function DriveSchedulerPicker({
       <div className="w-full sm:w-52 border-t sm:border-t-0 sm:border-l border-zinc-700 bg-zinc-900 p-4 flex flex-col">
         {/* Header: selected day + 12h/24h toggle */}
         <div className="flex items-center justify-between mb-3 gap-2">
-          <span className="text-xs font-medium text-zinc-300 truncate">{selectedDayLabel}</span>
+          <span className="text-xs font-medium text-zinc-300 truncate min-w-0">{selectedDayLabel}</span>
           <div className="flex shrink-0 gap-0.5 bg-zinc-800 rounded-lg p-0.5">
             {['12h', '24h'].map((fmt) => (
               <button

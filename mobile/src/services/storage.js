@@ -5,6 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const TOKEN_KEY = "driveclique_token";
 const REFRESH_TOKEN_KEY = "driveclique_refresh_token";
 const USER_KEY = "driveclique_user";
+const PUSH_TOKEN_KEY = "driveclique_push_token";
 
 // expo-secure-store has no native module on web (Expo SDK 56). AsyncStorage-on-web
 // (localStorage) is used there instead so the app is testable in a browser; Android/iOS
@@ -30,6 +31,14 @@ export const userStorage = {
   },
   setUser: (user) => AsyncStorage.setItem(USER_KEY, JSON.stringify(user)),
   removeUser: () => AsyncStorage.removeItem(USER_KEY),
+};
+
+// Not a secret (unlike the auth tokens above), just this device's own Expo push
+// token — kept so logout can tell the backend exactly which one to unregister.
+export const pushTokenStorage = {
+  getToken: () => AsyncStorage.getItem(PUSH_TOKEN_KEY),
+  setToken: (token) => AsyncStorage.setItem(PUSH_TOKEN_KEY, token),
+  removeToken: () => AsyncStorage.removeItem(PUSH_TOKEN_KEY),
 };
 
 export const clearSession = async () => {

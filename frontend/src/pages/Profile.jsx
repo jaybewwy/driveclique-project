@@ -1,20 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Car, User, Camera, X, Save, MapPin, Plus, Trash2, Star, Pencil, Activity } from "lucide-react";
+import { Car, User, Camera, X, Save, MapPin, Plus, Trash2, Star, Pencil } from "lucide-react";
 import { authAPI, getErrorMessage } from "../services/api";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 import { compressImage } from "../utils/imageCompressor";
-import { getMyActivitySummary } from "../services/analytics";
-
-const ACTIVITY_LABELS = {
-  CLUB_CREATED:     "Clubs Created",
-  CLUB_JOINED:      "Clubs Joined",
-  DRIVE_SCHEDULED:  "Drives Scheduled",
-  RSVP_SUBMITTED:   "RSVPs Submitted",
-  RATING_SUBMITTED: "Ratings Given",
-  REPORT_SUBMITTED: "Reports Filed",
-};
 
 const MAX_CARS = 5;
 const MAX_PHOTOS_PER_CAR = 4;
@@ -41,16 +31,6 @@ const Profile = ({ onLogout, onUpdateUser }) => {
   const [previewAvatar, setPreviewAvatar] = useState("");
   const [avatarFileName, setAvatarFileName] = useState("");
   const [expandedCarIndex, setExpandedCarIndex] = useState(null);
-  const [activitySummary, setActivitySummary] = useState(null);
-
-  useEffect(() => {
-    getMyActivitySummary()
-      .then((res) => { if (res.data?.success) setActivitySummary(res.data.summary); })
-      // A failure here just means the "Your Activity" card doesn't render (activitySummary
-      // stays null, distinct from a real all-zero summary) — not a fake fallback value —
-      // but still worth logging rather than staying fully silent.
-      .catch((error) => console.error('Failed to load activity summary:', error));
-  }, []);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -234,23 +214,6 @@ const Profile = ({ onLogout, onUpdateUser }) => {
             </div>
           )}
 
-          {activitySummary && (
-            <div className="glass-card p-6 mb-8">
-              <div className="flex items-center gap-2 mb-4">
-                <Activity className="w-4 h-4 text-red-400" />
-                <p className="section-label">Your Activity</p>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {Object.entries(ACTIVITY_LABELS).map(([type, label]) => (
-                  <div key={type}>
-                    <p className="text-2xl font-bold text-white">{activitySummary[type] ?? 0}</p>
-                    <p className="text-xs text-zinc-400">{label}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* Profile Picture and Bio Section */}
             <div className="bg-zinc-900 rounded-3xl p-6">
@@ -342,8 +305,8 @@ const Profile = ({ onLogout, onUpdateUser }) => {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium truncate">{title}</p>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <p className="font-medium truncate min-w-0">{title}</p>
                               {car.isPrimary && (
                                 <span className="flex items-center gap-1 text-[10px] font-medium text-amber-400 bg-amber-900/30 px-2 py-0.5 rounded-full flex-shrink-0">
                                   <Star size={10} className="fill-amber-400" /> Primary
@@ -531,7 +494,7 @@ const Profile = ({ onLogout, onUpdateUser }) => {
               </div>
             )}
             {formData.bio && (
-              <p className="text-zinc-400 text-sm mb-4">{formData.bio}</p>
+              <p className="text-zinc-400 text-sm mb-4 break-words">{formData.bio}</p>
             )}
             {(() => {
               const primaryCar = formData.cars.find(c => c.isPrimary) || formData.cars[0];
