@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
-import { X, Calendar, Clock, MapPin, Navigation, CheckCircle, CalendarDays, ChevronDown, Star } from "lucide-react";
+import { X, Calendar, Clock, MapPin, Navigation, ChevronDown, Star } from "lucide-react";
 import { DriveMapPreview } from "./drive-map-preview";
+import RsvpButtonGroup from "./RsvpButtonGroup";
 
 // Purely presentational: all state (RSVP, check-in, attendees, rating) and every handler
 // stay owned by ClubDetail.jsx, since `selectedDrive` is also shared with the separate
@@ -114,59 +115,13 @@ const DriveDetailModal = ({ drive, isMember, canModerate, onClose, onViewProfile
                     </div>
                   ) : (
                     /* State 2 (drive full) or State 3 (normal) */
-                    <div className="flex gap-3 mb-4">
-                      {/* Going — or Join Waitlist when drive is at capacity */}
-                      {rsvp.counts.going >= (drive?.maxAttendees ?? Infinity) && rsvp.status !== 'going' ? (
-                        <button
-                          type="button"
-                          onClick={() => rsvp.onSubmit('going')}
-                          disabled={rsvp.isLoading}
-                          className="flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 bg-zinc-800 hover:bg-amber-900/30 text-white hover:text-amber-400 border border-zinc-700 hover:border-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <Clock size={18} />
-                          Join Waitlist
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => rsvp.onSubmit('going')}
-                          disabled={rsvp.isLoading}
-                          className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
-                            rsvp.status === 'going'
-                              ? 'bg-green-600 text-white'
-                              : 'bg-zinc-800 hover:bg-green-900/30 text-white hover:text-green-400 border border-zinc-700 hover:border-green-600'
-                          } disabled:opacity-50 disabled:cursor-not-allowed`}
-                        >
-                          <CheckCircle size={18} />
-                          Going
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => rsvp.onSubmit('maybe')}
-                        disabled={rsvp.isLoading}
-                        className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
-                          rsvp.status === 'maybe'
-                            ? 'bg-yellow-600 text-white'
-                            : 'bg-zinc-800 hover:bg-yellow-900/30 text-white hover:text-yellow-400 border border-zinc-700 hover:border-yellow-600'
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                      >
-                        <CalendarDays size={18} />
-                        Maybe
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => rsvp.onSubmit('not-going')}
-                        disabled={rsvp.isLoading}
-                        className={`flex-1 py-3 rounded-2xl font-medium transition flex items-center justify-center gap-2 ${
-                          rsvp.status === 'not-going'
-                            ? 'bg-red-600 text-white'
-                            : 'bg-zinc-800 hover:bg-red-900/30 text-white hover:text-red-400 border border-zinc-700 hover:border-red-600'
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                      >
-                        <X size={18} />
-                        Not Going
-                      </button>
+                    <div className="mb-4">
+                      <RsvpButtonGroup
+                        status={rsvp.status}
+                        isLoading={rsvp.isLoading}
+                        onSubmit={rsvp.onSubmit}
+                        goingAtCapacity={rsvp.counts.going >= (drive?.maxAttendees ?? Infinity) && rsvp.status !== 'going'}
+                      />
                     </div>
                   )}
 

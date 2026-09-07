@@ -5,19 +5,15 @@ import NavBar from "../components/NavBar";
 import Sidebar from "../components/Sidebar";
 import { MobileDrawerButton } from "../components/ui/MobileDrawer";
 import { drivesAPI, getErrorMessage } from "../services/api";
-import { trackEvent } from "../services/analytics";
+import { getUTCDateParts } from "../lib/dateUtils";
+import { useDriveRsvp } from "../hooks/useDriveRsvp";
+import RsvpButtonGroup from "../components/ui/RsvpButtonGroup";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
 const DAY_INITIALS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-
-const RSVP_OPTIONS = [
-  { status: "going", label: "Going", activeClass: "bg-emerald-600/20 text-emerald-400 border-emerald-600/40" },
-  { status: "maybe", label: "Maybe", activeClass: "bg-amber-600/20 text-amber-400 border-amber-600/40" },
-  { status: "not-going", label: "Not Going", activeClass: "bg-zinc-800 text-zinc-300 border-zinc-600" },
-];
 
 const formatDayHeading = (year, month, day) =>
   new Date(year, month - 1, day).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
@@ -35,6 +31,7 @@ const Calendar = ({ user, onLogout }) => {
   const [highlightedDay, setHighlightedDay] = useState(null);
   const [hoveredDay, setHoveredDay] = useState(null);
   const dayGroupRefs = useRef({});
+  const { submitRsvp } = useDriveRsvp();
 
   const fetchMonth = useCallback(() => {
     setLoading(true);
@@ -59,9 +56,14 @@ const Calendar = ({ user, onLogout }) => {
 
   // Group drives by day-of-month — used both by the calendar grid (dots +
   // hover tooltips) and the main list (one card per day, chronological).
+  // Read in UTC, matching how the backend bucketed these drives into this
+  // month in the first place (getCalendarDrives uses Date.UTC boundaries) —
+  // reading with local Date methods here would shift a drive to the wrong
+  // day (or even month) for any viewer whose UTC offset crosses midnight
+  // relative to the drive's stored UTC timestamp.
   const drivesByDay = {};
   drives.forEach((d) => {
-    const day = new Date(d.date).getDate();
+    const { day } = getUTCDateParts(d.date);
     (drivesByDay[day] ||= []).push(d);
   });
   const sortedDaysWithDrives = Object.keys(drivesByDay).map(Number).sort((a, b) => a - b);
@@ -82,14 +84,16 @@ const Calendar = ({ user, onLogout }) => {
     // Optimistic update, corrected right after via a fresh fetch — a full drive
     // may waitlist instead of applying "going" as-is (see rsvpToDrive's capacity
     // path), so the requested status isn't always the one that actually lands.
+    // Submit-then-reconcile sequencing itself lives in useDriveRsvp, shared
+    // with ClubDetail.jsx's own handleRSVP.
     setDrives((prev) => prev.map((d) => (d._id === driveId ? { ...d, myRsvpStatus: status } : d)));
     try {
-      await drivesAPI.rsvp(driveId, status);
-      trackEvent('RSVP_SUBMITTED', { driveId, status });
-      const statusRes = await drivesAPI.getRSVPStatus(driveId);
-      if (statusRes.data.success) {
-        setDrives((prev) => prev.map((d) => (d._id === driveId ? { ...d, myRsvpStatus: statusRes.data.userStatus } : d)));
-      }
+      await submitRsvp(driveId, status, async () => {
+        const statusRes = await drivesAPI.getRSVPStatus(driveId);
+        if (statusRes.data.success) {
+          setDrives((prev) => prev.map((d) => (d._id === driveId ? { ...d, myRsvpStatus: statusRes.data.userStatus } : d)));
+        }
+      });
     } catch (err) {
       setError(getErrorMessage(err));
       fetchMonth(); // re-sync with the server in case the optimistic update was wrong
@@ -113,11 +117,11 @@ const Calendar = ({ user, onLogout }) => {
   const calendarGrid = (
     <>
       <div className="flex items-center justify-between mb-2">
-        <button type="button" onClick={goPrevMonth} aria-label="Previous month" className="p-1.5 hover:bg-white/[0.06] rounded-lg transition">
+        <button type="button" onClick={goPrevMonth} aria-label="View previous month" className="p-1.5 hover:bg-white/[0.06] rounded-lg transition">
           <ChevronLeft className="w-4 h-4" />
         </button>
         <span className="text-sm font-medium">{MONTH_NAMES[month - 1]} {year}</span>
-        <button type="button" onClick={goNextMonth} aria-label="Next month" className="p-1.5 hover:bg-white/[0.06] rounded-lg transition">
+        <button type="button" onClick={goNextMonth} aria-label="View next month" className="p-1.5 hover:bg-white/[0.06] rounded-lg transition">
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
@@ -186,7 +190,7 @@ const Calendar = ({ user, onLogout }) => {
             ))}
           </div>
         ) : (
-          <p className="text-[11px] text-zinc-500 text-center py-4">Hover a highlighted day to preview its drives.</p>
+          <p className="text-[11px] text-zinc-400 text-center py-4">Hover a highlighted day to preview its drives.</p>
         )}
       </div>
     </>
@@ -263,22 +267,13 @@ const Calendar = ({ user, onLogout }) => {
                           </span>
                         ) : (
                           <>
-                            <div className="flex gap-1.5 mt-2.5 max-w-sm">
-                              {RSVP_OPTIONS.map(({ status, label, activeClass }) => (
-                                <button
-                                  key={status}
-                                  type="button"
-                                  disabled={rsvpLoadingId === drive._id}
-                                  onClick={() => handleRsvp(drive._id, status)}
-                                  className={`flex-1 text-[11px] font-medium px-2 py-1.5 rounded-lg border transition disabled:opacity-50 disabled:cursor-not-allowed ${
-                                    drive.myRsvpStatus === status
-                                      ? activeClass
-                                      : "bg-transparent text-zinc-400 border-zinc-700 hover:border-zinc-600 hover:text-white"
-                                  }`}
-                                >
-                                  {label}
-                                </button>
-                              ))}
+                            <div className="mt-2.5 max-w-sm">
+                              <RsvpButtonGroup
+                                status={drive.myRsvpStatus}
+                                isLoading={rsvpLoadingId === drive._id}
+                                onSubmit={(status) => handleRsvp(drive._id, status)}
+                                size="compact"
+                              />
                             </div>
                             {drive.myRsvpStatus === "waitlisted" && (
                               <span className="inline-block mt-2 text-[11px] px-2 py-0.5 rounded-full bg-sky-600/20 text-sky-400 border border-sky-600/40">

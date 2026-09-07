@@ -5,6 +5,7 @@
  */
 
 import axios from 'axios';
+import { PUBLIC_ROUTES } from '../lib/publicRoutes';
 
 // API base URL — env var is required in production/Capacitor builds.
 const API_BASE_URL = import.meta.env.VITE_API_URL
@@ -48,10 +49,7 @@ let _isRefreshing = false;
 let _refreshSubscribers = [];
 
 // Pages that are intentionally unauthenticated — never redirect away from these
-const _isPublicPath = () =>
-  ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/confirm-email-change'].includes(
-    window.location.pathname
-  );
+const _isPublicPath = () => PUBLIC_ROUTES.includes(window.location.pathname);
 
 const onRefreshed = (newToken) => {
   _refreshSubscribers.forEach(cb => cb(newToken));

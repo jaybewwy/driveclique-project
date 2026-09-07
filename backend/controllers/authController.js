@@ -11,6 +11,7 @@ const { validateInput, isValidEmail, isValidUsername } = require('../middleware/
 const { sendEmail, emailTemplates } = require('../services/emailService');
 const { verifyEmailAddress } = require('../services/emailVerifier');
 const { escapeRegex } = require('../utils/regex');
+const { capArray } = require('../utils/arrayCap');
 
 const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -28,12 +29,23 @@ const isPasswordReused = async (plainPassword, user) => {
 /** SHA-256 hex digest — used to store secure random tokens (refresh/reset/verify) at rest without keeping the raw, directly-usable value in the DB */
 const hashToken = (rawToken) => crypto.createHash('sha256').update(rawToken).digest('hex');
 
+/** Cryptographically secure random raw token — the single-use value sent to the client (email link or response body) before being hashed for storage via hashToken() */
+const generateRawToken = () => crypto.randomBytes(40).toString('hex');
+
+/** Frontend base URL used to build emailed confirmation/reset links */
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+/** Shared 24-hour expiry window for email-verification and email-change confirmation links (forgotPassword's reset-token window is deliberately shorter — 1 hour — and is not part of this shared constant) */
+const TOKEN_TTL_24H = 24 * 60 * 60 * 1000;
+
 const MAX_CARS = 5;
 const MAX_PHOTOS_PER_CAR = 4;
 
 /** Caps car/photo counts and ensures exactly one car is flagged primary (if any exist) */
 const normalizeCars = (cars) => {
-  const trimmed = cars.slice(0, MAX_CARS).map(car => ({
+  // 'start' keeps the first MAX_CARS entries submitted, matching this
+  // function's original `cars.slice(0, MAX_CARS)` behavior exactly.
+  const trimmed = capArray(cars, MAX_CARS, 'start').map(car => ({
     year: car.year || '',
     make: car.make || '',
     model: car.model || '',
@@ -61,7 +73,7 @@ const generateAccessToken = (userId) =>
  * session; the raw value only ever exists in the response body and the client.
  */
 const createRefreshToken = async (userId) => {
-  const token = crypto.randomBytes(40).toString('hex');
+  const token = generateRawToken();
   const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
   await RefreshToken.create({ token: hashToken(token), user: userId, expiresAt });
   return token;
@@ -342,14 +354,13 @@ const forgotPassword = asyncHandler(async (req, res) => {
   const user = await User.findOne({ email: email.toLowerCase() });
   if (!user) return genericResponse();
 
-  const rawToken = crypto.randomBytes(40).toString('hex');
+  const rawToken = generateRawToken();
 
   user.passwordResetToken = hashToken(rawToken);
-  user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+  user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour — intentionally shorter than TOKEN_TTL_24H, not a duplicate of it
   await user.save();
 
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-  const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`;
+  const resetUrl = `${FRONTEND_URL}/reset-password?token=${rawToken}`;
 
   const { subject, html } = emailTemplates.passwordReset({ resetUrl, username: user.username });
   sendEmail({ to: user.email, subject, html }); // fire-and-forget
@@ -422,13 +433,12 @@ const resendVerification = asyncHandler(async (req, res) => {
     return res.json({ success: true, message: 'Your email is already verified.' });
   }
 
-  const rawToken = crypto.randomBytes(40).toString('hex');
+  const rawToken = generateRawToken();
   user.emailVerifyToken = hashToken(rawToken);
-  user.emailVerifyExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  user.emailVerifyExpiry = new Date(Date.now() + TOKEN_TTL_24H);
   await user.save();
 
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-  const verifyUrl = `${frontendUrl}/verify-email?token=${rawToken}`;
+  const verifyUrl = `${FRONTEND_URL}/verify-email?token=${rawToken}`;
   const { subject, html } = emailTemplates.emailVerification({ verifyUrl, username: user.username });
   sendEmail({ to: user.email, subject, html }); // fire-and-forget
 
@@ -562,8 +572,6 @@ const changeUsername = asyncHandler(async (req, res) => {
   });
 });
 
-const EMAIL_CHANGE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours, matches emailVerifyExpiry's window
-
 /**
  * POST /api/auth/email-change — request changing the account's email address.
  * Sends a confirmation link to the NEW address; the current email keeps
@@ -589,14 +597,13 @@ const requestEmailChange = asyncHandler(async (req, res) => {
     throw new AppError(verifyResult.reason || 'That email address could not be verified.', 400);
   }
 
-  const rawToken = crypto.randomBytes(40).toString('hex');
+  const rawToken = generateRawToken();
   user.pendingEmail = normalizedEmail;
   user.emailChangeToken = hashToken(rawToken);
-  user.emailChangeExpires = new Date(Date.now() + EMAIL_CHANGE_TTL_MS);
+  user.emailChangeExpires = new Date(Date.now() + TOKEN_TTL_24H);
   await user.save();
 
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-  const confirmUrl = `${frontendUrl}/confirm-email-change?token=${rawToken}`;
+  const confirmUrl = `${FRONTEND_URL}/confirm-email-change?token=${rawToken}`;
   const { subject, html } = emailTemplates.emailChangeVerification({
     confirmUrl,
     username: user.username,
@@ -659,20 +666,64 @@ const MAX_PUSH_TOKENS = 10; // small-cap convention (see MAX_CARS above) — bou
 const registerPushToken = asyncHandler(async (req, res) => {
   const { expoPushToken, platform } = req.body;
 
-  const user = await User.findById(req.user.id);
-  if (!user) throw new AppError('User not found', 404);
+  // A single atomic aggregation-pipeline update, not a findById -> mutate in
+  // JS -> save() round trip: the previous version read the whole document,
+  // edited pushTokens in memory, then wrote the whole document back — a
+  // lost-update race whenever two registrations for the same user land
+  // close together (two devices registering at once, or a duplicate/retried
+  // request for the very same token), since whichever save() landed second
+  // silently overwrote the first's change. This pipeline does everything in
+  // one atomic write: if the token is already present, its entry is updated
+  // in place (preserving the existing platform when none is supplied —
+  // `platform || '$$t.platform'` embeds either the literal new value or a
+  // reference back to the current document's own field, matching the
+  // original code's "only overwrite platform if truthy" rule exactly);
+  // otherwise the token is appended. Either way the array is then capped to
+  // the last MAX_PUSH_TOKENS entries.
+  const result = await User.updateOne(
+    { _id: req.user.id },
+    [
+      {
+        $set: {
+          pushTokens: {
+            $let: {
+              vars: {
+                all: { $ifNull: ['$pushTokens', []] },
+                hasExisting: { $in: [expoPushToken, { $ifNull: ['$pushTokens.token', []] }] },
+              },
+              in: {
+                $slice: [
+                  {
+                    $cond: [
+                      '$$hasExisting',
+                      {
+                        $map: {
+                          input: '$$all',
+                          as: 't',
+                          in: {
+                            $cond: [
+                              { $eq: ['$$t.token', expoPushToken] },
+                              { token: '$$t.token', platform: platform || '$$t.platform' },
+                              '$$t',
+                            ],
+                          },
+                        },
+                      },
+                      { $concatArrays: ['$$all', [{ token: expoPushToken, platform: platform || 'unknown' }]] },
+                    ],
+                  },
+                  -MAX_PUSH_TOKENS,
+                ],
+              },
+            },
+          },
+        },
+      },
+    ],
+    { updatePipeline: true } // required by Mongoose 9.x to accept an array (aggregation pipeline) as the update
+  );
 
-  const existing = user.pushTokens.find(t => t.token === expoPushToken);
-  if (existing) {
-    if (platform) existing.platform = platform;
-  } else {
-    user.pushTokens.push({ token: expoPushToken, platform: platform || 'unknown' });
-    // Keep the array bounded — drop the oldest entries first if over the cap.
-    if (user.pushTokens.length > MAX_PUSH_TOKENS) {
-      user.pushTokens.splice(0, user.pushTokens.length - MAX_PUSH_TOKENS);
-    }
-  }
-  await user.save();
+  if (result.matchedCount === 0) throw new AppError('User not found', 404);
 
   res.json({ success: true, message: 'Push token registered.' });
 });

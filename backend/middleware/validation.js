@@ -228,6 +228,11 @@ const validateQuery = (rules) => {
         continue;
       }
 
+      if (value && rule.minLength && value.length < rule.minLength) {
+        errors.push(`Query parameter '${field}' must be at least ${rule.minLength} characters`);
+        continue;
+      }
+
       if (value && rule.maxLength && value.length > rule.maxLength) {
         errors.push(`Query parameter '${field}' must be at most ${rule.maxLength} characters`);
         continue;

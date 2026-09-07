@@ -30,14 +30,15 @@ import ReportModal from "../components/ui/ReportModal";
 import AnnouncementsSection from "../components/ui/AnnouncementsSection";
 import ScheduleDriveModal from "../components/ui/ScheduleDriveModal";
 import DriveDetailModal from "../components/ui/DriveDetailModal";
+import EditDriveModal from "../components/ui/EditDriveModal";
 import MemberProfilePanel from "../components/ui/MemberProfilePanel";
 import ClubTagPicker from "../components/ui/ClubTagPicker";
 import { compressImage } from "../utils/imageCompressor";
 import { clubsAPI, drivesAPI, authAPI } from "../services/api";
 import { LocationSearch } from "../components/ui/location-search";
-import { DriveMapPicker } from "../components/ui/drive-map-picker";
 import { MobileDrawerButton } from "../components/ui/MobileDrawer";
 import { useDocumentFocusTrap } from "../hooks/useFocusTrap";
+import { useDriveRsvp } from "../hooks/useDriveRsvp";
 import { trackEvent } from "../services/analytics";
 import { useClubs } from "../hooks/useClubs";
 
@@ -63,8 +64,11 @@ const ClubDetail = ({ user, onLogout }) => {
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [mobileInfoOpen, setMobileInfoOpen] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(null);
+  // Edit Drive modal — open/close state (and selectedDrive, above) stay here
+  // since both participate in the shared overlay focus-trap/Escape handling
+  // below and selectedDrive is also read by the separate drive-detail view
+  // modal; the form's own draft state lives in EditDriveModal.
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editFormData, setEditFormData] = useState({});
   const [showClubEditModal, setShowClubEditModal] = useState(false);
   const [clubEditFormData, setClubEditFormData] = useState({});
   const [clubAvatarPreview, setClubAvatarPreview] = useState('');
@@ -78,7 +82,7 @@ const ClubDetail = ({ user, onLogout }) => {
   const [userRSVP, setUserRSVP] = useState(null); // 'going', 'maybe', 'not-going', 'waitlisted', or null
   const [userWaitlistPosition, setUserWaitlistPosition] = useState(null);
   const [rsvpCounts, setRsvpCounts] = useState({ going: 0, maybe: 0, notGoing: 0, waitlisted: 0 });
-  const [isRSVPLoading, setIsRSVPLoading] = useState(false);
+  const { isSubmitting: isRSVPLoading, submitRsvp } = useDriveRsvp();
   const [rsvpMessage, setRsvpMessage] = useState('');
 
   // Check-in state (modal-scoped — reset when modal closes)
@@ -400,33 +404,33 @@ const ClubDetail = ({ user, onLogout }) => {
     }
   };
 
-  // Handle RSVP submission (for modal)
+  // Handle RSVP submission (for modal). Submit-then-reconcile sequencing
+  // (never trust the requested status as final — a full drive can silently
+  // waitlist instead) lives in useDriveRsvp, shared with Calendar.jsx;
+  // fetchDriveRSVPData is passed in as the reconcile step since it also
+  // refreshes check-in counts and the page-wide driveRSVPCounts map that
+  // only this page owns.
   const handleRSVP = async (status) => {
     if (isRSVPLoading) return;
-    
-    setIsRSVPLoading(true);
-    setRsvpMessage('');
-    
-    try {
-      const response = await drivesAPI.rsvp(selectedDrive._id, status);
-      
-      if (response.data?.success) {
-        setUserRSVP(status);
-        setRsvpMessage(response.data.message);
-        trackEvent('RSVP_SUBMITTED', { driveId: selectedDrive._id, status });
 
-        // Refresh RSVP counts
-        await fetchDriveRSVPData(selectedDrive._id);
-        
-        // Clear message after 3 seconds
+    setRsvpMessage('');
+
+    try {
+      // submitRsvp's reconcile step (fetchDriveRSVPData) already sets
+      // userRSVP to the server's authoritative resulting status before this
+      // await resolves — do not also set it here from the requested
+      // `status`, which can silently overwrite a correct 'waitlisted' result
+      // with the optimistic 'going' the user merely asked for (Invariant #5).
+      const data = await submitRsvp(selectedDrive._id, status, () => fetchDriveRSVPData(selectedDrive._id));
+
+      if (data?.success) {
+        setRsvpMessage(data.message);
         setTimeout(() => setRsvpMessage(''), 3000);
       }
     } catch (error) {
       console.error('Error submitting RSVP:', error);
       setRsvpMessage(error.response?.data?.message || 'Failed to submit RSVP');
       setTimeout(() => setRsvpMessage(''), 3000);
-    } finally {
-      setIsRSVPLoading(false);
     }
   };
 
@@ -495,33 +499,18 @@ const ClubDetail = ({ user, onLogout }) => {
   };
 
   const handleEditDrive = (drive) => {
-    setEditFormData({
-      name: drive.name,
-      date: new Date(drive.date).toISOString().split('T')[0],
-      time: drive.time || '',
-      location: drive.location || '',
-      coordinates: drive.coordinates || null,
-      description: drive.description || '',
-    });
     setSelectedDrive(drive);
     setShowEditModal(true);
     setShowActionMenu(null);
   };
 
-  const handleUpdateDrive = async () => {
-    try {
-      const updateData = { ...editFormData };
-      if (updateData.date) updateData.date = new Date(updateData.date).toISOString();
-      const response = await drivesAPI.update(selectedDrive._id, updateData);
-      if (response.data?.success) {
-        setDrives(drives.map(d => d._id === selectedDrive._id ? response.data.drive : d));
-        setShowEditModal(false);
-        setSelectedDrive(null);
-        setEditFormData({});
-      }
-    } catch (error) {
-      console.error("Error updating drive:", error);
-    }
+  // EditDriveModal makes its own drivesAPI.update() call and hands back the
+  // fresh drive object on success; this just applies it to the shared
+  // `drives` array (also read by upcomingDrives/pastDrives below) and closes.
+  const handleDriveUpdated = (updatedDrive) => {
+    setDrives(drives.map(d => d._id === updatedDrive._id ? updatedDrive : d));
+    setShowEditModal(false);
+    setSelectedDrive(null);
   };
 
   // Club edit handlers
@@ -1634,111 +1623,11 @@ const ClubDetail = ({ user, onLogout }) => {
 
       {/* Edit Drive Modal */}
       {showEditModal && selectedDrive && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div role="dialog" aria-modal="true" aria-labelledby="edit-drive-modal-title" tabIndex={-1} className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <h2 id="edit-drive-modal-title" className="text-2xl font-bold">Edit Drive</h2>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowEditModal(false);
-                  setSelectedDrive(null);
-                }}
-                aria-label="Dismiss drive editor"
-                className="text-zinc-400 hover:text-white transition"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="edit-drive-name" className="block text-sm text-zinc-400 mb-2">Name</label>
-                <input
-                  id="edit-drive-name"
-                  type="text"
-                  value={editFormData.name || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-                  className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-600"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="edit-drive-date" className="block text-sm text-zinc-400 mb-2">Date</label>
-                <input
-                  id="edit-drive-date"
-                  type="date"
-                  value={editFormData.date || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
-                  className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-600"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="edit-drive-time" className="block text-sm text-zinc-400 mb-2">Time</label>
-                <input
-                  id="edit-drive-time"
-                  type="text"
-                  value={editFormData.time || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, time: e.target.value })}
-                  placeholder="e.g., 10:00 AM"
-                  className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-600"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="edit-drive-location" className="block text-sm text-zinc-400 mb-2">Location</label>
-                <LocationSearch
-                  id="edit-drive-location"
-                  value={editFormData.location || ''}
-                  onChange={(v) => setEditFormData({ ...editFormData, location: v })}
-                  onSelect={({ lat, lng }) => setEditFormData({ ...editFormData, coordinates: { lat, lng } })}
-                />
-                {editFormData.coordinates?.lat && (
-                  <div className="mt-3 space-y-1">
-                    <DriveMapPicker
-                      lat={editFormData.coordinates.lat}
-                      lng={editFormData.coordinates.lng}
-                      onChange={(coords) => setEditFormData({ ...editFormData, coordinates: coords })}
-                    />
-                    <p className="text-[11px] text-zinc-400">Drag the pin to fine-tune the exact meeting point.</p>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label htmlFor="edit-drive-description" className="block text-sm text-zinc-400 mb-2">Description</label>
-                <textarea
-                  id="edit-drive-description"
-                  value={editFormData.description || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
-                  rows={3}
-                  className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-600 resize-none"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setSelectedDrive(null);
-                  }}
-                  className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-3 rounded-2xl font-medium transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleUpdateDrive}
-                  className="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-2xl font-medium transition"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <EditDriveModal
+          drive={selectedDrive}
+          onClose={() => { setShowEditModal(false); setSelectedDrive(null); }}
+          onSave={handleDriveUpdated}
+        />
       )}
 
       {showDriveModal && selectedDrive && (

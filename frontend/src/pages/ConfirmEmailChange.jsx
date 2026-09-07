@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Car, CheckCircle, XCircle } from 'lucide-react';
 import { authAPI } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
+import TokenConfirmationCard from '../components/ui/TokenConfirmationCard';
 
 const ConfirmEmailChange = () => {
   const [searchParams] = useSearchParams();
@@ -10,7 +10,7 @@ const ConfirmEmailChange = () => {
   const navigate = useNavigate();
   const { user, updateUser } = useAuth();
 
-  const [status, setStatus] = useState('confirming'); // 'confirming' | 'success' | 'error'
+  const [status, setStatus] = useState('pending'); // 'pending' | 'success' | 'error'
   const [errorMsg, setErrorMsg] = useState('');
   const [newEmail, setNewEmail] = useState('');
 
@@ -48,70 +48,29 @@ const ConfirmEmailChange = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  const chrome = (
-    <div className="text-center mb-10">
-      <Car className="w-16 h-16 mx-auto text-red-500 mb-4" />
-      <h1 className="text-5xl font-bold">DriveClique</h1>
-      <p className="text-zinc-400 mt-2">Connect. Drive. Repeat.</p>
-    </div>
-  );
-
-  if (status === 'confirming') {
-    return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
-        <div className="w-full max-w-md">
-          {chrome}
-          <div className="bg-zinc-900 rounded-3xl p-10 text-center">
-            <div className="w-12 h-12 border-4 border-zinc-700 border-t-red-500 rounded-full animate-spin mx-auto mb-6" />
-            <p className="text-zinc-400">Confirming your new email address…</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === 'success') {
-    return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
-        <div className="w-full max-w-md">
-          {chrome}
-          <div className="bg-zinc-900 rounded-3xl p-10 text-center">
-            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-6" />
-            <h2 className="text-3xl font-bold mb-4">Email updated!</h2>
-            <p className="text-zinc-300 mb-8">
-              {newEmail
-                ? <>Your account email is now <strong>{newEmail}</strong>. Use it to sign in from now on.</>
-                : 'Your account email has been updated.'}
-            </p>
-            <button
-              onClick={() => navigate(user ? '/settings' : '/login')}
-              className="w-full bg-red-600 hover:bg-red-700 py-4 rounded-2xl font-semibold text-lg transition"
-            >
-              {user ? 'Back to Settings' : 'Sign In'}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
-      <div className="w-full max-w-md">
-        {chrome}
-        <div className="bg-zinc-900 rounded-3xl p-10 text-center">
-          <XCircle className="w-16 h-16 text-red-500 mx-auto mb-6" />
-          <h2 className="text-3xl font-bold mb-4">Confirmation failed</h2>
-          <p className="text-zinc-400 mb-8">{errorMsg}</p>
-          <button
-            onClick={() => navigate(user ? '/settings' : '/login')}
-            className="w-full bg-red-600 hover:bg-red-700 py-4 rounded-2xl font-semibold text-lg transition"
-          >
-            {user ? 'Back to Settings' : 'Sign In'}
-          </button>
-        </div>
-      </div>
-    </div>
+    <TokenConfirmationCard
+      status={status}
+      pendingBody="Confirming your new email address…"
+      successTitle="Email updated!"
+      successBody={
+        newEmail
+          ? <>Your account email is now <strong>{newEmail}</strong>. Use it to sign in from now on.</>
+          : 'Your account email has been updated.'
+      }
+      successPrimaryLabel={user ? 'Back to Settings' : 'Sign In'}
+      onSuccessPrimary={() => navigate(user ? '/settings' : '/login')}
+      errorTitle="Confirmation failed"
+      errorBody={errorMsg}
+      errorActions={
+        <button
+          onClick={() => navigate(user ? '/settings' : '/login')}
+          className="w-full bg-red-600 hover:bg-red-700 py-4 rounded-2xl font-semibold text-lg transition"
+        >
+          {user ? 'Back to Settings' : 'Sign In'}
+        </button>
+      }
+    />
   );
 };
 
