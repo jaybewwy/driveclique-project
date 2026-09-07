@@ -99,8 +99,11 @@ const FindClub = ({ user, onLogout }) => {
       if (response.data.success) {
         // Blocked clubs never appear in browse results — mirror that
         // locally instead of waiting on a refetch, so the card disappears
-        // immediately.
+        // immediately. The Popular sidebar is a separate, independently
+        // fetched list, so it needs the same local filter or a newly
+        // blocked club can keep showing there too.
         setClubs((prev) => prev.filter((c) => c._id !== clubId));
+        setPopularClubs((prev) => prev.filter((c) => c._id !== clubId));
         setActionSuccess("Club blocked. It won't show up in search anymore.");
       }
     } catch (error) {
