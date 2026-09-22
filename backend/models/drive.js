@@ -60,6 +60,13 @@ const DriveSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  // Post-drive photo gallery (UC-5) — leader/co-leader curated, hard-capped at
+  // 12 total (enforced in driveController, not here — same convention as
+  // User.cars[].photos, which also has no schema-level cap).
+  photos: {
+    type: [String],
+    default: []
+  },
   // Completion field
   isCompleted: {
       type: Boolean,
@@ -71,11 +78,21 @@ const DriveSchema = new mongoose.Schema({
   // Check-in request timestamp (UC-08) — re-set on every leader resend, cleared check-in stays open until isCompleted
   checkInRequestedAt: {
       type: Date
+  },
+  // Recurring drive series (UC-11) — absent for one-off drives. Each occurrence
+  // in a series is its own full Drive document; this just links them together.
+  recurrence: {
+    groupId: { type: mongoose.Schema.Types.ObjectId },
+    frequency: { type: String, enum: ['weekly', 'biweekly', 'monthly'] },
+    index: { type: Number },
+    total: { type: Number },
   }
 }, { timestamps: true });
 
 DriveSchema.index({ club: 1, date: 1 });
 // createdBy queried in getClubAnalytics and drive ownership checks
 DriveSchema.index({ createdBy: 1 });
+// Fetch/cancel a whole recurring series by its shared groupId
+DriveSchema.index({ 'recurrence.groupId': 1 });
 
 module.exports = mongoose.model('Drive', DriveSchema);

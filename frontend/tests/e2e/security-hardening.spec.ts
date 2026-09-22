@@ -127,6 +127,46 @@ test('changing password revokes the refresh token issued before the change', asy
   expect(refreshRes.status()).toBe(401);
 });
 
+test('changing password also clears registered push tokens, not just refresh tokens', async ({ request }) => {
+  // Registers a fresh account specifically for this test — the `leader` account
+  // above already changed its password in the previous test, and re-using it
+  // here would conflate "token cleared by this change" with "cleared by that one."
+  const pushUser = {
+    username: `sechardpush_${randomAlnum(6)}`,
+    email: `sechardpush_${suffix}@mail.com`,
+    password: 'SecurePass123!',
+    firstName: 'Sec', lastName: 'Push', location: 'Toronto, Ontario, Canada',
+  };
+  const regRes = await request.post(`${API}/auth/register`, { data: pushUser });
+  expect(regRes.status()).toBe(201);
+  const token = (await regRes.json()).token;
+
+  const registerRes = await request.post(`${API}/auth/push-token`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { expoPushToken: `ExponentPushToken[test-${suffix}-pw]`, platform: 'android' },
+  });
+  expect(registerRes.status()).toBe(200);
+
+  const beforeProfile = await request.get(`${API}/auth/profile`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect((await beforeProfile.json()).user.pushTokens).toHaveLength(1);
+
+  const changeRes = await request.put(`${API}/auth/password`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { currentPassword: pushUser.password, newPassword: 'AnotherSecurePass456!' },
+  });
+  expect(changeRes.status()).toBe(200);
+
+  // A device that had this account's push token registered should stop
+  // receiving notifications once the password that authorized it is gone —
+  // same reasoning as revoking the refresh token, just for the push channel.
+  const afterProfile = await request.get(`${API}/auth/profile`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect((await afterProfile.json()).user.pushTokens).toHaveLength(0);
+});
+
 test('a fresh login after the password change gets a working new refresh token', async ({ request }) => {
   const loginRes = await request.post(`${API}/auth/login`, {
     data: { username: leader.username, password: 'AnotherSecurePass456!' },

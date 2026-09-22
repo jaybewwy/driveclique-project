@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Calendar, Clock, MapPin, Navigation, ChevronDown, Star, CalendarPlus } from "lucide-react";
+import { X, Calendar, Clock, MapPin, Navigation, ChevronDown, Star, CalendarPlus, ImagePlus } from "lucide-react";
 import { DriveMapPreview } from "./drive-map-preview";
 import RsvpButtonGroup from "./RsvpButtonGroup";
 import { drivesAPI, getErrorMessage } from "../../services/api";
@@ -16,7 +16,7 @@ import { downloadBlobResponse } from "../../lib/downloadBlob";
 // Directions" link right above it in the JSX, it has zero shared state with
 // the rest of the page (no counts/state ClubDetail.jsx or any sibling
 // section reads), so it's handled entirely locally rather than lifted.
-const DriveDetailModal = ({ drive, isMember, canModerate, onClose, onViewProfile, rsvp, checkin, attendees, rating }) => {
+const DriveDetailModal = ({ drive, isMember, canModerate, onClose, onViewProfile, rsvp, checkin, attendees, rating, photos }) => {
   const navigate = useNavigate();
   const [isExportingIcs, setIsExportingIcs] = useState(false);
   const [icsExportError, setIcsExportError] = useState("");
@@ -388,6 +388,68 @@ const DriveDetailModal = ({ drive, isMember, canModerate, onClose, onViewProfile
                 rating.summary.count === 0 && (
                   <p className="text-sm text-zinc-400">No ratings yet for this drive.</p>
                 )
+              )}
+            </div>
+          )}
+
+          {/* Photo Gallery (UC-5) — leader/co-leader curated, only once the drive
+              is completed. Hidden entirely for non-moderators when empty, so it
+              doesn't clutter every completed drive with an empty placeholder. */}
+          {drive.isCompleted && ((drive.photos?.length ?? 0) > 0 || photos.canModerate) && (
+            <div className="border-t border-zinc-700 pt-6">
+              <h3 className="text-lg font-semibold mb-3">Photos</h3>
+
+              {(drive.photos?.length ?? 0) > 0 ? (
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  {drive.photos.map((src, index) => (
+                    <div key={index} className="relative aspect-square">
+                      <img
+                        src={src}
+                        alt={`Drive photo ${index + 1}`}
+                        className="w-full h-full object-cover rounded-xl border border-zinc-800"
+                      />
+                      {photos.canModerate && (
+                        <button
+                          type="button"
+                          onClick={() => photos.onRemove(index)}
+                          aria-label={`Remove drive photo ${index + 1}`}
+                          className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 p-1 rounded-lg transition"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-zinc-400 mb-4">No photos yet.</p>
+              )}
+
+              {photos.canModerate && (
+                <>
+                  {(drive.photos?.length ?? 0) < 12 ? (
+                    <label className="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed border-zinc-700 rounded-xl cursor-pointer hover:border-zinc-500 transition">
+                      <ImagePlus size={18} className="text-zinc-400 mb-1" />
+                      <span className="text-xs text-zinc-400">
+                        {photos.isUploading ? 'Uploading…' : `Add photos (${drive.photos?.length ?? 0}/12)`}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        disabled={photos.isUploading}
+                        onChange={(e) => {
+                          photos.onAdd(e.target.files);
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                  ) : (
+                    <p className="text-xs text-zinc-400 text-center">Gallery is full (12/12 photos).</p>
+                  )}
+                  {photos.error && <p className="text-red-400 text-xs mt-2">{photos.error}</p>}
+                </>
               )}
             </div>
           )}

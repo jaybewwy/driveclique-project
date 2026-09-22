@@ -448,6 +448,10 @@ const resetPassword = asyncHandler(async (req, res) => {
   user.password = password;
   user.passwordResetToken = undefined;
   user.passwordResetExpires = undefined;
+  // A stolen/lost device's push token is still a live channel to this account
+  // even after the password that compromised it is gone — clear it the same
+  // way stale refresh tokens are, rather than leaving it to expire on its own.
+  user.pushTokens = [];
   await user.save();
 
   // A password reset means any previously-issued session (including one held
@@ -574,6 +578,10 @@ const changePassword = asyncHandler(async (req, res) => {
 
   user.passwordHistory = [user.password, ...(user.passwordHistory || [])].slice(0, PASSWORD_HISTORY_LIMIT);
   user.password = newPassword;
+  // Same reasoning as resetPassword: a lost device's push token outlives the
+  // session it was registered under, so it needs clearing here too, not just
+  // the refresh token.
+  user.pushTokens = [];
   await user.save(); // pre-save hook re-hashes when password is modified
 
   // Revoke every outstanding session (this one included) so a stolen refresh

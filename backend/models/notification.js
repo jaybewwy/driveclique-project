@@ -15,6 +15,7 @@ const NOTIFICATION_TYPES = [
   'NEW_ANNOUNCEMENT',
   'COLEADER_PROMOTED',
   'COLEADER_DEMOTED',
+  'DRIVE_PHOTOS_ADDED',
 ];
 
 const NotificationSchema = new mongoose.Schema({

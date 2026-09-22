@@ -110,6 +110,10 @@ const ClubDetail = ({ user, onLogout }) => {
   // Persistent per-drive RSVP counts (survive modal close, used by drive cards)
   const [driveRSVPCounts, setDriveRSVPCounts] = useState({});
 
+  // Post-drive photo gallery state (UC-5, modal-scoped — reset when modal closes)
+  const [isUploadingDrivePhotos, setIsUploadingDrivePhotos] = useState(false);
+  const [drivePhotosError, setDrivePhotosError] = useState('');
+
   // Schedule Drive modal — open/close state stays here since it participates in the
   // shared overlay focus-trap/Escape handling below; form fields live in ScheduleDriveModal
   const [showScheduleDriveModal, setShowScheduleDriveModal] = useState(false);
@@ -145,6 +149,9 @@ const ClubDetail = ({ user, onLogout }) => {
   const [driveToCancel, setDriveToCancel] = useState(null);
   const [cancelDriveReason, setCancelDriveReason] = useState('');
   const [cancelDriveError, setCancelDriveError] = useState('');
+  // Recurring series (UC-11) — leader-only option shown when the drive being
+  // cancelled has remaining occurrences in its series.
+  const [cancelWholeSeries, setCancelWholeSeries] = useState(false);
 
   // Report modal state
   const [reportTarget, setReportTarget] = useState(null); // { type, id, name }
@@ -306,6 +313,7 @@ const ClubDetail = ({ user, onLogout }) => {
     setRatingHoverStars(0);
     setRatingComment('');
     setRatingMessage('');
+    setDrivePhotosError('');
   };
 
   // Fetch the average rating + the current user's own rating (if any) for a completed drive
@@ -415,6 +423,52 @@ const ClubDetail = ({ user, onLogout }) => {
     }
   };
 
+  // Apply an updated photos array to both the open modal's drive and the
+  // club's drive list, so the change survives closing/reopening the modal.
+  const applyDrivePhotos = (driveId, photos) => {
+    setSelectedDrive((prev) => (prev && prev._id === driveId ? { ...prev, photos } : prev));
+    setDrives((prev) => prev.map((d) => (d._id === driveId ? { ...d, photos } : d)));
+  };
+
+  // Leader/co-leader adds photos to a completed drive's gallery (UC-5).
+  // Compresses each file the same way avatar/car-photo uploads do elsewhere
+  // in this file, just at a larger size to keep more detail in the gallery.
+  const handleAddDrivePhotos = async (files) => {
+    if (!selectedDrive || !files || files.length === 0) return;
+    setIsUploadingDrivePhotos(true);
+    setDrivePhotosError('');
+    try {
+      const compressed = await Promise.all(
+        Array.from(files).map((file) => compressImage(file, 800, 800))
+      );
+      const response = await drivesAPI.addPhotos(
+        selectedDrive._id,
+        compressed.map((r) => r.compressedData)
+      );
+      if (response.data?.success) {
+        applyDrivePhotos(selectedDrive._id, response.data.photos);
+      }
+    } catch (error) {
+      setDrivePhotosError(error.response?.data?.message || 'Failed to add photos.');
+    } finally {
+      setIsUploadingDrivePhotos(false);
+    }
+  };
+
+  // Leader/co-leader removes a single photo (e.g. undo a mistaken upload).
+  const handleRemoveDrivePhoto = async (index) => {
+    if (!selectedDrive) return;
+    setDrivePhotosError('');
+    try {
+      const response = await drivesAPI.removePhoto(selectedDrive._id, index);
+      if (response.data?.success) {
+        applyDrivePhotos(selectedDrive._id, response.data.photos);
+      }
+    } catch (error) {
+      setDrivePhotosError(error.response?.data?.message || 'Failed to remove photo.');
+    }
+  };
+
   // Handle RSVP submission (for modal). Submit-then-reconcile sequencing
   // (never trust the requested status as final — a full drive can silently
   // waitlist instead) lives in useDriveRsvp, shared with Calendar.jsx;
@@ -488,6 +542,7 @@ const ClubDetail = ({ user, onLogout }) => {
     setDriveToCancel(drive);
     setCancelDriveReason('');
     setCancelDriveError('');
+    setCancelWholeSeries(false);
     setShowActionMenu(null);
   };
 
@@ -497,13 +552,31 @@ const ClubDetail = ({ user, onLogout }) => {
       setCancelDriveError('Please provide a reason for cancelling this drive');
       return;
     }
+    const reason = cancelDriveReason.trim();
     try {
-      const response = await drivesAPI.cancel(driveToCancel._id, cancelDriveReason.trim());
-      if (response.data?.success) {
+      const response = await drivesAPI.cancel(driveToCancel._id, reason);
+      if (!response.data?.success) return;
+
+      const groupId = driveToCancel.recurrence?.groupId;
+      // Series cancel runs after the single cancel above, so it only affects
+      // the *other* still-upcoming, not-yet-cancelled occurrences — it's
+      // leader-only (stricter than single cancel, which co-leaders can also
+      // do for drives they created), so only offered to a leader.
+      if (cancelWholeSeries && groupId) {
+        await drivesAPI.cancelSeries(groupId, reason);
+        const now = new Date();
+        setDrives(prevDrives => prevDrives.map(d =>
+          d._id === driveToCancel._id || (d.recurrence?.groupId === groupId && !d.isCancelled && new Date(d.date) >= now)
+            ? { ...d, isCancelled: true }
+            : d
+        ));
+      } else {
         setDrives(prevDrives => prevDrives.map(d => d._id === driveToCancel._id ? { ...d, isCancelled: true } : d));
-        setDriveToCancel(null);
-        setCancelDriveReason('');
       }
+
+      setDriveToCancel(null);
+      setCancelDriveReason('');
+      setCancelWholeSeries(false);
     } catch (error) {
       setCancelDriveError(error.response?.data?.message || 'Failed to cancel drive');
     }
@@ -1108,8 +1181,13 @@ const ClubDetail = ({ user, onLogout }) => {
                           className={`flex-1 text-left ${isMember || isLeader ? 'cursor-pointer' : 'cursor-default'}`}
                           onClick={() => (isMember || isLeader) && handleDriveClick(drive)}
                         >
-                          <h4 className="font-semibold mb-2 group-hover:text-red-400 transition-colors">
+                          <h4 className="font-semibold mb-2 group-hover:text-red-400 transition-colors flex items-center gap-2">
                             {drive.name}
+                            {drive.recurrence && (
+                              <span className="text-[10px] uppercase tracking-wide bg-zinc-700 text-zinc-300 rounded-full px-2 py-0.5 shrink-0">
+                                {drive.recurrence.index}/{drive.recurrence.total}
+                              </span>
+                            )}
                           </h4>
                           <div className="flex items-center gap-4 text-sm text-zinc-400">
                             <span className="flex items-center gap-1">
@@ -1645,7 +1723,14 @@ const ClubDetail = ({ user, onLogout }) => {
                   className={`w-full text-left bg-black rounded-2xl p-4 transition ${isMember || isLeader ? 'cursor-pointer hover:bg-zinc-800' : 'cursor-default opacity-80'}`}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <p className="font-medium text-sm">{drive.name}</p>
+                    <p className="font-medium text-sm flex items-center gap-2">
+                      {drive.name}
+                      {drive.recurrence && (
+                        <span className="text-[10px] uppercase tracking-wide bg-zinc-700 text-zinc-300 rounded-full px-2 py-0.5 shrink-0">
+                          {drive.recurrence.index}/{drive.recurrence.total}
+                        </span>
+                      )}
+                    </p>
                     {drive.isCompleted && (
                       <span className="text-xs bg-green-900/50 text-green-400 px-2 py-1 rounded-full">
                         Completed
@@ -1745,6 +1830,13 @@ const ClubDetail = ({ user, onLogout }) => {
             onSubmit: handleSubmitRating,
             isSubmitting: isSubmittingRating,
             message: ratingMessage,
+          }}
+          photos={{
+            canModerate,
+            isUploading: isUploadingDrivePhotos,
+            error: drivePhotosError,
+            onAdd: handleAddDrivePhotos,
+            onRemove: handleRemoveDrivePhoto,
           }}
         />
       )}
@@ -2087,13 +2179,26 @@ const ClubDetail = ({ user, onLogout }) => {
               placeholder="e.g. Bad weather in the forecast"
               className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-600 resize-none mb-3"
             />
+            {isLeader && driveToCancel.recurrence && driveToCancel.recurrence.total > driveToCancel.recurrence.index && (
+              <label className="flex items-start gap-2 mb-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={cancelWholeSeries}
+                  onChange={(e) => setCancelWholeSeries(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded border-zinc-700 bg-black accent-red-600"
+                />
+                <span className="text-sm text-zinc-400">
+                  Also cancel the remaining {driveToCancel.recurrence.total - driveToCancel.recurrence.index} drive(s) in this recurring series
+                </span>
+              </label>
+            )}
             {cancelDriveError && (
               <p className="text-red-400 text-sm mb-3">{cancelDriveError}</p>
             )}
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={() => { setDriveToCancel(null); setCancelDriveError(''); }}
+                onClick={() => { setDriveToCancel(null); setCancelDriveError(''); setCancelWholeSeries(false); }}
                 className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-3 rounded-xl font-medium transition"
               >
                 Keep Drive

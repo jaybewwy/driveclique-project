@@ -15,7 +15,10 @@ const ScheduleDriveModal = ({ clubId, onClose, onScheduled }) => {
     location: '',
     coordinates: null,
     description: '',
-    image: ''
+    image: '',
+    repeatEnabled: false,
+    repeatFrequency: 'weekly',
+    repeatCount: 4
   });
   const [driveImagePreview, setDriveImagePreview] = useState('');
   const [selectedDate, setSelectedDate] = useState(null);
@@ -91,7 +94,10 @@ const ScheduleDriveModal = ({ clubId, onClose, onScheduled }) => {
         time: scheduleForm.time,
         location: scheduleForm.location,
         coordinates: scheduleForm.coordinates || undefined,
-        description: scheduleForm.description || ''
+        description: scheduleForm.description || '',
+        repeat: scheduleForm.repeatEnabled
+          ? { frequency: scheduleForm.repeatFrequency, count: scheduleForm.repeatCount }
+          : undefined
       });
       if (response.data?.success) {
         trackEvent('DRIVE_SCHEDULED', { clubId });
@@ -201,6 +207,55 @@ const ScheduleDriveModal = ({ clubId, onClose, onScheduled }) => {
               className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-red-600 transition resize-none"
               placeholder="Additional details about the drive..."
             />
+          </div>
+
+          {/* Repeats (Optional) — UC-11 recurring drives. Materializes `repeatCount`
+              real drives sharing a recurrence.groupId; not a virtual/dynamic series. */}
+          <div>
+            <label htmlFor="schedule-drive-repeat-toggle" className="flex items-center gap-2 cursor-pointer">
+              <input
+                id="schedule-drive-repeat-toggle"
+                type="checkbox"
+                checked={scheduleForm.repeatEnabled}
+                onChange={(e) => setScheduleForm(prev => ({ ...prev, repeatEnabled: e.target.checked }))}
+                className="w-4 h-4 rounded border-zinc-700 bg-black accent-red-600"
+              />
+              <span className="text-sm font-medium text-zinc-300">Make this a recurring drive</span>
+            </label>
+            {scheduleForm.repeatEnabled && (
+              <div className="mt-3 flex gap-3">
+                <div className="flex-1">
+                  <label htmlFor="schedule-drive-repeat-frequency" className="block text-xs text-zinc-400 mb-1">
+                    Repeats
+                  </label>
+                  <select
+                    id="schedule-drive-repeat-frequency"
+                    value={scheduleForm.repeatFrequency}
+                    onChange={(e) => setScheduleForm(prev => ({ ...prev, repeatFrequency: e.target.value }))}
+                    className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600 transition"
+                  >
+                    <option value="weekly">Weekly</option>
+                    <option value="biweekly">Every 2 weeks</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label htmlFor="schedule-drive-repeat-count" className="block text-xs text-zinc-400 mb-1">
+                    Number of dates
+                  </label>
+                  <select
+                    id="schedule-drive-repeat-count"
+                    value={scheduleForm.repeatCount}
+                    onChange={(e) => setScheduleForm(prev => ({ ...prev, repeatCount: Number(e.target.value) }))}
+                    className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-600 transition"
+                  >
+                    {Array.from({ length: 11 }, (_, i) => i + 2).map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Route Image (Optional) */}

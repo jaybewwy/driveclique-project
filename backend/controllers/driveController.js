@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Drive = require('../models/drive');
 const Club = require('../models/club');
 const RSVP = require('../models/rsvp');
@@ -21,13 +22,36 @@ function validateCoordinates(coordinates) {
   }
 }
 
+// Post-drive photo gallery cap (UC-5) — leader/co-leader curated, kept small
+// and bounded per the same storage-budget reasoning as User.cars[].photos.
+const MAX_DRIVE_PHOTOS = 12;
+
+// Recurring drive series cap (UC-11) — materialized upfront as real Drive
+// documents, not open-ended/auto-renewing.
+const MAX_RECURRENCE_COUNT = 12;
+
+// Compute each occurrence's date for a recurring series using plain Date
+// arithmetic (no date library elsewhere in this backend). Monthly steps use
+// setMonth so month length is handled correctly.
+function buildRecurrenceDates(anchorDate, frequency, count) {
+  const dates = [new Date(anchorDate)];
+  for (let i = 1; i < count; i++) {
+    const next = new Date(dates[i - 1]);
+    if (frequency === 'weekly') next.setDate(next.getDate() + 7);
+    else if (frequency === 'biweekly') next.setDate(next.getDate() + 14);
+    else next.setMonth(next.getMonth() + 1); // monthly
+    dates.push(next);
+  }
+  return dates;
+}
+
 /**
  * Create a new Drive/Event
  * @route POST /api/drives
  * @access Private (Club Leaders only)
  */
 const createDrive = asyncHandler(async (req, res) => {
-  const { clubId, name, date, time, location, description, difficulty, maxAttendees, image, coordinates } = req.body;
+  const { clubId, name, date, time, location, description, difficulty, maxAttendees, image, coordinates, repeat } = req.body;
   validateCoordinates(coordinates);
 
   // Validate clubId is provided
@@ -51,11 +75,9 @@ const createDrive = asyncHandler(async (req, res) => {
     throw new AppError('Drive date must be in the future', 400);
   }
 
-  // Create the drive
-  const newDrive = new Drive({
+  const baseFields = {
     club: clubId,
     name,
-    date,
     time,
     location,
     coordinates: coordinates || undefined,
@@ -64,11 +86,30 @@ const createDrive = asyncHandler(async (req, res) => {
     maxAttendees: maxAttendees || 100,
     image: image || '',
     createdBy: req.user.id
-  });
+  };
 
-  await newDrive.save();
+  // Recurring drive series (UC-11) — `repeat` is pre-validated at the route
+  // (frequency enum, count 2-12) so no re-validation needed here.
+  let newDrives;
+  if (repeat && repeat.frequency) {
+    const groupId = new mongoose.Types.ObjectId();
+    const dates = buildRecurrenceDates(date, repeat.frequency, repeat.count);
+    const docs = dates.map((d, i) => ({
+      ...baseFields,
+      date: d,
+      recurrence: { groupId, frequency: repeat.frequency, index: i + 1, total: repeat.count },
+    }));
+    newDrives = await Drive.insertMany(docs);
+  } else {
+    const single = new Drive({ ...baseFields, date });
+    await single.save();
+    newDrives = [single];
+  }
 
-  // Notify all club members about the new drive (SSE + email)
+  const newDrive = newDrives[0];
+
+  // Notify all club members about the new drive (SSE + email) — once per
+  // series, not once per occurrence, to avoid notification/email spam.
   const driveClub = await Club.findById(clubId).select('members');
   if (driveClub) {
     // Only email members with a verified email (emailVerified !== false preserves existing accounts)
@@ -78,12 +119,13 @@ const createDrive = asyncHandler(async (req, res) => {
     }).select('_id email');
     const emailMap = new Map(verifiedMembers.map(m => [m._id.toString(), m.email]));
 
-    const dateStr = new Date(date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    const dateStr = new Date(newDrive.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    const seriesNote = newDrives.length > 1 ? ` (first of ${newDrives.length} dates)` : '';
     const tpl = emailTemplates.driveScheduled({ driveName: name, clubName: club.name, date: dateStr, location });
 
     driveClub.members.forEach(memberId => {
       if (memberId.toString() !== req.user.id) {
-        notify(memberId.toString(), { type: 'NEW_DRIVE', message: `New drive scheduled: "${name}"`, data: { driveId: newDrive._id, clubId } });
+        notify(memberId.toString(), { type: 'NEW_DRIVE', message: `New drive scheduled: "${name}"${seriesNote}`, data: { driveId: newDrive._id, clubId } });
         const email = emailMap.get(memberId.toString());
         if (email) sendEmail({ to: email, ...tpl });
       }
@@ -92,8 +134,9 @@ const createDrive = asyncHandler(async (req, res) => {
 
   res.status(201).json({
     success: true,
-    message: 'Drive created successfully!',
-    drive: newDrive
+    message: newDrives.length > 1 ? `${newDrives.length} drives created successfully!` : 'Drive created successfully!',
+    drive: newDrive,
+    drives: newDrives
   });
 });
 
@@ -324,6 +367,71 @@ const cancelDrive = asyncHandler(async (req, res) => {
     success: true,
     message: 'Drive has been cancelled successfully',
     drive
+  });
+});
+
+/**
+ * Cancel all remaining (future, not-already-cancelled) occurrences of a
+ * recurring drive series (UC-11)
+ * @route POST /api/drives/series/:groupId/cancel
+ * @access Private (Club Leader only — bulk-cancelling a whole series is
+ *         closer in blast radius to delete than a single cancel, which
+ *         co-leaders may also do for drives they created)
+ */
+const cancelDriveSeries = asyncHandler(async (req, res) => {
+  const { groupId } = req.params;
+  const { cancellationReason } = req.body;
+  const leaderId = req.user.id;
+
+  if (!cancellationReason || cancellationReason.trim() === '') {
+    throw new AppError('Cancellation reason is required', 400);
+  }
+
+  const drives = await Drive.find({
+    'recurrence.groupId': groupId,
+    isCancelled: false,
+    date: { $gte: new Date() },
+  }).populate('club');
+
+  if (drives.length === 0) {
+    throw new AppError('No cancellable drives found in this series', 404);
+  }
+
+  if (!isClubLeader(drives[0].club, leaderId)) {
+    throw new AppError('Only the club leader can cancel a recurring series', 403);
+  }
+
+  const reason = cancellationReason.trim();
+  for (const drive of drives) {
+    drive.isCancelled = true;
+    drive.cancellationReason = reason;
+    drive.cancelledAt = new Date();
+    drive.cancelledBy = leaderId;
+    await drive.save();
+
+    const verifiedMembers = await User.find({
+      _id: { $in: drive.club.members },
+      emailVerified: { $ne: false }
+    }).select('_id email');
+    const emailMap = new Map(verifiedMembers.map(m => [m._id.toString(), m.email]));
+    const tpl = emailTemplates.driveCancelled({ driveName: drive.name, clubName: drive.club.name, reason });
+    drive.club.members.forEach(memberId => {
+      if (memberId.toString() !== leaderId) {
+        notify(memberId.toString(), {
+          type: 'DRIVE_CANCELLED',
+          message: `Drive "${drive.name}" has been cancelled`,
+          data: { driveId: drive._id, clubId: drive.club._id }
+        });
+        const email = emailMap.get(memberId.toString());
+        if (email) sendEmail({ to: email, ...tpl });
+      }
+    });
+  }
+
+  res.json({
+    success: true,
+    message: `Cancelled ${drives.length} remaining drive(s) in this series`,
+    cancelledCount: drives.length
   });
 });
 
@@ -1039,6 +1147,76 @@ const getDriveRatings = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Add photos to a completed drive's gallery (UC-5)
+ * @route POST /api/drives/:driveId/photos
+ * @access Private (Club Leaders only)
+ */
+const addDrivePhotos = asyncHandler(async (req, res) => {
+  const { driveId } = req.params;
+  const { photos } = req.body;
+  const userId = req.user.id;
+
+  const drive = await Drive.findById(driveId).populate('club');
+  if (!drive) {
+    throw new AppError('Drive not found', 404);
+  }
+  // Leader or co-leader curate the gallery (UC-10-style shared moderation privilege)
+  if (!hasLeaderPrivileges(drive.club, userId)) {
+    throw new AppError('Only the club leader or a co-leader can add photos to this drive', 403);
+  }
+  if (!drive.isCompleted) {
+    throw new AppError('Photos can only be added after the drive is marked completed', 400);
+  }
+  if (drive.photos.length + photos.length > MAX_DRIVE_PHOTOS) {
+    throw new AppError(`This drive's gallery is capped at ${MAX_DRIVE_PHOTOS} photos (currently has ${drive.photos.length})`, 400);
+  }
+
+  drive.photos.push(...photos);
+  await drive.save();
+
+  const goingRSVPs = await RSVP.find({ drive: driveId, status: 'going' }).select('user');
+  goingRSVPs.forEach(rsvp => {
+    if (rsvp.user.toString() !== userId) {
+      notify(rsvp.user.toString(), {
+        type: 'DRIVE_PHOTOS_ADDED',
+        message: `New photos were added to "${drive.name}"`,
+        data: { driveId, clubId: drive.club._id }
+      });
+    }
+  });
+
+  res.json({ success: true, photos: drive.photos });
+});
+
+/**
+ * Remove a single photo from a drive's gallery (UC-5)
+ * @route DELETE /api/drives/:driveId/photos/:index
+ * @access Private (Club Leaders only)
+ */
+const removeDrivePhoto = asyncHandler(async (req, res) => {
+  const { driveId, index } = req.params;
+  const userId = req.user.id;
+
+  const drive = await Drive.findById(driveId).populate('club');
+  if (!drive) {
+    throw new AppError('Drive not found', 404);
+  }
+  if (!hasLeaderPrivileges(drive.club, userId)) {
+    throw new AppError('Only the club leader or a co-leader can remove photos from this drive', 403);
+  }
+
+  const i = parseInt(index, 10);
+  if (!Number.isInteger(i) || i < 0 || i >= drive.photos.length) {
+    throw new AppError('Invalid photo index', 400);
+  }
+
+  drive.photos.splice(i, 1);
+  await drive.save();
+
+  res.json({ success: true, photos: drive.photos });
+});
+
+/**
  * Get all drives across the user's clubs within a given month, for calendar display (UC-24)
  * @route GET /api/drives/calendar?year=&month=
  * @access Private
@@ -1095,6 +1273,7 @@ module.exports = {
   getClubDrives,
   rsvpToDrive,
   cancelDrive,
+  cancelDriveSeries,
   updateDrive,
   deleteDrive,
   getDriveAttendees,
@@ -1109,5 +1288,7 @@ module.exports = {
   getDriveRatings,
   getCalendarDrives,
   exportDriveIcs,
-  exportMyScheduleIcs
+  exportMyScheduleIcs,
+  addDrivePhotos,
+  removeDrivePhoto
 };

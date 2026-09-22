@@ -225,6 +225,8 @@ export const drivesAPI = {
   rsvp: (driveId, status) => api.post(`/drives/${driveId}/rsvp`, { status }),
   cancel: (driveId, cancellationReason) =>
     api.post(`/drives/${driveId}/cancel`, { cancellationReason }),
+  cancelSeries: (groupId, cancellationReason) =>
+    api.post(`/drives/series/${groupId}/cancel`, { cancellationReason }),
   getRSVPStatus: (driveId) => api.get(`/drives/${driveId}/rsvp-status`),
   getAttendees: (driveId) => api.get(`/drives/${driveId}/attendees`),
   getLeaderDashboard: () => api.get('/drives/dashboard'),
@@ -236,6 +238,8 @@ export const drivesAPI = {
   submitCheckin: (driveId, present) => api.post(`/drives/${driveId}/checkin`, { present }),
   submitRating: (driveId, stars, comment) => api.post(`/drives/${driveId}/ratings`, { stars, comment }),
   getDriveRatings: (driveId) => api.get(`/drives/${driveId}/ratings`),
+  addPhotos: (driveId, photos) => api.post(`/drives/${driveId}/photos`, { photos }),
+  removePhoto: (driveId, index) => api.delete(`/drives/${driveId}/photos/${index}`),
   exportDriveIcs: (driveId) => api.get(`/drives/${driveId}/export.ics`, { responseType: 'blob' }),
   exportMyScheduleIcs: () => api.get('/drives/my-rsvps/export.ics', { responseType: 'blob' }),
 };

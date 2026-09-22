@@ -8,6 +8,7 @@ const {
   getClubDrives,
   rsvpToDrive,
   cancelDrive,
+  cancelDriveSeries,
   updateDrive,
   deleteDrive,
   getDriveAttendees,
@@ -22,7 +23,9 @@ const {
   getDriveRatings,
   getCalendarDrives,
   exportDriveIcs,
-  exportMyScheduleIcs
+  exportMyScheduleIcs,
+  addDrivePhotos,
+  removeDrivePhoto
 } = require('../controllers/driveController');
 
 // All routes require authentication
@@ -44,7 +47,22 @@ router.post(
     location: { required: true, type: 'string', maxLength: 200 },
     description: { type: 'string', maxLength: 1000 },
     difficulty: { type: 'string', enum: ['Easy', 'Medium', 'Hard'] },
-    maxAttendees: { type: 'number', min: 1, max: 1000 }
+    maxAttendees: { type: 'number', min: 1, max: 1000 },
+    // Recurring drive series (UC-11) — optional; materializes `count`
+    // occurrences as real Drive documents sharing one recurrence.groupId.
+    repeat: {
+      type: 'object',
+      custom: (value) => {
+        if (!value) return null;
+        if (!['weekly', 'biweekly', 'monthly'].includes(value.frequency)) {
+          return 'repeat.frequency must be one of: weekly, biweekly, monthly';
+        }
+        if (!Number.isInteger(value.count) || value.count < 2 || value.count > 12) {
+          return 'repeat.count must be an integer between 2 and 12';
+        }
+        return null;
+      }
+    }
   }),
   createDrive
 );
@@ -179,6 +197,22 @@ router.post(
 );
 
 /**
+ * @route   POST /api/drives/series/:groupId/cancel
+ * @desc    Cancel all remaining (future, uncancelled) occurrences of a recurring series (UC-11)
+ * @access  Private (Club Leader only)
+ */
+router.post(
+  '/series/:groupId/cancel',
+  validateParams({
+    groupId: { required: true, objectId: true }
+  }),
+  validateInput({
+    cancellationReason: { required: true, type: 'string', minLength: 10, maxLength: 500 }
+  }),
+  cancelDriveSeries
+);
+
+/**
  * @route   PUT /api/drives/:driveId
  * @desc    Update a drive (edit details or mark as complete)
  * @access  Private (Club Leaders only)
@@ -284,6 +318,47 @@ router.get(
     driveId: { required: true, objectId: true }
   }),
   getDriveRatings
+);
+
+/**
+ * @route   POST /api/drives/:driveId/photos
+ * @desc    Add photos to a completed drive's gallery (UC-5)
+ * @access  Private (Club Leaders only)
+ */
+router.post(
+  '/:driveId/photos',
+  validateParams({
+    driveId: { required: true, objectId: true }
+  }),
+  validateInput({
+    photos: {
+      required: true,
+      type: 'array',
+      custom: (value) => {
+        if (!Array.isArray(value)) return 'photos must be an array';
+        if (value.length < 1) return 'At least one photo is required';
+        if (value.length > 12) return 'You can add at most 12 photos at once';
+        if (value.some(p => typeof p !== 'string' || p.length === 0 || p.length > 300000)) {
+          return 'Invalid photo';
+        }
+        return null;
+      }
+    }
+  }),
+  addDrivePhotos
+);
+
+/**
+ * @route   DELETE /api/drives/:driveId/photos/:index
+ * @desc    Remove a single photo from a drive's gallery (UC-5)
+ * @access  Private (Club Leaders only)
+ */
+router.delete(
+  '/:driveId/photos/:index',
+  validateParams({
+    driveId: { required: true, objectId: true }
+  }),
+  removeDrivePhoto
 );
 
 module.exports = router;
