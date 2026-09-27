@@ -6,6 +6,7 @@ const { sendEmail, emailTemplates } = require('../services/emailService');
 const logger = require('../utils/logger');
 const { escapeRegex } = require('../utils/regex');
 const { isClubLeader, hasLeaderPrivileges } = require('../utils/clubPermissions');
+const { METERS_PER_MILE, validateCoordinates, toGeoPoint, parseProximityQuery, roundMiles } = require('../utils/geo');
 const { CLUB_TAGS, MAX_CO_LEADERS } = Club;
 
 /**
@@ -66,12 +67,13 @@ const assertClubNotBlockedByUser = (blockedClubs, clubId) => {
  * @access Private
  */
 const createClub = asyncHandler(async (req, res) => {
-  const { name, description, location, maxMembers, isPrivate, tags } = req.body;
+  const { name, description, location, maxMembers, isPrivate, tags, coordinates } = req.body;
   const userId = req.user?.id;
 
   if (!userId) {
     throw new AppError('Authentication required', 401);
   }
+  validateCoordinates(coordinates);
 
   // Check for duplicate club name
   const existingClub = await Club.findOne({ name });
@@ -83,6 +85,8 @@ const createClub = asyncHandler(async (req, res) => {
     name,
     description,
     location: location || '',
+    // UC-46 search point — only alongside a place name to explain it
+    geo: coordinates && location ? toGeoPoint(coordinates) : undefined,
     maxMembers: maxMembers || null,
     isPrivate: isPrivate === true ? true : false,
     tags: Array.isArray(tags) ? tags : [],
@@ -297,9 +301,13 @@ const handleJoinRequest = asyncHandler(async (req, res) => {
  * Search Clubs
  * @route GET /api/clubs/browse
  * @access Private
+ * @note  With `lat`+`lng` (and optional `radius` in miles, default 25) this
+ *        becomes a proximity search (UC-46): only geocoded clubs inside the
+ *        radius, nearest first, each carrying a `distanceMiles`.
  */
 const searchClubs = asyncHandler(async (req, res) => {
   const { query, page = 1, limit = 20, tags } = req.query;
+  const proximity = parseProximityQuery(req.query);
   const userId = req.user?.id;
 
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -332,15 +340,48 @@ const searchClubs = asyncHandler(async (req, res) => {
     }
   }
 
-  const [clubs, total] = await Promise.all([
-    Club.find(searchQuery)
-      .populate('leader', 'username email')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitNum)
-      .lean(),
-    Club.countDocuments(searchQuery),
-  ]);
+  let clubs;
+  let total;
+  if (proximity) {
+    // $geoNear has to be the first pipeline stage. It applies the same
+    // privacy/blocked/text/tag filters, drops clubs outside the radius, and
+    // sorts nearest-first in one pass; $facet then pages it and counts the
+    // full match set.
+    const [result] = await Club.aggregate([
+      {
+        $geoNear: {
+          near: toGeoPoint(proximity.center),
+          key: 'geo',
+          distanceField: 'distanceMeters',
+          maxDistance: proximity.radiusMiles * METERS_PER_MILE,
+          query: searchQuery,
+          spherical: true,
+        },
+      },
+      {
+        $facet: {
+          clubs: [{ $skip: skip }, { $limit: limitNum }],
+          total: [{ $count: 'count' }],
+        },
+      },
+    ]);
+    const withDistance = result.clubs.map(({ distanceMeters, ...club }) => ({
+      ...club,
+      distanceMiles: roundMiles(distanceMeters / METERS_PER_MILE),
+    }));
+    clubs = await Club.populate(withDistance, { path: 'leader', select: 'username email' });
+    total = result.total[0]?.count || 0;
+  } else {
+    [clubs, total] = await Promise.all([
+      Club.find(searchQuery)
+        .populate('leader', 'username email')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      Club.countDocuments(searchQuery),
+    ]);
+  }
 
   res.json({
     success: true,
@@ -456,12 +497,13 @@ const joinClubByInviteCode = asyncHandler(async (req, res) => {
  */
 const updateClub = asyncHandler(async (req, res) => {
   const { clubId } = req.params;
-  const { name, description, location, avatar, isPrivate, tags } = req.body;
+  const { name, description, location, avatar, isPrivate, tags, coordinates } = req.body;
   const userId = req.user?.id;
 
   if (!userId) {
     throw new AppError('Authentication required', 401);
   }
+  validateCoordinates(coordinates);
 
   const club = await Club.findById(clubId);
   if (!club) {
@@ -484,7 +526,15 @@ const updateClub = asyncHandler(async (req, res) => {
 
   // Update fields if provided
   if (description !== undefined) club.description = description;
+  const locationChanged = location !== undefined && location !== club.location;
   if (location !== undefined) club.location = location;
+  // Keep the UC-46 search point in step with the place name. An explicit
+  // `coordinates` wins; otherwise retyping the location (e.g. from the mobile
+  // client, which doesn't send coordinates) drops the now-stale point rather
+  // than leaving the club findable near its old city.
+  if (coordinates) club.geo = toGeoPoint(coordinates);
+  else if (coordinates === null || locationChanged) club.geo = undefined;
+  if (!club.location) club.geo = undefined;
   if (avatar !== undefined) club.avatar = avatar;
   if (isPrivate !== undefined) club.isPrivate = isPrivate;
   if (tags !== undefined) club.tags = tags;

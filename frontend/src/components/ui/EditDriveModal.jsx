@@ -43,7 +43,7 @@ const EditDriveModal = ({ drive, onClose, onSave }) => {
 
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div role="dialog" aria-modal="true" aria-labelledby="edit-drive-modal-title" tabIndex={-1} className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-labelledby="edit-drive-modal-title" tabIndex={-1} className="bg-zinc-900 rounded-3xl p-8 max-w-md w-full border border-zinc-800 shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h2 id="edit-drive-modal-title" className="text-2xl font-bold">Edit Drive</h2>
           <button
@@ -96,8 +96,11 @@ const EditDriveModal = ({ drive, onClose, onSave }) => {
             <LocationSearch
               id="edit-drive-location"
               value={editFormData.location || ''}
-              onChange={(v) => setEditFormData({ ...editFormData, location: v })}
-              onSelect={({ lat, lng }) => setEditFormData({ ...editFormData, coordinates: { lat, lng } })}
+              // Functional updates: picking a suggestion fires onChange and onSelect
+              // back to back, and spreading the captured `editFormData` in both let
+              // onSelect's write drop the picked label, saving the half-typed text
+              onChange={(v) => setEditFormData((prev) => ({ ...prev, location: v }))}
+              onSelect={({ lat, lng }) => setEditFormData((prev) => ({ ...prev, coordinates: { lat, lng } }))}
             />
             {editFormData.coordinates?.lat && (
               <div className="mt-3 space-y-1">

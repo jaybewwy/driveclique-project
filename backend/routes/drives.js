@@ -3,6 +3,7 @@ const router = express.Router();
 const { protect } = require('../middleware/authentication');
 const { apiLimiter } = require('../middleware/rateLimiters');
 const { validateParams, validateInput, validateQuery } = require('../middleware/validation');
+const { MAX_SEARCH_RADIUS_MILES } = require('../utils/geo');
 const {
   createDrive,
   getClubDrives,
@@ -25,7 +26,8 @@ const {
   exportDriveIcs,
   exportMyScheduleIcs,
   addDrivePhotos,
-  removeDrivePhoto
+  removeDrivePhoto,
+  getNearbyDrives
 } = require('../controllers/driveController');
 
 // All routes require authentication
@@ -110,6 +112,22 @@ router.get(
     month: { required: true, type: 'number', min: 1, max: 12 }
   }),
   getCalendarDrives
+);
+
+/**
+ * @route   GET /api/drives/nearby
+ * @desc    Upcoming drives within `radius` miles of lat/lng, from public clubs + the user's own (UC-46)
+ * @access  Private
+ */
+router.get(
+  '/nearby',
+  validateQuery({
+    lat: { required: true, type: 'number', min: -90, max: 90 },
+    lng: { required: true, type: 'number', min: -180, max: 180 },
+    radius: { type: 'number', min: 1, max: MAX_SEARCH_RADIUS_MILES },
+    limit: { type: 'number', min: 1, max: 50 }
+  }),
+  getNearbyDrives
 );
 
 /**

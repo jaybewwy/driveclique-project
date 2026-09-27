@@ -9,18 +9,8 @@ const { notify } = require('../services/notificationEmitter');
 const { sendEmail, emailTemplates } = require('../services/emailService');
 const { isClubLeader, isClubCoLeader, hasLeaderPrivileges } = require('../utils/clubPermissions');
 const { buildVEvent, buildVCalendar } = require('../utils/ics');
-
-// Shared validation for the optional drive meeting-point pin (UC-23)
-function validateCoordinates(coordinates) {
-  if (!coordinates) return;
-  const { lat, lng } = coordinates;
-  if (
-    typeof lat !== 'number' || typeof lng !== 'number' ||
-    Math.abs(lat) > 90 || Math.abs(lng) > 180
-  ) {
-    throw new AppError('Invalid coordinates', 400);
-  }
-}
+// validateCoordinates guards the optional drive meeting-point pin (UC-23)
+const { validateCoordinates, parseProximityQuery, haversineMiles, boundingBox, roundMiles } = require('../utils/geo');
 
 // Post-drive photo gallery cap (UC-5) — leader/co-leader curated, kept small
 // and bounded per the same storage-budget reasoning as User.cars[].photos.
@@ -1268,6 +1258,75 @@ const getCalendarDrives = asyncHandler(async (req, res) => {
   res.json({ success: true, drives: result });
 });
 
+/**
+ * Upcoming drives near a point (UC-46)
+ * @route GET /api/drives/nearby?lat=&lng=&radius=&limit=
+ * @access Private
+ * @note  Only drives with a meeting-point pin (UC-23), from public clubs or
+ *        clubs the user belongs to, minus clubs the user has blocked — a
+ *        private club's drives never surface to non-members. Soonest first.
+ */
+const getNearbyDrives = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const proximity = parseProximityQuery(req.query);
+  if (!proximity) {
+    throw new AppError('lat and lng are required', 400);
+  }
+  const { center, radiusMiles } = proximity;
+  const limitNum = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
+
+  // Drive.coordinates is a plain { lat, lng } subdocument (no geo index), so
+  // prefilter on the circle's bounding box, then check exact distance below.
+  const box = boundingBox(center, radiusMiles);
+  const filter = {
+    isCancelled: { $ne: true },
+    isCompleted: { $ne: true },
+    date: { $gte: new Date() },
+    'coordinates.lat': { $gte: box.minLat, $lte: box.maxLat },
+  };
+  if (box.minLng !== null) {
+    filter['coordinates.lng'] = { $gte: box.minLng, $lte: box.maxLng };
+  }
+
+  const candidates = await Drive.find(filter)
+    .select('name date time location difficulty coordinates club')
+    .sort({ date: 1 })
+    .lean();
+
+  const inRadius = candidates
+    .map((d) => ({ drive: d, miles: haversineMiles(center, d.coordinates) }))
+    .filter(({ miles }) => miles <= radiusMiles);
+  if (inRadius.length === 0) {
+    return res.json({ success: true, drives: [] });
+  }
+
+  const requestingUser = await User.findById(userId).select('blockedClubs').lean();
+  const candidateClubIds = [...new Set(inRadius.map(({ drive }) => drive.club.toString()))];
+  const visibleClubs = await Club.find({
+    _id: { $in: candidateClubIds, $nin: requestingUser?.blockedClubs || [] },
+    $or: [{ isPrivate: false }, { members: userId }],
+  })
+    .select('name')
+    .lean();
+  const clubNameMap = new Map(visibleClubs.map((c) => [c._id.toString(), c.name]));
+
+  const drives = inRadius
+    .filter(({ drive }) => clubNameMap.has(drive.club.toString()))
+    .slice(0, limitNum)
+    .map(({ drive, miles }) => ({
+      _id: drive._id,
+      name: drive.name,
+      date: drive.date,
+      time: drive.time,
+      location: drive.location,
+      difficulty: drive.difficulty,
+      distanceMiles: roundMiles(miles),
+      club: { _id: drive.club, name: clubNameMap.get(drive.club.toString()) },
+    }));
+
+  res.json({ success: true, drives });
+});
+
 module.exports = {
   createDrive,
   getClubDrives,
@@ -1290,5 +1349,6 @@ module.exports = {
   exportDriveIcs,
   exportMyScheduleIcs,
   addDrivePhotos,
-  removeDrivePhoto
+  removeDrivePhoto,
+  getNearbyDrives
 };

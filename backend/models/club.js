@@ -20,12 +20,23 @@ const ClubSchema = new mongoose.Schema({
     required: true,
     trim: true 
   },
-  location: { 
-    type: String, 
+  location: {
+    type: String,
     trim: true,
-    default: '' 
+    default: ''
   },
-  maxMembers: { 
+  // Geocoded point for proximity search (UC-46) — set when the leader picks a
+  // suggestion from the location autocomplete, cleared when `location` is
+  // retyped without picking one. Absent for free-typed and pre-UC-46
+  // locations; those clubs simply never match a radius search.
+  // `coordinates` must default to undefined, not Mongoose's usual [] for
+  // arrays — a Point with an empty coordinate array can't be indexed and
+  // makes the whole save fail.
+  geo: {
+    type: { type: String, enum: ['Point'] },
+    coordinates: { type: [Number], default: undefined }
+  },
+  maxMembers: {
     type: Number, 
     default: null 
   },
@@ -102,6 +113,9 @@ ClubSchema.index({ leader: 1 });
 ClubSchema.index({ members: 1 });
 // coLeaders is used in $or lookups alongside leader (getLeaderDashboard, analytics)
 ClubSchema.index({ coLeaders: 1 });
+// $geoNear in searchClubs (UC-46) requires a geospatial index. 2dsphere
+// indexes skip documents with no `geo` field, so un-geocoded clubs cost nothing.
+ClubSchema.index({ geo: '2dsphere' });
 
 module.exports = mongoose.model('Club', ClubSchema);
 module.exports.CLUB_TAGS = CLUB_TAGS;

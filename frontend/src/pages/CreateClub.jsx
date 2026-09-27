@@ -16,6 +16,8 @@ const CreateClub = () => {
     name: "",
     description: "",
     location: "",
+    // Set only by picking a location suggestion (UC-46 proximity search)
+    coordinates: null,
     maxMembers: "",
     isPrivate: false,
     tags: [],
@@ -48,6 +50,7 @@ const CreateClub = () => {
         name: formData.name,
         description: formData.description,
         location: formData.location,
+        coordinates: formData.coordinates || undefined,
         maxMembers: formData.maxMembers ? parseInt(formData.maxMembers) : null,
         isPrivate: formData.isPrivate,
         tags: formData.tags,
@@ -57,7 +60,7 @@ const CreateClub = () => {
         addClub(response.data.club);
         trackEvent('CLUB_CREATED', { clubId: response.data.club._id });
         setSuccess("Club created successfully! Redirecting to club page...");
-        setFormData({ name: "", description: "", location: "", maxMembers: "", isPrivate: false, tags: [] });
+        setFormData({ name: "", description: "", location: "", coordinates: null, maxMembers: "", isPrivate: false, tags: [] });
         setTimeout(() => {
           navigate(`/club/${response.data.club._id}`);
         }, 2000);
@@ -135,11 +138,20 @@ const CreateClub = () => {
               <label htmlFor="create-club-location" className="block text-sm font-medium text-zinc-300 mb-3">
                 Location
               </label>
+              {/* Functional updates: picking a suggestion fires onChange and
+                  onSelect back to back, so spreading a captured `formData`
+                  would let the second call overwrite the first. */}
               <LocationSearch
                 id="create-club-location"
                 value={formData.location}
-                onChange={(val) => setFormData({ ...formData, location: val })}
+                onChange={(val) => setFormData((prev) => ({ ...prev, location: val, coordinates: null }))}
+                onSelect={({ lat, lng }) => setFormData((prev) => ({ ...prev, coordinates: { lat, lng } }))}
               />
+              <p className="text-xs text-zinc-400 mt-2">
+                {formData.coordinates
+                  ? "Pinned. Your club will show up in nearby searches."
+                  : "Pick a suggestion so your club shows up in nearby searches."}
+              </p>
             </div>
 
             {/* Club Tags */}

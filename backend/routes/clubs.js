@@ -4,6 +4,7 @@ const { protect } = require('../middleware/authentication');
 const { apiLimiter, strictLimiter } = require('../middleware/rateLimiters');
 const { validateParams, validateInput, validateQuery } = require('../middleware/validation');
 const { CLUB_TAGS } = require('../models/club');
+const { MAX_SEARCH_RADIUS_MILES } = require('../utils/geo');
 const {
   createClub,
   getUserClubs,
@@ -45,6 +46,11 @@ const tagsRule = {
   )
 };
 
+// UC-46 search point as `{ lat, lng }`; null clears it. The controller
+// range-checks the values with the same validateCoordinates the drive
+// meeting-point pin (UC-23) uses.
+const coordinatesRule = { type: 'object' };
+
 /**
  * @route   POST /api/clubs
  * @desc    Create a new club
@@ -56,6 +62,7 @@ router.post(
     name: { required: true, type: 'string', minLength: 1, maxLength: 100 },
     description: { required: true, type: 'string', minLength: 10, maxLength: 1000 },
     location: { type: 'string', maxLength: 200 },
+    coordinates: coordinatesRule,
     maxMembers: { type: 'number', min: 2, max: 10000 },
     isPrivate: { type: 'boolean' },
     tags: tagsRule
@@ -72,12 +79,21 @@ router.get('/', getUserClubs);
 
 /**
  * @route   GET /api/clubs/browse
- * @desc    Search and browse public clubs
+ * @desc    Search and browse public clubs, optionally within a radius (UC-46)
  * @access  Private
  */
 router.get(
   '/browse',
-  validateQuery({ query: { maxLength: 100 }, page: { type: 'number', min: 1 }, limit: { type: 'number', min: 1, max: 50 }, tags: { maxLength: 200 } }),
+  validateQuery({
+    query: { maxLength: 100 },
+    page: { type: 'number', min: 1 },
+    limit: { type: 'number', min: 1, max: 50 },
+    tags: { maxLength: 200 },
+    // Proximity search (UC-46) — radius is in miles
+    lat: { type: 'number', min: -90, max: 90 },
+    lng: { type: 'number', min: -180, max: 180 },
+    radius: { type: 'number', min: 1, max: MAX_SEARCH_RADIUS_MILES }
+  }),
   searchClubs
 );
 
@@ -199,6 +215,7 @@ router.put(
     name: { type: 'string', minLength: 1, maxLength: 100 },
     description: { type: 'string', minLength: 10, maxLength: 1000 },
     location: { type: 'string', maxLength: 200 },
+    coordinates: coordinatesRule,
     avatar: { type: 'string', maxLength: 100000 },
     isPrivate: { type: 'boolean' },
     tags: tagsRule

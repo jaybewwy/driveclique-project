@@ -190,7 +190,9 @@ export const clubsAPI = {
   create: (clubData) => api.post('/clubs', clubData),
   update: (clubId, clubData) => api.put(`/clubs/${clubId}`, clubData),
   search: (params) => api.get('/clubs/browse', { params }),
-  searchPage: (query, page, limit = 20, tags) => api.get('/clubs/browse', { params: { query, page, limit, tags: tags?.length ? tags.join(',') : undefined } }),
+  // `near` ({ lat, lng, radius } — radius in miles) turns this into a
+  // nearest-first proximity search (UC-46)
+  searchPage: (query, page, limit = 20, tags, near) => api.get('/clubs/browse', { params: { query, page, limit, tags: tags?.length ? tags.join(',') : undefined, ...near } }),
   requestToJoin: (clubId) => api.post(`/clubs/${clubId}/join`),
   handleJoinRequest: (clubId, requestId, status) => 
     api.post(`/clubs/${clubId}/handle-request`, { requestId, status }),
@@ -233,6 +235,7 @@ export const drivesAPI = {
   getAnalytics: () => api.get('/drives/analytics'),
   getMyRSVPs: () => api.get('/drives/my-rsvps'),
   getCalendar: (year, month) => api.get('/drives/calendar', { params: { year, month } }),
+  getNearby: (lat, lng, radius, limit) => api.get('/drives/nearby', { params: { lat, lng, radius, limit } }),
   requestCheckin: (driveId) => api.post(`/drives/${driveId}/request-checkin`),
   getCheckinStatus: (driveId) => api.get(`/drives/${driveId}/checkin-status`),
   submitCheckin: (driveId, present) => api.post(`/drives/${driveId}/checkin`, { present }),

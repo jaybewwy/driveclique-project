@@ -603,6 +603,11 @@ const ClubDetail = ({ user, onLogout }) => {
       name: club.name,
       description: club.description || '',
       location: club.location || '',
+      // UC-46 search point — GeoJSON stores [lng, lat]; the API takes { lat, lng }.
+      // Always sent on save (null clears it) so it stays in step with `location`.
+      coordinates: club.geo?.coordinates?.length === 2
+        ? { lat: club.geo.coordinates[1], lng: club.geo.coordinates[0] }
+        : null,
       avatar: club.avatar || '',
       isPrivate: club.isPrivate || false,
       tags: club.tags || [],
@@ -1945,11 +1950,20 @@ const ClubDetail = ({ user, onLogout }) => {
 
               <div>
                 <label htmlFor="club-edit-location" className="block text-sm text-zinc-400 mb-2">Location</label>
+                {/* Functional updates: picking a suggestion fires onChange and
+                    onSelect back to back, so spreading a captured form object
+                    would let the second call overwrite the first. */}
                 <LocationSearch
                   id="club-edit-location"
                   value={clubEditFormData.location || ''}
-                  onChange={(val) => setClubEditFormData({ ...clubEditFormData, location: val })}
+                  onChange={(val) => setClubEditFormData((prev) => ({ ...prev, location: val, coordinates: null }))}
+                  onSelect={({ lat, lng }) => setClubEditFormData((prev) => ({ ...prev, coordinates: { lat, lng } }))}
                 />
+                <p className="text-xs text-zinc-400 mt-2">
+                  {clubEditFormData.coordinates
+                    ? "Pinned. This club shows up in nearby searches."
+                    : "Pick a suggestion so this club shows up in nearby searches."}
+                </p>
               </div>
 
               <div>
