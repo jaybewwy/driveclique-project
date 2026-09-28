@@ -66,8 +66,11 @@ const DriveActionMenu = ({ isOpen, onToggle, isLeader, canCancel, onAction }) =>
   </div>
 );
 
+// How many upcoming drives the sidebar lists before "View All"
+const SIDEBAR_DRIVE_COUNT = 2;
+
 /**
- * Sidebar "Drive and Events": the next two upcoming drives (with the
+ * Sidebar "Drive and Events": the next few upcoming drives (with the
  * leader's action menu), plus buttons into the full upcoming and past lists.
  * `role` is getClubRole()'s result; `actions` holds onOpen, onEdit,
  * onComplete, onCancel, onDelete (each called with the drive), onViewAll,
@@ -93,72 +96,75 @@ const ClubDrivesPanel = ({ upcomingDrives, pastDrives, role, actions }) => {
           <p className="text-zinc-400 text-sm">No drives scheduled yet</p>
         </div>
       ) : (
-        <>
-          <div className="space-y-2 xl:space-y-3">
-            {upcomingDrives.slice(0, 2).map((drive) => {
-              const canCancel = role.isLeader || (role.isCoLeader && idOf(drive.createdBy) === role.userId);
-              return (
-                <div
-                  key={drive._id}
-                  className="bg-zinc-900/50 backdrop-blur-sm rounded-xl xl:rounded-2xl p-3 xl:p-4 border border-zinc-800/50 hover:border-zinc-700/50 transition-all duration-300 group relative overflow-visible"
-                >
-                  <div className="flex items-start justify-between">
-                    <button
-                      type="button"
-                      disabled={!role.canViewDrives}
-                      className={`flex-1 text-left ${role.canViewDrives ? 'cursor-pointer' : 'cursor-default'}`}
-                      onClick={() => role.canViewDrives && actions.onOpen(drive)}
-                    >
-                      <h4 className="font-semibold mb-2 group-hover:text-red-400 transition-colors flex items-center gap-2">
-                        {drive.name}
-                        {drive.recurrence && <RecurrenceBadge recurrence={drive.recurrence} />}
-                      </h4>
-                      <div className="flex items-center gap-4 text-sm text-zinc-400">
+        <div className="space-y-2 xl:space-y-3">
+          {upcomingDrives.slice(0, SIDEBAR_DRIVE_COUNT).map((drive) => {
+            const canCancel = role.isLeader || (role.isCoLeader && idOf(drive.createdBy) === role.userId);
+            return (
+              <div
+                key={drive._id}
+                className="bg-zinc-900/50 backdrop-blur-sm rounded-xl xl:rounded-2xl p-3 xl:p-4 border border-zinc-800/50 hover:border-zinc-700/50 transition-all duration-300 group relative overflow-visible"
+              >
+                <div className="flex items-start justify-between">
+                  <button
+                    type="button"
+                    disabled={!role.canViewDrives}
+                    className={`flex-1 text-left ${role.canViewDrives ? 'cursor-pointer' : 'cursor-default'}`}
+                    onClick={() => role.canViewDrives && actions.onOpen(drive)}
+                  >
+                    <h4 className="font-semibold mb-2 group-hover:text-red-400 transition-colors flex items-center gap-2">
+                      {drive.name}
+                      {drive.recurrence && <RecurrenceBadge recurrence={drive.recurrence} />}
+                    </h4>
+                    <div className="flex items-center gap-4 text-sm text-zinc-400">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        {formatDriveDate(drive)}
+                      </span>
+                      {drive.time && (
                         <span className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          {formatDriveDate(drive)}
+                          <ClockIcon />
+                          {formatDriveTimeLabel(drive)}
                         </span>
-                        {drive.time && (
-                          <span className="flex items-center gap-1">
-                            <ClockIcon />
-                            {formatDriveTimeLabel(drive)}
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                    {canCancel && (
-                      <DriveActionMenu
-                        isOpen={openMenuDriveId === drive._id}
-                        onToggle={() => setOpenMenuDriveId(openMenuDriveId === drive._id ? null : drive._id)}
-                        isLeader={role.isLeader}
-                        canCancel={canCancel}
-                        onAction={(action) => runAction(action, drive)}
-                      />
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  </button>
+                  {canCancel && (
+                    <DriveActionMenu
+                      isOpen={openMenuDriveId === drive._id}
+                      onToggle={() => setOpenMenuDriveId(openMenuDriveId === drive._id ? null : drive._id)}
+                      isLeader={role.isLeader}
+                      canCancel={canCancel}
+                      onAction={(action) => runAction(action, drive)}
+                    />
+                  )}
                 </div>
-              );
-            })}
-          </div>
-          <div className="flex gap-2 mt-3">
-            {upcomingDrives.length > 3 && (
-              <button
-                onClick={actions.onViewAll}
-                className="flex-1 text-red-500 hover:text-red-400 text-sm font-medium transition py-2 bg-zinc-800/30 hover:bg-zinc-800/50 rounded-xl border border-zinc-700/30"
-              >
-                View All ({upcomingDrives.length})
-              </button>
-            )}
-            {pastDrives.length > 0 && (
-              <button
-                onClick={actions.onViewPast}
-                className="flex-1 text-zinc-400 hover:text-zinc-400 text-sm font-medium transition py-2 bg-zinc-800/30 hover:bg-zinc-800/50 rounded-xl border border-zinc-700/30"
-              >
-                Past Events ({pastDrives.length})
-              </button>
-            )}
-          </div>
-        </>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Past Events doesn't depend on there being upcoming drives: a club
+          whose only drives are finished still has a history to show */}
+      {(upcomingDrives.length > SIDEBAR_DRIVE_COUNT || pastDrives.length > 0) && (
+        <div className="flex gap-2 mt-3">
+          {upcomingDrives.length > SIDEBAR_DRIVE_COUNT && (
+            <button
+              onClick={actions.onViewAll}
+              className="flex-1 text-red-500 hover:text-red-400 text-sm font-medium transition py-2 bg-zinc-800/30 hover:bg-zinc-800/50 rounded-xl border border-zinc-700/30"
+            >
+              View All ({upcomingDrives.length})
+            </button>
+          )}
+          {pastDrives.length > 0 && (
+            <button
+              onClick={actions.onViewPast}
+              className="flex-1 text-zinc-400 hover:text-zinc-400 text-sm font-medium transition py-2 bg-zinc-800/30 hover:bg-zinc-800/50 rounded-xl border border-zinc-700/30"
+            >
+              Past Events ({pastDrives.length})
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
