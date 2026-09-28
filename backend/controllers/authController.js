@@ -8,6 +8,7 @@ const User = require('../models/user');
 const RefreshToken = require('../models/refreshToken');
 const Club = require('../models/club');
 const RSVP = require('../models/rsvp');
+const DriveRating = require('../models/driveRating');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { asyncHandler, AppError, orNotFound } = require('../middleware/errorHandler');
@@ -468,14 +469,15 @@ const deleteAccount = asyncHandler(async (req, res) => {
   // Clubs the user leads alone go with them
   await deleteClubsCascade(ledClubs.map(c => c._id));
 
-  // Remove user from all other clubs' member arrays and pending join requests
+  // Remove user from all other clubs' members, co-leaders, and pending join requests
   await Club.updateMany(
-    { $or: [{ members: userId }, { 'joinRequests.user': userId }] },
-    { $pull: { members: userId, joinRequests: { user: userId } } }
+    { $or: [{ members: userId }, { coLeaders: userId }, { 'joinRequests.user': userId }] },
+    { $pull: { members: userId, coLeaders: userId, joinRequests: { user: userId } } }
   );
 
-  // Delete all personal RSVPs, refresh tokens, and the user document
+  // Delete all personal RSVPs, ratings, refresh tokens, and the user document
   await RSVP.deleteMany({ user: userId });
+  await DriveRating.deleteMany({ user: userId });
   await RefreshToken.deleteMany({ user: userId });
   await User.findByIdAndDelete(userId);
 

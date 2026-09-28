@@ -131,10 +131,13 @@ const getDriveRatings = asyncHandler(async (req, res) => {
   const drive = orNotFound(await Drive.findById(driveId), 'Drive not found');
   await findClubAsMember(drive.club, userId, 'You must be a member of this club to view ratings');
 
-  const ratings = await DriveRating.find({ drive: driveId })
+  // A rating whose author no longer exists populates to user: null. Account
+  // deletion now removes a user's ratings, but older ones may remain.
+  const ratings = (await DriveRating.find({ drive: driveId })
     .populate('user', 'username name')
     .sort({ createdAt: -1 })
-    .lean();
+    .lean())
+    .filter((r) => r.user);
 
   const count = ratings.length;
   const average = count > 0

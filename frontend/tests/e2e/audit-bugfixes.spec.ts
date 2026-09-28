@@ -123,3 +123,54 @@ test.describe('Delete Club reason is optional, as labelled', () => {
     expect(res.status()).toBe(200);
   });
 });
+
+test.describe('Account deletion leaves nothing behind', () => {
+  test('a deleted co-leader frees their co-leader slot', async ({ request }) => {
+    const leader = newUser('auditcolead');
+    const { token: leaderToken } = await register(request, leader);
+    const clubId = await createClub(request, leaderToken, `Audit Co-Leader ${Date.now()}`);
+
+    const joinAndPromote = async (prefix: string) => {
+      const user = newUser(prefix);
+      const { token, id } = await register(request, user);
+      expect((await request.post(`${API}/clubs/${clubId}/join`, { headers: auth(token) })).status()).toBe(200);
+      const promote = await request.put(`${API}/clubs/${clubId}/promote`, { headers: auth(leaderToken), data: { userId: id } });
+      return { user, token, promoteStatus: promote.status() };
+    };
+
+    const departing = await joinAndPromote('auditcoleadgone');
+    expect(departing.promoteStatus).toBe(200);
+    const del = await request.delete(`${API}/auth/account`, { headers: auth(departing.token), data: { password: departing.user.password } });
+    expect(del.status()).toBe(200);
+
+    // A club allows 3 co-leaders. The API hides a deleted user's id (populate
+    // drops it), but before the fix it stayed in coLeaders and used a slot,
+    // so the third promotion below was refused.
+    for (const prefix of ['auditcoleada', 'auditcoleadb', 'auditcoleadc']) {
+      expect((await joinAndPromote(prefix)).promoteStatus).toBe(200);
+    }
+  });
+
+  test('a deleted member\'s drive rating is removed, and the ratings list still loads', async ({ request }) => {
+    const leader = newUser('auditrate');
+    const rater = newUser('auditrater');
+    const { token: leaderToken } = await register(request, leader);
+    const { token: raterToken } = await register(request, rater);
+    const clubId = await createClub(request, leaderToken, `Audit Ratings ${Date.now()}`);
+    expect((await request.post(`${API}/clubs/${clubId}/join`, { headers: auth(raterToken) })).status()).toBe(200);
+    const driveId = await createDrive(request, leaderToken, clubId, 'Audit Rated Drive', 2);
+    expect((await request.post(`${API}/drives/${driveId}/rsvp`, { headers: auth(raterToken), data: { status: 'going' } })).status()).toBe(200);
+    expect((await request.put(`${API}/drives/${driveId}`, { headers: auth(leaderToken), data: { isCompleted: true } })).status()).toBe(200);
+    expect((await request.post(`${API}/drives/${driveId}/ratings`, { headers: auth(raterToken), data: { stars: 5 } })).status()).toBe(200);
+
+    const del = await request.delete(`${API}/auth/account`, { headers: auth(raterToken), data: { password: rater.password } });
+    expect(del.status()).toBe(200);
+
+    // Before the fix the orphaned rating populated to user: null and this 500ed for everyone
+    const res = await request.get(`${API}/drives/${driveId}/ratings`, { headers: auth(leaderToken) });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.count).toBe(0);
+    expect(body.average).toBeNull();
+  });
+});
