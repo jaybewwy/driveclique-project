@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Car, Calendar, MapPin, Users, TrendingUp, ArrowRight,
+  Car, Calendar, Clock, MapPin, Users, TrendingUp, ArrowRight,
   Sparkles, Zap, Shield, Globe, BarChart2, Plus, Mail
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
@@ -12,6 +12,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useClubs } from "../hooks/useClubs";
 import OnboardingModal from "../components/ui/OnboardingModal";
 import OnboardingChecklist from "../components/ui/OnboardingChecklist";
+import { compareDriveStart, formatDriveDate, formatDriveTimeLabel, hasDriveStarted } from "../lib/dateUtils";
 
 const Dashboard = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -122,8 +123,8 @@ const Dashboard = ({ user, onLogout }) => {
           });
 
           const upcoming = allDrives
-            .filter(d => !d.isCancelled && !d.isCompleted && new Date(d.date) >= new Date())
-            .sort((a, b) => new Date(a.date) - new Date(b.date))
+            .filter(d => !d.isCancelled && !d.isCompleted && !hasDriveStarted(d))
+            .sort(compareDriveStart)
             .slice(0, 10);
 
           const drivesWithRSVPs = await Promise.all(
@@ -151,12 +152,6 @@ const Dashboard = ({ user, onLogout }) => {
     };
     fetchData();
   }, []);
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short", day: "numeric", year: "numeric",
-    });
-  };
 
   const quickActions = [
     {
@@ -343,8 +338,14 @@ const Dashboard = ({ user, onLogout }) => {
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3.5 h-3.5" />
-                          {formatDate(drive.date)}
+                          {formatDriveDate(drive)}
                         </span>
+                        {drive.time && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            {formatDriveTimeLabel(drive)}
+                          </span>
+                        )}
                         {drive.location && (
                           <span className="flex items-center gap-1">
                             <MapPin className="w-3.5 h-3.5" />

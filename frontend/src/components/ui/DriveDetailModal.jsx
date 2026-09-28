@@ -5,6 +5,7 @@ import { DriveMapPreview } from "./drive-map-preview";
 import RsvpButtonGroup from "./RsvpButtonGroup";
 import { drivesAPI, getErrorMessage } from "../../services/api";
 import { downloadBlobResponse } from "../../lib/downloadBlob";
+import { formatDriveDate, formatDriveTime, formatDriveViewerTime, hasDriveStarted } from "../../lib/dateUtils";
 
 // Purely presentational: all state (RSVP, check-in, attendees, rating) and every handler
 // stay owned by ClubDetail.jsx, since `selectedDrive` is also shared with the separate
@@ -55,19 +56,19 @@ const DriveDetailModal = ({ drive, isMember, canModerate, onClose, onViewProfile
             <div className="flex items-center gap-3 text-zinc-300">
               <Calendar size={18} className="text-red-500" />
               <span>
-                {new Date(drive.date).toLocaleDateString("en-US", {
-                  weekday: "long",
-                  month: "long",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+                {formatDriveDate(drive, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
               </span>
             </div>
 
             {drive.time && (
-              <div className="flex items-center gap-3 text-zinc-300">
-                <Clock size={18} className="text-red-500" />
-                <span>{drive.time}</span>
+              <div className="flex items-start gap-3 text-zinc-300">
+                <Clock size={18} className="text-red-500 mt-0.5" />
+                <div>
+                  <span>{formatDriveTime(drive)}</span>
+                  {formatDriveViewerTime(drive) && (
+                    <p className="text-xs text-zinc-400">{formatDriveViewerTime(drive)}</p>
+                  )}
+                </div>
               </div>
             )}
 
@@ -120,7 +121,7 @@ const DriveDetailModal = ({ drive, isMember, canModerate, onClose, onViewProfile
           )}
 
           {/* RSVP Section - Members and leaders only */}
-          {new Date(drive.date) >= new Date() && !drive.isCompleted && (
+          {!hasDriveStarted(drive) && !drive.isCompleted && (
             <div className="border-t border-zinc-700 pt-6">
               {!(isMember || canModerate) ? (
                 <p className="text-sm text-zinc-400 text-center py-2">
@@ -405,7 +406,7 @@ const DriveDetailModal = ({ drive, isMember, canModerate, onClose, onViewProfile
                     <div key={index} className="relative aspect-square">
                       <img
                         src={src}
-                        alt={`Drive photo ${index + 1}`}
+                        alt={`${drive.name}, ${index + 1} of ${drive.photos.length}`}
                         className="w-full h-full object-cover rounded-xl border border-zinc-800"
                       />
                       {photos.canModerate && (

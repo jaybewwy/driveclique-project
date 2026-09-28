@@ -1,31 +1,13 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { TIME_SLOTS } from '@/lib/timeSlots'
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-// 12:00 AM – 11:30 PM (full 24 hours) in 30-minute steps
-function generateTimeSlots() {
-  const slots = []
-  for (let h = 0; h <= 23; h++) {
-    for (let m = 0; m < 60; m += 30) {
-      const pad = (n) => n.toString().padStart(2, '0')
-      const ampm = h >= 12 ? 'PM' : 'AM'
-      const h12 = h % 12 || 12
-      slots.push({
-        time24: `${pad(h)}:${pad(m)}`,
-        time12: `${h12}:${pad(m)} ${ampm}`,
-      })
-    }
-  }
-  return slots
-}
-
-const TIME_SLOTS = generateTimeSlots()
 
 /**
  * DriveSchedulerPicker — two-panel date+time picker styled for DriveClique.

@@ -7,6 +7,7 @@ import { useAuth } from "../../src/hooks/useAuth";
 import { clubsAPI, drivesAPI, getErrorMessage } from "../../src/services/api";
 import Card from "../../src/components/ui/Card";
 import GradientButton from "../../src/components/ui/GradientButton";
+import { compareDriveStart, formatDriveDate, formatDriveTimeLabel } from "../../src/lib/driveTime";
 
 const RSVP_OPTIONS = [
   { value: "going", label: "Going" },
@@ -50,8 +51,8 @@ function DriveCard({ drive, isMember, onRsvpChange }) {
       <View className="flex-row items-center gap-1.5 mb-1">
         <Calendar color="#71717a" size={14} />
         <Text className="text-zinc400 text-sm">
-          {new Date(drive.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-          {drive.time ? ` · ${drive.time}` : ""}
+          {formatDriveDate(drive, { month: "short", day: "numeric", year: "numeric" })}
+          {drive.time ? ` · ${formatDriveTimeLabel(drive)}` : ""}
         </Text>
       </View>
       <View className="flex-row items-center gap-1.5 mb-3">
@@ -109,7 +110,7 @@ export default function ClubDetail() {
         drivesAPI.getClubDrives(clubId).catch(() => ({ data: { drives: [] } })),
       ]);
       setClub(clubRes.data.club);
-      setDrives((drivesRes.data.drives || []).sort((a, b) => new Date(a.date) - new Date(b.date)));
+      setDrives((drivesRes.data.drives || []).sort(compareDriveStart));
       setError("");
     } catch (err) {
       setError(getErrorMessage(err));

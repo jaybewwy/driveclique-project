@@ -45,7 +45,10 @@ router.post(
     clubId: { required: true, type: 'string' },
     name: { required: true, type: 'string', minLength: 1, maxLength: 100 },
     date: { required: true, type: 'string' },
-    time: { required: true, type: 'string' },
+    time: { required: true, type: 'string', maxLength: 20 },
+    // IANA zone the drive happens in; controllers validate it and default
+    // to DEFAULT_TIME_ZONE (utils/driveTime.js) when it's omitted
+    timeZone: { type: 'string', maxLength: 64 },
     location: { required: true, type: 'string', maxLength: 200 },
     description: { type: 'string', maxLength: 1000 },
     difficulty: { type: 'string', enum: ['Easy', 'Medium', 'Hard'] },
@@ -243,7 +246,8 @@ router.put(
   validateInput({
     name: { type: 'string', minLength: 1, maxLength: 100 },
     date: { type: 'string' },
-    time: { type: 'string' },
+    time: { type: 'string', maxLength: 20 },
+    timeZone: { type: 'string', maxLength: 64 },
     location: { type: 'string', maxLength: 200 },
     description: { type: 'string', maxLength: 1000 },
     difficulty: { type: 'string', enum: ['Easy', 'Medium', 'Hard'] },

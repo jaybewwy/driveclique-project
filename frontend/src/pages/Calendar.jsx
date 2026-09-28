@@ -5,7 +5,7 @@ import NavBar from "../components/NavBar";
 import Sidebar from "../components/Sidebar";
 import { MobileDrawerButton } from "../components/ui/MobileDrawer";
 import { drivesAPI, getErrorMessage } from "../services/api";
-import { getUTCDateParts } from "../lib/dateUtils";
+import { formatDriveTimeLabel, getUTCDateParts } from "../lib/dateUtils";
 import { useDriveRsvp } from "../hooks/useDriveRsvp";
 import RsvpButtonGroup from "../components/ui/RsvpButtonGroup";
 
@@ -183,7 +183,7 @@ const Calendar = ({ user, onLogout }) => {
                 <p className="text-[10px] text-zinc-400 truncate">{d.club.name}</p>
                 <p className="text-xs font-semibold text-white truncate">{d.name}</p>
                 <p className="text-[11px] text-zinc-400 mt-0.5">
-                  {formatDayHeading(year, month, hoveredDay)}{d.time ? ` · ${d.time}` : ""}
+                  {formatDayHeading(year, month, hoveredDay)}{d.time ? ` · ${formatDriveTimeLabel(d)}` : ""}
                 </p>
                 <p className="text-[11px] text-zinc-400 truncate">{d.location}</p>
               </div>
@@ -252,7 +252,7 @@ const Calendar = ({ user, onLogout }) => {
                           {drive.time && (
                             <p className="flex items-center gap-1.5 text-xs text-zinc-400">
                               <Clock className="w-3 h-3 flex-shrink-0" />
-                              {drive.time}
+                              {formatDriveTimeLabel(drive)}
                             </p>
                           )}
                           <p className="flex items-center gap-1.5 text-xs text-zinc-400 min-w-0">

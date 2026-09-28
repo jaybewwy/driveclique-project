@@ -36,35 +36,19 @@ const foldLine = (line) => {
   return result;
 };
 
-// This app stores no timezone anywhere (Drive.date is the UTC-midnight of
-// the calendar day the leader picked in their own browser; Drive.time is a
-// free-text "H:MM AM/PM" string with no timezone attached at all) — so a
-// UTC (`Z`-suffixed) DTSTART would silently misrepresent the intended local
-// time. Emitting a floating time (no `Z`, no TZID) is the only honest
-// representation of what this data actually means; RFC 5545 floating times
-// are interpreted by calendar apps in the viewer's own local timezone.
-const TIME_PATTERN = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i;
-
-const parseTimeString = (timeStr) => {
-  const match = TIME_PATTERN.exec(String(timeStr || '').trim());
-  if (!match) return null;
-  let hour = parseInt(match[1], 10);
-  const minute = parseInt(match[2], 10);
-  if (hour < 1 || hour > 12 || minute > 59) return null;
-  const isPM = match[3].toUpperCase() === 'PM';
-  if (hour === 12) hour = 0;
-  if (isPM) hour += 12;
-  return { hour, minute };
-};
+// Drives with a stored start instant (`startsAt`, see utils/driveTime.js)
+// export as real UTC times (`Z` suffix), which calendar apps convert to each
+// viewer's own zone. Legacy drives from before time zones were stored have
+// only a calendar day plus zone-less time text; for those a floating time
+// (no `Z`, no TZID) is still the only honest representation, and RFC 5545
+// floating times are read in the viewer's local zone.
+const { parseTimeOfDay } = require('./driveTime');
 
 const pad2 = (n) => String(n).padStart(2, '0');
 
-// Drive.date is stored as UTC midnight of the picked calendar day (the
-// frontend sends a bare "YYYY-MM-DD"), so the day/month/year must be read
-// with the UTC getters — local getters would shift the day depending on
-// the server's own timezone, matching the same UTC-consistency concern
-// frontend/src/lib/dateUtils.js's getUTCDateParts() already addresses
-// client-side.
+// Drive.date is stored as UTC midnight of the drive's calendar day, so the
+// day/month/year must be read with the UTC getters — local getters would
+// shift the day depending on the server's own timezone.
 const dateParts = (date) => ({
   year: date.getUTCFullYear(),
   month: date.getUTCMonth() + 1,
@@ -81,8 +65,8 @@ const formatICSDateTime = (date, hour, minute) => {
   return `${year}${pad2(month)}${pad2(day)}T${pad2(hour)}${pad2(minute)}00`;
 };
 
-// UTC timestamp for DTSTAMP/UID — this one legitimately is a real instant
-// (when the file was generated), so it correctly gets a `Z` suffix.
+// UTC timestamp (`Z` suffix) for real instants: DTSTAMP (when the file was
+// generated) and a drive's stored start/end.
 const formatICSUtcStamp = (date) => {
   return `${date.getUTCFullYear()}${pad2(date.getUTCMonth() + 1)}${pad2(date.getUTCDate())}` +
     `T${pad2(date.getUTCHours())}${pad2(date.getUTCMinutes())}${pad2(date.getUTCSeconds())}Z`;
@@ -101,14 +85,20 @@ const buildVEvent = (drive, clubName) => {
   const location = escapeICSText(drive.location || '');
   const description = escapeICSText(drive.description || '');
 
-  const parsedTime = parseTimeString(drive.time);
   const lines = ['BEGIN:VEVENT', `UID:${uid}`, `DTSTAMP:${formatICSUtcStamp(now)}`];
+  const parsedTime = parseTimeOfDay(drive.time);
 
-  if (parsedTime) {
+  // No stored duration anywhere in this app — timed events default to 1
+  // hour, a placeholder that at least blocks out the right start time
+  if (drive.startsAt) {
+    const start = new Date(drive.startsAt);
+    lines.push(
+      `DTSTART:${formatICSUtcStamp(start)}`,
+      `DTEND:${formatICSUtcStamp(new Date(start.getTime() + 60 * 60 * 1000))}`
+    );
+  } else if (parsedTime) {
+    // Legacy drive: floating local time on its calendar day
     const start = formatICSDateTime(drive.date, parsedTime.hour, parsedTime.minute);
-    // No stored duration anywhere in this app — default to 1 hour, a
-    // reasonable placeholder that at least shows correctly on the day/time
-    // the drive starts rather than blocking out no time at all.
     const endHour = (parsedTime.hour + 1) % 24;
     const end = formatICSDateTime(drive.date, endHour, parsedTime.minute);
     lines.push(`DTSTART:${start}`, `DTEND:${end}`);

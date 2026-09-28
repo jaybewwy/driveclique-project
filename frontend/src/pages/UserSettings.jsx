@@ -11,6 +11,7 @@ import NavBar from "../components/NavBar";
 import { drivesAPI, authAPI, notificationsAPI, getErrorMessage } from "../services/api";
 import { getMyActivitySummary } from "../services/analytics";
 import { downloadBlobResponse } from "../lib/downloadBlob";
+import { formatDriveDate, formatDriveTimeLabel, hasDriveStarted } from "../lib/dateUtils";
 import { LocationSearch } from "../components/ui/location-search";
 import { MobileDrawerButton, MobileDrawer } from "../components/ui/MobileDrawer";
 
@@ -263,9 +264,6 @@ const StatusBadge = ({ status }) => (
 
 /* ─── Personal view ────────────────────────────────────────────────────── */
 
-const formatDate = (d) =>
-  d ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—";
-
 const PersonalAnalytics = ({ user: _user }) => {
   const navigate = useNavigate();
   const [rsvps, setRsvps] = useState([]);
@@ -296,12 +294,12 @@ const PersonalAnalytics = ({ user: _user }) => {
 
   const upcoming = rsvps.filter(r =>
     !r.drive.isCancelled &&
-    new Date(r.drive.date) >= now &&
+    !hasDriveStarted(r.drive, now) &&
     r.status !== "not-going"
   );
 
   const past = rsvps.filter(r =>
-    r.drive.isCompleted || r.drive.isCancelled || new Date(r.drive.date) < now
+    r.drive.isCompleted || r.drive.isCancelled || hasDriveStarted(r.drive, now)
   );
 
   // Summary stats
@@ -433,7 +431,7 @@ const PersonalAnalytics = ({ user: _user }) => {
             <div className="space-y-3">
               {list.map(rsvp => {
                 const drive = rsvp.drive;
-                const isPast = drive.isCompleted || drive.isCancelled || new Date(drive.date) < now;
+                const isPast = drive.isCompleted || drive.isCancelled || hasDriveStarted(drive, now);
                 return (
                   <button
                     type="button"
@@ -444,10 +442,10 @@ const PersonalAnalytics = ({ user: _user }) => {
                     {/* Date badge */}
                     <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-zinc-800 flex flex-col items-center justify-center border border-zinc-700/40">
                       <span className="text-xs text-zinc-400 leading-none">
-                        {new Date(drive.date).toLocaleString("en-US", { month: "short" })}
+                        {formatDriveDate(drive, { month: "short" })}
                       </span>
                       <span className="text-lg font-bold text-white leading-tight">
-                        {new Date(drive.date).getDate()}
+                        {formatDriveDate(drive, { day: "numeric" })}
                       </span>
                     </div>
 
@@ -474,7 +472,7 @@ const PersonalAnalytics = ({ user: _user }) => {
                         )}
                         {drive.time && (
                           <span className="flex items-center gap-1">
-                            <Clock size={11} /> {drive.time}
+                            <Clock size={11} /> {formatDriveTimeLabel(drive)}
                           </span>
                         )}
                       </div>
@@ -629,7 +627,7 @@ const ClubsAnalytics = () => {
                   {mostPopularDrive ? (
                     <>
                       <p className="font-semibold text-sm leading-snug">{mostPopularDrive.name}</p>
-                      <p className="text-xs text-zinc-400 mt-1">{formatDate(mostPopularDrive.date)}</p>
+                      <p className="text-xs text-zinc-400 mt-1">{formatDriveDate(mostPopularDrive)}</p>
                       <div className="mt-2 flex items-center gap-1.5">
                         <Users size={12} className="text-green-400" />
                         <span className="text-xs text-green-400 font-medium">{mostPopularDrive.goingCount} going</span>

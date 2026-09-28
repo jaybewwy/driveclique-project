@@ -43,6 +43,7 @@ import { useDocumentFocusTrap } from "../hooks/useFocusTrap";
 import { useDriveRsvp } from "../hooks/useDriveRsvp";
 import { trackEvent } from "../services/analytics";
 import { useClubs } from "../hooks/useClubs";
+import { compareDriveStart, formatDriveDate, formatDriveTimeLabel, hasDriveStarted } from "../lib/dateUtils";
 
 const ClubDetail = ({ user, onLogout }) => {
   const { clubId } = useParams();
@@ -251,7 +252,7 @@ const ClubDetail = ({ user, onLogout }) => {
   useEffect(() => {
     if (drives.length === 0) return;
     const upcomingIds = drives
-      .filter(d => !d.isCancelled && !d.isCompleted && new Date(d.date) >= new Date())
+      .filter(d => !d.isCancelled && !d.isCompleted && !hasDriveStarted(d))
       .map(d => d._id);
     if (upcomingIds.length === 0) return;
 
@@ -566,7 +567,7 @@ const ClubDetail = ({ user, onLogout }) => {
         await drivesAPI.cancelSeries(groupId, reason);
         const now = new Date();
         setDrives(prevDrives => prevDrives.map(d =>
-          d._id === driveToCancel._id || (d.recurrence?.groupId === groupId && !d.isCancelled && new Date(d.date) >= now)
+          d._id === driveToCancel._id || (d.recurrence?.groupId === groupId && !d.isCancelled && !hasDriveStarted(d, now))
             ? { ...d, isCancelled: true }
             : d
         ));
@@ -839,13 +840,13 @@ const ClubDetail = ({ user, onLogout }) => {
 
   // Filter and sort drives for display
   const upcomingDrives = drives
-    .filter((drive) => !drive.isCancelled && !drive.isCompleted && new Date(drive.date) >= new Date())
-    .sort((a, b) => new Date(a.date) - new Date(b.date));
+    .filter((drive) => !drive.isCancelled && !drive.isCompleted && !hasDriveStarted(drive))
+    .sort(compareDriveStart);
 
   const pastDrives = drives
-    .filter((drive) => drive.isCompleted || new Date(drive.date) < new Date())
+    .filter((drive) => drive.isCompleted || hasDriveStarted(drive))
     .filter((drive) => !drive.isCancelled)
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
+    .sort((a, b) => compareDriveStart(b, a));
 
   const filteredAndSortedDrives = upcomingDrives;
 
@@ -1066,12 +1067,12 @@ const ClubDetail = ({ user, onLogout }) => {
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3.5 h-3.5" />
-                        {new Date(upcomingDrives[0].date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        {formatDriveDate(upcomingDrives[0])}
                       </span>
                       {upcomingDrives[0].time && (
                         <span className="flex items-center gap-1">
                           <Clock className="w-3.5 h-3.5" />
-                          {upcomingDrives[0].time}
+                          {formatDriveTimeLabel(upcomingDrives[0])}
                         </span>
                       )}
                       {upcomingDrives[0].location && (
@@ -1197,11 +1198,7 @@ const ClubDetail = ({ user, onLogout }) => {
                           <div className="flex items-center gap-4 text-sm text-zinc-400">
                             <span className="flex items-center gap-1">
                               <Calendar className="w-4 h-4" />
-                              {new Date(drive.date).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              })}
+                              {formatDriveDate(drive)}
                             </span>
                             {drive.time && (
                               <span className="flex items-center gap-1">
@@ -1209,7 +1206,7 @@ const ClubDetail = ({ user, onLogout }) => {
                                   <circle cx="12" cy="12" r="10" strokeWidth="2" />
                                   <path strokeLinecap="round" strokeWidth="2" d="M12 6v6l4 2" />
                                 </svg>
-                                {drive.time}
+                                {formatDriveTimeLabel(drive)}
                               </span>
                             )}
                           </div>
@@ -1507,17 +1504,13 @@ const ClubDetail = ({ user, onLogout }) => {
                     <div className="flex items-center gap-2">
                       <Calendar size={12} />
                       <span>
-                        {new Date(drive.date).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
+                        {formatDriveDate(drive)}
                       </span>
                     </div>
                     {drive.time && (
                       <div className="flex items-center gap-2">
                         <Clock size={12} />
-                        <span>{drive.time}</span>
+                        <span>{formatDriveTimeLabel(drive)}</span>
                       </div>
                     )}
                     {drive.location && (
@@ -1746,17 +1739,13 @@ const ClubDetail = ({ user, onLogout }) => {
                     <div className="flex items-center gap-2">
                       <Calendar size={12} />
                       <span>
-                        {new Date(drive.date).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
+                        {formatDriveDate(drive)}
                       </span>
                     </div>
                     {drive.time && (
                       <div className="flex items-center gap-2">
                         <Clock size={12} />
-                        <span>{drive.time}</span>
+                        <span>{formatDriveTimeLabel(drive)}</span>
                       </div>
                     )}
                     {drive.location && (

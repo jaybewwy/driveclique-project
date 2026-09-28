@@ -10,11 +10,24 @@ const DriveSchema = new mongoose.Schema({
     type: String, 
     required: true 
   },
-  date: { 
-    type: Date, 
-    required: true 
+  // The drive's local calendar day, stored as UTC midnight of that day
+  date: {
+    type: Date,
+    required: true
   },
+  // Wall-clock start as "H:MM AM/PM", in `timeZone`
   time: String,
+  // The exact instant the drive starts, derived from date + time + timeZone
+  // by utils/driveTime.js. Absent on drives created before time zones were
+  // stored until scripts/migrate-drive-start-times.js runs; readers fall
+  // back via driveStartsAt()/upcomingDriveFilter() in the meantime.
+  startsAt: {
+    type: Date
+  },
+  // IANA zone the drive takes place in (e.g. "America/Los_Angeles")
+  timeZone: {
+    type: String
+  },
   location: {
     type: String,
     required: true
@@ -90,6 +103,8 @@ const DriveSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 DriveSchema.index({ club: 1, date: 1 });
+// Hourly reminder scan and the upcoming/nearby filters range over startsAt
+DriveSchema.index({ startsAt: 1 });
 // createdBy queried in getClubAnalytics and drive ownership checks
 DriveSchema.index({ createdBy: 1 });
 // Fetch/cancel a whole recurring series by its shared groupId

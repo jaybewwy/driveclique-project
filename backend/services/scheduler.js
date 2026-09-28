@@ -5,13 +5,16 @@ const RSVP = require('../models/rsvp');
 const User = require('../models/user');
 const { notify } = require('./notificationEmitter');
 const { sendEmail, emailTemplates } = require('./emailService');
+const { driveStartsInFilter, formatDriveWhen } = require('../utils/driveTime');
 
 const sendReminders = async () => {
   const now = new Date();
   const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
+  // Keyed on the real start instant, so a reminder lands ~24h before the
+  // drive starts rather than ~24h before midnight UTC of its day
   const drives = await Drive.find({
-    date: { $gte: now, $lte: in24h },
+    ...driveStartsInFilter({ $gte: now, $lte: in24h }),
     isCancelled: false,
   }).populate('club', 'name _id').lean();
 
@@ -33,13 +36,10 @@ const sendReminders = async () => {
     }).select('_id email').lean();
     const emailMap = new Map(users.map(u => [u._id.toString(), u.email]));
 
-    const dateStr = new Date(drive.date).toLocaleDateString('en-US', {
-      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-    });
     const tpl = emailTemplates.driveReminder({
       driveName: drive.name,
       clubName: drive.club?.name ?? 'your club',
-      driveDatetime: dateStr,
+      driveDatetime: formatDriveWhen(drive),
       location: drive.location,
     });
 

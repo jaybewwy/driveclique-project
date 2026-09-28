@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { drivesAPI } from "../services/api";
 import { useClubs } from "../hooks/useClubs";
 import { MobileDrawerButton, MobileDrawer } from "./ui/MobileDrawer";
+import { hasDriveStarted } from "../lib/dateUtils";
 
 const SectionLabel = ({ children }) => (
   <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 px-3 mb-2">{children}</p>
@@ -65,7 +66,7 @@ const Sidebar = ({ user }) => {
         results.forEach(res => {
           if (res.data.success && res.data.drives) {
             res.data.drives.forEach(drive => {
-              if (!drive.isCancelled && !drive.isCompleted && new Date(drive.date) >= now) count++;
+              if (!drive.isCancelled && !drive.isCompleted && !hasDriveStarted(drive, now)) count++;
             });
           }
         });

@@ -3,6 +3,9 @@ import { X } from "lucide-react";
 import { drivesAPI } from "../../services/api";
 import { LocationSearch } from "./location-search";
 import { DriveMapPicker } from "./drive-map-picker";
+import { TIME_SLOTS } from "../../lib/timeSlots";
+import { TimeZoneSelect } from "./TimeZoneSelect";
+import { getViewerTimeZone } from "../../lib/dateUtils";
 
 // State-owning child, matching ScheduleDriveModal.jsx's pattern (not
 // DriveDetailModal.jsx's presentational-only one): this form's draft state
@@ -19,6 +22,8 @@ const EditDriveModal = ({ drive, onClose, onSave }) => {
     name: drive.name,
     date: new Date(drive.date).toISOString().split('T')[0],
     time: drive.time || '',
+    // Drives from before time zones were stored take the leader's own zone on first edit
+    timeZone: drive.timeZone || getViewerTimeZone(),
     location: drive.location || '',
     coordinates: drive.coordinates || null,
     description: drive.description || '',
@@ -79,16 +84,34 @@ const EditDriveModal = ({ drive, onClose, onSave }) => {
             />
           </div>
 
-          <div>
-            <label htmlFor="edit-drive-time" className="block text-sm text-zinc-400 mb-2">Time</label>
-            <input
-              id="edit-drive-time"
-              type="text"
-              value={editFormData.time || ''}
-              onChange={(e) => setEditFormData({ ...editFormData, time: e.target.value })}
-              placeholder="e.g., 10:00 AM"
-              className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-600"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="edit-drive-time" className="block text-sm text-zinc-400 mb-2">Time</label>
+              {/* Same slots as the scheduler, so a saved time always parses on the
+                  server; an off-slot legacy value stays selectable as-is */}
+              <select
+                id="edit-drive-time"
+                value={editFormData.time || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, time: e.target.value })}
+                className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-600"
+              >
+                {!TIME_SLOTS.some((slot) => slot.time12 === editFormData.time) && (
+                  <option value={editFormData.time || ''} className="bg-zinc-900">{editFormData.time || 'Pick a time'}</option>
+                )}
+                {TIME_SLOTS.map((slot) => (
+                  <option key={slot.time24} value={slot.time12} className="bg-zinc-900">{slot.time12}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="edit-drive-timezone" className="block text-sm text-zinc-400 mb-2">Time zone</label>
+              <TimeZoneSelect
+                id="edit-drive-timezone"
+                value={editFormData.timeZone}
+                onChange={(timeZone) => setEditFormData((prev) => ({ ...prev, timeZone }))}
+                className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-600"
+              />
+            </div>
           </div>
 
           <div>

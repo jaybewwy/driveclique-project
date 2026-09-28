@@ -21,7 +21,6 @@ test.describe('Calendar export (UC-33)', () => {
   let outsiderToken = '';
   let clubId = '';
   let timedDriveId = '';
-  let allDayDriveId = '';
   let notGoingDriveId = '';
   let cancelledDriveId = '';
 
@@ -49,25 +48,16 @@ test.describe('Calendar export (UC-33)', () => {
     expect(joinRes.status()).toBe(200);
   });
 
-  test('setup: leader schedules four drives (timed, unparseable-time, one the member will not-going, one to cancel)', async ({ request }) => {
+  test('setup: leader schedules three drives (timed, one the member will not-going, one to cancel)', async ({ request }) => {
     const future = (days) => new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
 
+    // Phoenix has no DST, so 2:30 PM there is always 21:30 UTC
     const timedRes = await request.post(`${API}/drives`, {
       headers: { Authorization: `Bearer ${leaderToken}` },
-      data: { clubId, name: 'Timed Export Drive', date: future(5), time: '2:30 PM', location: 'Test Lot', description: 'Export test.' },
+      data: { clubId, name: 'Timed Export Drive', date: future(5), time: '2:30 PM', timeZone: 'America/Phoenix', location: 'Test Lot', description: 'Export test.' },
     });
     expect(timedRes.status()).toBe(201);
     timedDriveId = (await timedRes.json()).drive._id;
-
-    // `time` is a free-text string with no pattern validation at the route
-    // level (only `required: true, type: 'string'`) — a value that doesn't
-    // match "H:MM AM/PM" is a real, reachable state, not a fabricated edge case.
-    const allDayRes = await request.post(`${API}/drives`, {
-      headers: { Authorization: `Bearer ${leaderToken}` },
-      data: { clubId, name: 'All-Day Fallback Drive', date: future(6), time: 'TBD', location: 'Test Lot' },
-    });
-    expect(allDayRes.status()).toBe(201);
-    allDayDriveId = (await allDayRes.json()).drive._id;
 
     const notGoingRes = await request.post(`${API}/drives`, {
       headers: { Authorization: `Bearer ${leaderToken}` },
@@ -85,7 +75,7 @@ test.describe('Calendar export (UC-33)', () => {
   });
 
   test('setup: member RSVPs going/not-going, leader cancels the fourth drive', async ({ request }) => {
-    for (const id of [timedDriveId, allDayDriveId, cancelledDriveId]) {
+    for (const id of [timedDriveId, cancelledDriveId]) {
       const rsvpRes = await request.post(`${API}/drives/${id}/rsvp`, {
         headers: { Authorization: `Bearer ${memberToken}` },
         data: { status: 'going' },
@@ -119,21 +109,22 @@ test.describe('Calendar export (UC-33)', () => {
     expect(body).toContain('BEGIN:VEVENT');
     expect(body).toContain(`UID:drive-${timedDriveId}@driveclique.app`);
     expect(body).toMatch(/SUMMARY:Timed Export Drive/);
-    expect(body).toMatch(/DTSTART:\d{8}T143000/); // 2:30 PM -> 14:30:00
-    expect(body).toMatch(/DTEND:\d{8}T153000/); // +1 hour
+    // A real instant now that drives store their time zone: 2:30 PM MST = 21:30 UTC
+    expect(body).toMatch(/DTSTART:\d{8}T213000Z/);
+    expect(body).toMatch(/DTEND:\d{8}T223000Z/); // +1 hour
     expect(body).toContain('END:VEVENT');
     expect(body).toContain('END:VCALENDAR');
   });
 
-  test('a drive with an unparseable time falls back to an all-day VALUE=DATE event', async ({ request }) => {
-    const res = await request.get(`${API}/drives/${allDayDriveId}/export.ics`, {
-      headers: { Authorization: `Bearer ${memberToken}` },
+  // The all-day VALUE=DATE fallback now only applies to drives from before
+  // time zones were stored (covered in backend/utils/ics.test.js), because
+  // an unparseable time can no longer be saved
+  test('a drive with an unparseable time is rejected when scheduled', async ({ request }) => {
+    const res = await request.post(`${API}/drives`, {
+      headers: { Authorization: `Bearer ${leaderToken}` },
+      data: { clubId, name: 'Unparseable Time Drive', date: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString(), time: 'TBD', location: 'Test Lot' },
     });
-    expect(res.status()).toBe(200);
-    const body = await res.text();
-    expect(body).toMatch(/DTSTART;VALUE=DATE:\d{8}/);
-    expect(body).toContain('DURATION:P1D');
-    expect(body).not.toMatch(/DTSTART:\d{8}T/); // no timed DTSTART present
+    expect(res.status()).toBe(400);
   });
 
   test('a non-member is rejected with 403', async ({ request }) => {
@@ -166,7 +157,6 @@ test.describe('Calendar export (UC-33)', () => {
     expect(body).toContain('BEGIN:VCALENDAR');
     // going + upcoming -> included
     expect(body).toContain(`UID:drive-${timedDriveId}@driveclique.app`);
-    expect(body).toContain(`UID:drive-${allDayDriveId}@driveclique.app`);
     // not-going -> excluded
     expect(body).not.toContain(`UID:drive-${notGoingDriveId}@driveclique.app`);
     // going but cancelled -> excluded

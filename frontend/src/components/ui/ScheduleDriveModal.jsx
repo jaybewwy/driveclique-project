@@ -6,12 +6,16 @@ import { trackEvent } from "../../services/analytics";
 import { DriveSchedulerPicker } from "./drive-scheduler-picker";
 import { LocationSearch } from "./location-search";
 import { DriveMapPicker } from "./drive-map-picker";
+import { TimeZoneSelect } from "./TimeZoneSelect";
+import { getViewerTimeZone } from "../../lib/dateUtils";
 
 const ScheduleDriveModal = ({ clubId, onClose, onScheduled }) => {
   const [scheduleForm, setScheduleForm] = useState({
     name: '',
     date: '',
     time: '',
+    // Where the drive happens; the leader's own zone unless they change it
+    timeZone: getViewerTimeZone(),
     location: '',
     coordinates: null,
     description: '',
@@ -92,6 +96,7 @@ const ScheduleDriveModal = ({ clubId, onClose, onScheduled }) => {
         name: scheduleForm.name,
         date: getFormattedDate(),
         time: scheduleForm.time,
+        timeZone: scheduleForm.timeZone,
         location: scheduleForm.location,
         coordinates: scheduleForm.coordinates || undefined,
         description: scheduleForm.description || '',
@@ -168,6 +173,17 @@ const ScheduleDriveModal = ({ clubId, onClose, onScheduled }) => {
               }}
               minDate={new Date()}
             />
+            <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2">
+              <label htmlFor="schedule-drive-timezone" className="text-sm text-zinc-400 shrink-0">
+                Time zone
+              </label>
+              <TimeZoneSelect
+                id="schedule-drive-timezone"
+                value={scheduleForm.timeZone}
+                onChange={(timeZone) => setScheduleForm((prev) => ({ ...prev, timeZone }))}
+                className="flex-1 min-w-0 bg-black border border-zinc-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-red-600"
+              />
+            </div>
           </div>
 
           {/* Location */}

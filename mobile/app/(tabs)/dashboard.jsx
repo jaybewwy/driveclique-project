@@ -7,6 +7,7 @@ import { useAuth } from "../../src/hooks/useAuth";
 import { useClubs } from "../../src/hooks/useClubs";
 import { drivesAPI } from "../../src/services/api";
 import Card from "../../src/components/ui/Card";
+import { compareDriveStart, formatDriveDate, formatDriveTimeLabel, hasDriveStarted } from "../../src/lib/driveTime";
 
 export default function Dashboard() {
   const insets = useSafeAreaInsets();
@@ -21,8 +22,8 @@ export default function Dashboard() {
       const results = await Promise.all(clubs.map((c) => drivesAPI.getClubDrives(c._id)));
       const all = results.flatMap((r) => r.data.drives || []);
       const upcoming = all
-        .filter((d) => !d.isCancelled && new Date(d.date) > new Date())
-        .sort((a, b) => new Date(a.date) - new Date(b.date));
+        .filter((d) => !d.isCancelled && !hasDriveStarted(d))
+        .sort(compareDriveStart);
       setDrives(upcoming);
     } catch {
       setDrives([]);
@@ -86,11 +87,8 @@ export default function Dashboard() {
                 <View className="flex-1">
                   <Text className="text-white font-semibold">{drive.name}</Text>
                   <Text className="text-zinc400 text-sm">
-                    {new Date(drive.date).toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                    })}{" "}
-                    · {drive.location}
+                    {formatDriveDate(drive, { month: "short", day: "numeric" })}
+                    {drive.time ? ` · ${formatDriveTimeLabel(drive)}` : ""} · {drive.location}
                   </Text>
                 </View>
               </View>

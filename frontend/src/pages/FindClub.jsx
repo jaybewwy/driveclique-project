@@ -12,6 +12,7 @@ import { MobileDrawerButton } from "../components/ui/MobileDrawer";
 import ClubTagPicker from "../components/ui/ClubTagPicker";
 import { LocationSearch } from "../components/ui/location-search";
 import { trackEvent } from "../services/analytics";
+import { formatDriveDate, formatDriveTimeLabel } from "../lib/dateUtils";
 
 // Proximity search (UC-46). Radius is in miles and must stay within the
 // backend's MAX_SEARCH_RADIUS_MILES (250).
@@ -22,11 +23,6 @@ const NEARBY_DRIVES_LIMIT = 6;
 // Browser coordinates are rounded to ~1 km before they go anywhere — plenty
 // for a radius search, and they end up in request URLs and access logs.
 const roundCoord = (n) => Math.round(n * 100) / 100;
-
-// Drive dates are stored as UTC midnight (see lib/dateUtils.js), so format
-// in UTC or viewers west of Greenwich see the day before
-const formatDriveDate = (date) =>
-  new Date(date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
 
 const FindClub = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -417,7 +413,8 @@ const FindClub = ({ user, onLogout }) => {
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
                           <span className="flex items-center gap-1.5">
                             <Calendar className="w-3.5 h-3.5" />
-                            {formatDriveDate(drive.date)}{drive.time ? ` · ${drive.time}` : ""}
+                            {formatDriveDate(drive, { weekday: "short", month: "short", day: "numeric" })}
+                            {drive.time ? ` · ${formatDriveTimeLabel(drive)}` : ""}
                           </span>
                           <span className="flex items-center gap-1.5">
                             <Navigation className="w-3.5 h-3.5" /> {drive.distanceMiles} mi away

@@ -11,6 +11,17 @@ const { isClubLeader, isClubCoLeader, hasLeaderPrivileges } = require('../utils/
 const { buildVEvent, buildVCalendar } = require('../utils/ics');
 // validateCoordinates guards the optional drive meeting-point pin (UC-23)
 const { validateCoordinates, parseProximityQuery, haversineMiles, boundingBox, roundMiles } = require('../utils/geo');
+const {
+  resolveDriveSchedule,
+  toCalendarDay,
+  calendarDayToDate,
+  addCalendarDays,
+  addCalendarMonths,
+  driveStartsAt,
+  upcomingDriveFilter,
+  formatDriveWhen,
+  DEFAULT_TIME_ZONE,
+} = require('../utils/driveTime');
 
 // Post-drive photo gallery cap (UC-5) — leader/co-leader curated, kept small
 // and bounded per the same storage-budget reasoning as User.cars[].photos.
@@ -20,19 +31,19 @@ const MAX_DRIVE_PHOTOS = 12;
 // documents, not open-ended/auto-renewing.
 const MAX_RECURRENCE_COUNT = 12;
 
-// Compute each occurrence's date for a recurring series using plain Date
-// arithmetic (no date library elsewhere in this backend). Monthly steps use
-// setMonth so month length is handled correctly.
-function buildRecurrenceDates(anchorDate, frequency, count) {
-  const dates = [new Date(anchorDate)];
+// Each occurrence's calendar day for a recurring series. Stepping calendar
+// days (not adding 7 × 24h to an instant) keeps a 10 AM drive at 10 AM local
+// on both sides of a DST change; each day's start instant is resolved in the
+// drive's zone afterwards.
+function buildRecurrenceDays(anchorDay, frequency, count) {
+  const days = [anchorDay];
   for (let i = 1; i < count; i++) {
-    const next = new Date(dates[i - 1]);
-    if (frequency === 'weekly') next.setDate(next.getDate() + 7);
-    else if (frequency === 'biweekly') next.setDate(next.getDate() + 14);
-    else next.setMonth(next.getMonth() + 1); // monthly
-    dates.push(next);
+    const prev = days[i - 1];
+    if (frequency === 'weekly') days.push(addCalendarDays(prev, 7));
+    else if (frequency === 'biweekly') days.push(addCalendarDays(prev, 14));
+    else days.push(addCalendarMonths(prev, 1)); // monthly
   }
-  return dates;
+  return days;
 }
 
 /**
@@ -41,8 +52,9 @@ function buildRecurrenceDates(anchorDate, frequency, count) {
  * @access Private (Club Leaders only)
  */
 const createDrive = asyncHandler(async (req, res) => {
-  const { clubId, name, date, time, location, description, difficulty, maxAttendees, image, coordinates, repeat } = req.body;
+  const { clubId, name, date, time, timeZone, location, description, difficulty, maxAttendees, image, coordinates, repeat } = req.body;
   validateCoordinates(coordinates);
+  const schedule = resolveDriveSchedule({ date, time, timeZone });
 
   // Validate clubId is provided
   if (!clubId) {
@@ -60,15 +72,17 @@ const createDrive = asyncHandler(async (req, res) => {
     throw new AppError('Only the club leader or a co-leader can create drives for this club', 403);
   }
 
-  // Validate drive date is in the future
-  if (!date || new Date(date) <= new Date()) {
-    throw new AppError('Drive date must be in the future', 400);
+  // The start instant, not the calendar day, must be in the future — so a
+  // drive later today is allowed and one earlier today isn't
+  if (schedule.startsAt <= new Date()) {
+    throw new AppError('Drive start time must be in the future', 400);
   }
 
   const baseFields = {
     club: clubId,
     name,
-    time,
+    time: schedule.time,
+    timeZone: schedule.timeZone,
     location,
     coordinates: coordinates || undefined,
     description,
@@ -83,15 +97,19 @@ const createDrive = asyncHandler(async (req, res) => {
   let newDrives;
   if (repeat && repeat.frequency) {
     const groupId = new mongoose.Types.ObjectId();
-    const dates = buildRecurrenceDates(date, repeat.frequency, repeat.count);
-    const docs = dates.map((d, i) => ({
-      ...baseFields,
-      date: d,
-      recurrence: { groupId, frequency: repeat.frequency, index: i + 1, total: repeat.count },
-    }));
+    const days = buildRecurrenceDays(toCalendarDay(schedule.date), repeat.frequency, repeat.count);
+    const docs = days.map((day, i) => {
+      const occurrence = resolveDriveSchedule({ date: calendarDayToDate(day), time: schedule.time, timeZone: schedule.timeZone });
+      return {
+        ...baseFields,
+        date: occurrence.date,
+        startsAt: occurrence.startsAt,
+        recurrence: { groupId, frequency: repeat.frequency, index: i + 1, total: repeat.count },
+      };
+    });
     newDrives = await Drive.insertMany(docs);
   } else {
-    const single = new Drive({ ...baseFields, date });
+    const single = new Drive({ ...baseFields, date: schedule.date, startsAt: schedule.startsAt });
     await single.save();
     newDrives = [single];
   }
@@ -109,9 +127,8 @@ const createDrive = asyncHandler(async (req, res) => {
     }).select('_id email');
     const emailMap = new Map(verifiedMembers.map(m => [m._id.toString(), m.email]));
 
-    const dateStr = new Date(newDrive.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     const seriesNote = newDrives.length > 1 ? ` (first of ${newDrives.length} dates)` : '';
-    const tpl = emailTemplates.driveScheduled({ driveName: name, clubName: club.name, date: dateStr, location });
+    const tpl = emailTemplates.driveScheduled({ driveName: name, clubName: club.name, date: formatDriveWhen(newDrive), location });
 
     driveClub.members.forEach(memberId => {
       if (memberId.toString() !== req.user.id) {
@@ -147,7 +164,7 @@ const getClubDrives = asyncHandler(async (req, res) => {
 
     const [drives, total] = await Promise.all([
       Drive.find({ club: clubId })
-        .sort({ date: 1 })
+        .sort({ date: 1, startsAt: 1 })
         .skip(skip)
         .limit(limitNum)
         .populate('createdBy', 'username name'),
@@ -168,7 +185,7 @@ const getClubDrives = asyncHandler(async (req, res) => {
   }
 
   const drives = await Drive.find({ club: clubId })
-    .sort({ date: 1 })
+    .sort({ date: 1, startsAt: 1 })
     .populate('createdBy', 'username name');
 
   res.json({ success: true, drives });
@@ -261,7 +278,7 @@ const rsvpToDrive = asyncHandler(async (req, res) => {
           const tpl = emailTemplates.waitlistPromoted({
             driveName: drive.name,
             clubName: club.name,
-            driveDate: new Date(drive.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+            driveDate: formatDriveWhen(drive)
           });
           sendEmail({ to: promoted.email, ...tpl });
         }
@@ -380,7 +397,7 @@ const cancelDriveSeries = asyncHandler(async (req, res) => {
   const drives = await Drive.find({
     'recurrence.groupId': groupId,
     isCancelled: false,
-    date: { $gte: new Date() },
+    ...upcomingDriveFilter(),
   }).populate('club');
 
   if (drives.length === 0) {
@@ -564,6 +581,8 @@ const getDriveAttendees = asyncHandler(async (req, res) => {
       id: drive._id,
       name: drive.name,
       date: drive.date,
+      startsAt: drive.startsAt,
+      timeZone: drive.timeZone,
       location: drive.location,
     },
     totalRSVPs: rsvps.length,
@@ -585,7 +604,7 @@ const getDriveAttendees = asyncHandler(async (req, res) => {
  */
 const updateDrive = asyncHandler(async (req, res) => {
   const { driveId } = req.params;
-  const { name, date, time, location, description, difficulty, maxAttendees, isCompleted, image, coordinates } = req.body;
+  const { name, date, time, timeZone, location, description, difficulty, maxAttendees, isCompleted, image, coordinates } = req.body;
   const leaderId = req.user.id;
   validateCoordinates(coordinates);
 
@@ -602,8 +621,17 @@ const updateDrive = asyncHandler(async (req, res) => {
 
   // Update fields if provided
   if (name !== undefined) drive.name = name;
-  if (date !== undefined) drive.date = date;
-  if (time !== undefined) drive.time = time;
+  // Any schedule change re-resolves the start instant from the merged
+  // day/time/zone. A legacy drive being edited picks up the default zone
+  // unless the client sends one (the web app always sends the leader's).
+  if (date !== undefined || time !== undefined || timeZone !== undefined) {
+    const schedule = resolveDriveSchedule({
+      date: date ?? drive.date,
+      time: time ?? drive.time,
+      timeZone: timeZone ?? drive.timeZone ?? DEFAULT_TIME_ZONE,
+    });
+    Object.assign(drive, schedule);
+  }
   if (location !== undefined) drive.location = location;
   if (coordinates !== undefined) drive.coordinates = coordinates || undefined;
   if (description !== undefined) drive.description = description;
@@ -690,8 +718,8 @@ const getLeaderDashboard = asyncHandler(async (req, res) => {
 
   // Get all drives for these clubs in a single query
   const drives = await Drive.find({ club: { $in: clubIds } })
-    .select('_id club name date time location isCancelled maxAttendees')
-    .sort({ date: 1 })
+    .select('_id club name date time startsAt timeZone location isCancelled maxAttendees')
+    .sort({ date: 1, startsAt: 1 })
     .lean();
 
   // Get all RSVPs for these drives in a single query
@@ -726,6 +754,8 @@ const getLeaderDashboard = asyncHandler(async (req, res) => {
         name: drive.name,
         date: drive.date,
         time: drive.time,
+        startsAt: drive.startsAt,
+        timeZone: drive.timeZone,
         location: drive.location,
         isCancelled: drive.isCancelled || false,
         rsvpStats: {
@@ -766,7 +796,7 @@ const getMyRSVPs = asyncHandler(async (req, res) => {
   const rsvps = await RSVP.find({ user: req.user.id })
     .populate({
       path: 'drive',
-      select: 'name date time location isCancelled isCompleted club',
+      select: 'name date time startsAt timeZone location isCancelled isCompleted club',
       populate: { path: 'club', select: 'name _id' }
     })
     .sort({ createdAt: -1 })
@@ -788,13 +818,13 @@ const exportMyScheduleIcs = asyncHandler(async (req, res) => {
   const rsvps = await RSVP.find({ user: req.user.id, status: { $in: ['going', 'maybe'] } })
     .populate({
       path: 'drive',
-      select: 'name date time location description isCancelled club',
+      select: 'name date time startsAt timeZone location description isCancelled club',
       populate: { path: 'club', select: 'name' }
     })
     .lean();
 
   const upcoming = rsvps.filter(
-    (r) => r.drive && !r.drive.isCancelled && new Date(r.drive.date) >= now
+    (r) => r.drive && !r.drive.isCancelled && driveStartsAt(r.drive) >= now
   );
 
   const vevents = upcoming.map((r) => buildVEvent(r.drive, r.drive.club?.name || 'DriveClique'));
@@ -826,7 +856,7 @@ const getClubAnalytics = asyncHandler(async (req, res) => {
 
   // Batch query 2: all drives for those clubs
   const drives = await Drive.find({ club: { $in: clubIds } })
-    .select('_id club name date isCompleted isCancelled maxAttendees checkInRequestedAt')
+    .select('_id club name date startsAt timeZone isCompleted isCancelled maxAttendees checkInRequestedAt')
     .lean();
 
   const driveIds = drives.map(d => d._id);
@@ -905,7 +935,7 @@ const getClubAnalytics = asyncHandler(async (req, res) => {
       const goingCount = driveGoingMap.get(drive._id.toString())?.count || 0;
       if (goingCount > maxGoing) {
         maxGoing = goingCount;
-        mostPopularDrive = { name: drive.name, date: drive.date, goingCount };
+        mostPopularDrive = { name: drive.name, date: drive.date, startsAt: drive.startsAt, timeZone: drive.timeZone, goingCount };
       }
     });
 
@@ -1234,8 +1264,8 @@ const getCalendarDrives = asyncHandler(async (req, res) => {
     isCancelled: false,
     date: { $gte: rangeStart, $lt: rangeEnd }
   })
-    .select('name date time location club isCompleted')
-    .sort({ date: 1 })
+    .select('name date time startsAt timeZone location club isCompleted')
+    .sort({ date: 1, startsAt: 1 })
     .lean();
 
   const driveIds = drives.map(d => d._id);
@@ -1249,6 +1279,8 @@ const getCalendarDrives = asyncHandler(async (req, res) => {
     name: d.name,
     date: d.date,
     time: d.time,
+    startsAt: d.startsAt,
+    timeZone: d.timeZone,
     location: d.location,
     isCompleted: d.isCompleted,
     club: { _id: d.club, name: clubNameMap.get(d.club.toString()) || 'Unknown Club' },
@@ -1281,7 +1313,7 @@ const getNearbyDrives = asyncHandler(async (req, res) => {
   const filter = {
     isCancelled: { $ne: true },
     isCompleted: { $ne: true },
-    date: { $gte: new Date() },
+    ...upcomingDriveFilter(),
     'coordinates.lat': { $gte: box.minLat, $lte: box.maxLat },
   };
   if (box.minLng !== null) {
@@ -1289,13 +1321,15 @@ const getNearbyDrives = asyncHandler(async (req, res) => {
   }
 
   const candidates = await Drive.find(filter)
-    .select('name date time location difficulty coordinates club')
-    .sort({ date: 1 })
+    .select('name date time startsAt timeZone location difficulty coordinates club')
     .lean();
 
+  // Sorted here rather than in Mongo: unmigrated drives have no startsAt,
+  // and a Mongo sort would put those nulls first instead of by their date
   const inRadius = candidates
     .map((d) => ({ drive: d, miles: haversineMiles(center, d.coordinates) }))
-    .filter(({ miles }) => miles <= radiusMiles);
+    .filter(({ miles }) => miles <= radiusMiles)
+    .sort((a, b) => driveStartsAt(a.drive) - driveStartsAt(b.drive));
   if (inRadius.length === 0) {
     return res.json({ success: true, drives: [] });
   }
@@ -1318,6 +1352,8 @@ const getNearbyDrives = asyncHandler(async (req, res) => {
       name: drive.name,
       date: drive.date,
       time: drive.time,
+      startsAt: drive.startsAt,
+      timeZone: drive.timeZone,
       location: drive.location,
       difficulty: drive.difficulty,
       distanceMiles: roundMiles(miles),
