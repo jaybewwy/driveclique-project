@@ -290,6 +290,11 @@ test.describe('DriveClique - end-to-end tests', () => {
     expect(clubIdMatch).toBeTruthy();
     const clubId = clubIdMatch![1];
 
+    // React Router renders the new route in a transition, so right after the
+    // URL changes the Create Club page (and its avatar menu) can still be on
+    // screen. Wait for the club page itself before opening the menu.
+    await expect(page.getByRole('heading', { level: 1, name: clubName })).toBeVisible({ timeout: 10000 });
+
     // Logout
     await page.getByRole('button', { name: /^[A-Z]{2}$/ }).last().click().catch(() => {});
     await page.getByRole('menuitem', { name: /Log out/i }).click().catch(async () => {
@@ -344,14 +349,17 @@ test.describe('DriveClique - end-to-end tests', () => {
     await navigateTo(page, '/my-clubs');
     
     // Create a club first to get to a club page where we can test invite code
+    const clubName = `TestClub_${randomString(5)}`;
     await navigateTo(page, '/create-club');
-    await page.getByPlaceholder('e.g. Southern California Mountain Drivers').fill(`TestClub_${randomString(5)}`);
+    await page.getByPlaceholder('e.g. Southern California Mountain Drivers').fill(clubName);
     await page.getByPlaceholder('What makes your club unique?').fill('Test club for invite code negative test');
     await page.getByPlaceholder(/Search city or region|Search city in/i).fill('Test City');
     await page.getByRole('button', { name: /Create Club/i }).click();
-    
+
     await page.waitForURL(/\/club\/[a-f0-9]{24}/, { timeout: 10000 });
-    
+    // Wait for the club page itself, not just the URL (see the test above)
+    await expect(page.getByRole('heading', { level: 1, name: clubName })).toBeVisible({ timeout: 10000 });
+
     // Logout and login as a different user
     await page.getByRole('button', { name: /^[A-Z]{2}$/ }).last().click().catch(() => {});
     await page.getByRole('menuitem', { name: /Log out/i }).click().catch(async () => {
