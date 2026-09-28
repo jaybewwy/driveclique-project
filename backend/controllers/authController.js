@@ -1,21 +1,32 @@
+// Authentication and account security: register/login, access + refresh
+// tokens, password reset/change, email verification and email change,
+// username change, and account deletion. Profile data lives in
+// userController; mobile push tokens in pushTokenController.
+
 const crypto = require('crypto');
 const User = require('../models/user');
 const RefreshToken = require('../models/refreshToken');
 const Club = require('../models/club');
-const Drive = require('../models/drive');
 const RSVP = require('../models/rsvp');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { asyncHandler, AppError } = require('../middleware/errorHandler');
-const { validateInput, isValidEmail, isValidUsername } = require('../middleware/validation');
+const { asyncHandler, AppError, orNotFound } = require('../middleware/errorHandler');
+const { isValidUsername } = require('../middleware/validation');
 const { sendEmail, emailTemplates } = require('../services/emailService');
 const { verifyEmailAddress } = require('../services/emailVerifier');
-const { escapeRegex } = require('../utils/regex');
-const { capArray } = require('../utils/arrayCap');
+const { deleteClubsCascade } = require('../services/clubCascade');
 
 const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const PASSWORD_HISTORY_LIMIT = 4; // + current password = last 5 passwords checked for reuse
+const PASSWORD_REUSED_MESSAGE = 'You cannot reuse one of your last 5 passwords. Please choose a different password.';
+const USERNAME_COOLDOWN_DAYS = 60;
+
+/** Frontend base URL used to build emailed confirmation/reset links */
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+/** Shared 24-hour expiry window for email-verification and email-change confirmation links (forgotPassword's reset-token window is deliberately shorter — 1 hour — and is not part of this shared constant) */
+const TOKEN_TTL_24H = 24 * 60 * 60 * 1000;
 
 /** True if plainPassword matches the user's current password or any of their last 4 previous passwords */
 const isPasswordReused = async (plainPassword, user) => {
@@ -26,41 +37,24 @@ const isPasswordReused = async (plainPassword, user) => {
   return false;
 };
 
+/**
+ * Swap in a new password (re-hashed by the model's pre-save hook), keeping
+ * the old one in the reuse history. Also clears push tokens: a lost or
+ * stolen device's push token is still a live channel to this account even
+ * after the password that compromised it is gone, the same reason callers
+ * revoke refresh tokens afterwards.
+ */
+const rotatePassword = (user, newPassword) => {
+  user.passwordHistory = [user.password, ...(user.passwordHistory || [])].slice(0, PASSWORD_HISTORY_LIMIT);
+  user.password = newPassword;
+  user.pushTokens = [];
+};
+
 /** SHA-256 hex digest — used to store secure random tokens (refresh/reset/verify) at rest without keeping the raw, directly-usable value in the DB */
 const hashToken = (rawToken) => crypto.createHash('sha256').update(rawToken).digest('hex');
 
 /** Cryptographically secure random raw token — the single-use value sent to the client (email link or response body) before being hashed for storage via hashToken() */
 const generateRawToken = () => crypto.randomBytes(40).toString('hex');
-
-/** Frontend base URL used to build emailed confirmation/reset links */
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
-
-/** Shared 24-hour expiry window for email-verification and email-change confirmation links (forgotPassword's reset-token window is deliberately shorter — 1 hour — and is not part of this shared constant) */
-const TOKEN_TTL_24H = 24 * 60 * 60 * 1000;
-
-const MAX_CARS = 5;
-const MAX_PHOTOS_PER_CAR = 4;
-
-/** Caps car/photo counts and ensures exactly one car is flagged primary (if any exist) */
-const normalizeCars = (cars) => {
-  // 'start' keeps the first MAX_CARS entries submitted, matching this
-  // function's original `cars.slice(0, MAX_CARS)` behavior exactly.
-  const trimmed = capArray(cars, MAX_CARS, 'start').map(car => ({
-    year: car.year || '',
-    make: car.make || '',
-    model: car.model || '',
-    color: car.color || '',
-    nickname: car.nickname || '',
-    photos: Array.isArray(car.photos) ? car.photos.slice(0, MAX_PHOTOS_PER_CAR) : [],
-    isPrimary: !!car.isPrimary
-  }));
-
-  const primaryIndex = trimmed.findIndex(car => car.isPrimary);
-  return trimmed.map((car, i) => ({
-    ...car,
-    isPrimary: trimmed.length === 0 ? false : i === (primaryIndex === -1 ? 0 : primaryIndex)
-  }));
-};
 
 /** Short-lived access token (15 min) */
 const generateAccessToken = (userId) =>
@@ -78,6 +72,26 @@ const createRefreshToken = async (userId) => {
   await RefreshToken.create({ token: hashToken(token), user: userId, expiresAt });
   return token;
 };
+
+/** A fresh access + refresh token pair for a newly signed-in user */
+const issueSession = async (userId) => ({
+  token: generateAccessToken(userId),
+  refreshToken: await createRefreshToken(userId),
+});
+
+/** The user fields returned by register and login */
+const toSessionUser = (user) => ({
+  _id: user._id,
+  username: user.username,
+  email: user.email,
+  name: user.name,
+  firstName: user.firstName,
+  lastName:  user.lastName,
+  location:  user.location,
+  role: user.role,
+  useDisplayName: user.useDisplayName,
+  emailVerified: user.emailVerified
+});
 
 /**
  * POST /api/auth/refresh — Exchange a valid refresh token for a new access token
@@ -109,200 +123,6 @@ const logoutUser = asyncHandler(async (req, res) => {
 });
 
 /**
- * Get User Profile
- * @route GET /api/auth/profile
- * @access Private
- */
-const getProfile = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user.id).select('-password');
-  
-  if (!user) {
-    throw new AppError('User not found', 404);
-  }
-
-  // Ensure useDisplayName field exists for backward compatibility
-  if (user.useDisplayName === undefined) {
-    user.useDisplayName = false;
-  }
-
-  res.json({ success: true, user });
-});
-
-/**
- * Update User Profile
- * @route PUT /api/auth/profile
- * @access Private
- */
-const updateProfile = asyncHandler(async (req, res) => {
-  const { name, bio, avatar, cars, useDisplayName, firstName, lastName, location } = req.body;
-
-  const user = await User.findById(req.user.id);
-
-  if (!user) {
-    throw new AppError('User not found', 404);
-  }
-
-  // Normalize boolean values (handle string "true"/"false" from some clients)
-  const normalizedUseDisplayName =
-    typeof useDisplayName === 'string' ? useDisplayName === 'true' : useDisplayName;
-
-  // Update fields only if provided
-  if (name        !== undefined) user.name      = name;
-  if (bio         !== undefined) user.bio       = bio;
-  if (avatar      !== undefined) user.avatar    = avatar;
-  if (firstName   !== undefined) user.firstName = firstName;
-  if (lastName    !== undefined) user.lastName  = lastName;
-  if (location    !== undefined) user.location  = location;
-  if (useDisplayName !== undefined) user.useDisplayName = normalizedUseDisplayName;
-
-  if (cars !== undefined) {
-    if (!Array.isArray(cars)) {
-      throw new AppError('cars must be an array', 400);
-    }
-    user.cars = normalizeCars(cars);
-  }
-
-  await user.save();
-
-  res.json({
-    success: true,
-    message: 'Profile updated successfully',
-    user: {
-      _id: user._id,
-      username: user.username,
-      email: user.email,
-      name: user.name,
-      firstName: user.firstName,
-      lastName:  user.lastName,
-      location:  user.location,
-      bio: user.bio,
-      avatar: user.avatar,
-      cars: user.cars,
-      role: user.role,
-      useDisplayName: user.useDisplayName
-    }
-  });
-});
-
-/**
- * Search Users
- * @route GET /api/auth/users/search
- * @access Private
- */
-const searchUsers = asyncHandler(async (req, res) => {
-  const { query } = req.query;
-  
-  if (!query || !query.trim()) {
-    return res.json({ success: true, users: [] });
-  }
-
-  const users = await User.find({
-    username: { $regex: escapeRegex(query.trim()), $options: 'i' }
-  })
-  .select('-password')
-  .limit(10);
-
-  res.json({ success: true, users });
-});
-
-/**
- * Get another user's public profile — a safe field subset plus derived
- * context (clubs both users share, "going" RSVP count as a participation
- * signal). Never returns email, password, or tokens.
- * @route   GET /api/auth/users/:userId/public
- * @access  Private
- */
-const getPublicProfile = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
-  const viewerId = req.user.id;
-
-  const [user, viewer] = await Promise.all([
-    User.findById(userId)
-      .select('username name firstName lastName avatar bio location cars useDisplayName createdAt blockedUsers')
-      .lean(),
-    User.findById(viewerId).select('blockedUsers').lean(),
-  ]);
-
-  if (!user) {
-    throw new AppError('User not found', 404);
-  }
-
-  // UC-32 — if the target has blocked the viewer, hide the profile entirely
-  // rather than a distinct "you're blocked" error, so a blocked viewer can't
-  // tell the difference between a nonexistent user and one who blocked them.
-  const viewerIsBlocked = (user.blockedUsers || []).some((id) => id.toString() === viewerId);
-  if (viewerIsBlocked) {
-    throw new AppError('User not found', 404);
-  }
-
-  const isBlockedByViewer = (viewer?.blockedUsers || []).some((id) => id.toString() === userId);
-
-  const [mutualClubs, goingCount] = await Promise.all([
-    Club.find({
-      $and: [
-        { $or: [{ leader: viewerId }, { members: viewerId }, { coLeaders: viewerId }] },
-        { $or: [{ leader: userId }, { members: userId }, { coLeaders: userId }] },
-      ],
-    }).select('name').lean(),
-    RSVP.countDocuments({ user: userId, status: 'going' }),
-  ]);
-
-  // blockedUsers was only selected to compute the check above — strip it
-  // before spreading `user` into the response so a viewer never sees the
-  // target's own block list.
-  const { blockedUsers: _omit, ...safeUser } = user;
-
-  res.json({
-    success: true,
-    profile: {
-      ...safeUser,
-      mutualClubs: mutualClubs.map((c) => ({ _id: c._id, name: c.name })),
-      goingCount,
-      isBlockedByViewer,
-    },
-  });
-});
-
-/**
- * Block Another User (UC-32) — one-directional: only affects what the
- * blocked user can do toward the blocker (currently: viewing the blocker's
- * public profile via getPublicProfile above). Deliberately never affects
- * reporting — blocking must not be usable to suppress a legitimate report
- * against you.
- * @route   POST /api/auth/users/:userId/block
- * @access  Private
- */
-const blockUser = asyncHandler(async (req, res) => {
-  const { userId: targetId } = req.params;
-  const viewerId = req.user.id;
-
-  if (targetId === viewerId) {
-    throw new AppError('You cannot block yourself.', 400);
-  }
-
-  const targetExists = await User.exists({ _id: targetId });
-  if (!targetExists) throw new AppError('User not found', 404);
-
-  await User.updateOne({ _id: viewerId }, { $addToSet: { blockedUsers: targetId } });
-
-  res.json({ success: true, message: 'User blocked.' });
-});
-
-/**
- * Unblock a Previously-Blocked User (UC-32)
- * @route   DELETE /api/auth/users/:userId/block
- * @access  Private
- */
-const unblockUser = asyncHandler(async (req, res) => {
-  const { userId: targetId } = req.params;
-  const viewerId = req.user.id;
-
-  await User.updateOne({ _id: viewerId }, { $pull: { blockedUsers: targetId } });
-
-  res.json({ success: true, message: 'User unblocked.' });
-});
-
-/**
  * Register User
  * @route POST /api/auth/register
  * @access Public
@@ -316,7 +136,6 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new AppError(emailCheck.reason, 400);
   }
 
-  // Check for existing user (email or username)
   const existingUser = await User.findOne({ $or: [{ email }, { username }] });
   if (existingUser) {
     throw new AppError('User with this email or username already exists', 400);
@@ -337,28 +156,11 @@ const registerUser = asyncHandler(async (req, res) => {
     emailVerified: true,
   });
 
-  const [token, refreshToken] = await Promise.all([
-    Promise.resolve(generateAccessToken(user._id)),
-    createRefreshToken(user._id),
-  ]);
-
   res.status(201).json({
     success: true,
     message: 'Account created successfully!',
-    user: {
-      _id: user._id,
-      username: user.username,
-      email: user.email,
-      name: user.name,
-      firstName: user.firstName,
-      lastName:  user.lastName,
-      location:  user.location,
-      role: user.role,
-      useDisplayName: user.useDisplayName,
-      emailVerified: user.emailVerified
-    },
-    token,
-    refreshToken,
+    user: toSessionUser(user),
+    ...await issueSession(user._id),
   });
 });
 
@@ -375,27 +177,10 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new AppError('Invalid username or password', 401);
   }
 
-  const [token, refreshToken] = await Promise.all([
-    Promise.resolve(generateAccessToken(user._id)),
-    createRefreshToken(user._id),
-  ]);
-
   res.json({
     success: true,
-    user: {
-      _id: user._id,
-      username: user.username,
-      email: user.email,
-      name: user.name,
-      firstName: user.firstName,
-      lastName:  user.lastName,
-      location:  user.location,
-      role: user.role,
-      useDisplayName: user.useDisplayName,
-      emailVerified: user.emailVerified
-    },
-    token,
-    refreshToken,
+    user: toSessionUser(user),
+    ...await issueSession(user._id),
   });
 });
 
@@ -441,17 +226,12 @@ const resetPassword = asyncHandler(async (req, res) => {
   if (!user) throw new AppError('Password reset token is invalid or has expired', 400);
 
   if (await isPasswordReused(password, user)) {
-    throw new AppError('You cannot reuse one of your last 5 passwords. Please choose a different password.', 400);
+    throw new AppError(PASSWORD_REUSED_MESSAGE, 400);
   }
 
-  user.passwordHistory = [user.password, ...(user.passwordHistory || [])].slice(0, PASSWORD_HISTORY_LIMIT);
-  user.password = password;
+  rotatePassword(user, password);
   user.passwordResetToken = undefined;
   user.passwordResetExpires = undefined;
-  // A stolen/lost device's push token is still a live channel to this account
-  // even after the password that compromised it is gone — clear it the same
-  // way stale refresh tokens are, rather than leaving it to expire on its own.
-  user.pushTokens = [];
   await user.save();
 
   // A password reset means any previously-issued session (including one held
@@ -459,6 +239,34 @@ const resetPassword = asyncHandler(async (req, res) => {
   await RefreshToken.deleteMany({ user: user._id });
 
   res.json({ success: true, message: 'Password reset successful. You can now sign in.' });
+});
+
+/**
+ * PUT /api/auth/password — Change password while logged in
+ * @access Private
+ */
+const changePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  const user = orNotFound(await User.findById(req.user.id), 'User not found');
+
+  const match = await bcrypt.compare(currentPassword, user.password);
+  if (!match) throw new AppError('Current password is incorrect.', 401);
+
+  if (await isPasswordReused(newPassword, user)) {
+    throw new AppError(PASSWORD_REUSED_MESSAGE, 400);
+  }
+
+  rotatePassword(user, newPassword);
+  await user.save();
+
+  // Revoke every outstanding session (this one included) so a stolen refresh
+  // token can't outlive an intentional password change. The frontend logs
+  // the user out immediately on success rather than waiting for their next
+  // access-token refresh to fail.
+  await RefreshToken.deleteMany({ user: user._id });
+
+  res.json({ success: true, message: 'Password updated successfully. Please sign in again.' });
 });
 
 /**
@@ -488,8 +296,7 @@ const verifyEmail = asyncHandler(async (req, res) => {
  * @access Private
  */
 const resendVerification = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user.id);
-  if (!user) throw new AppError('User not found', 404);
+  const user = orNotFound(await User.findById(req.user.id), 'User not found');
 
   if (user.emailVerified) {
     return res.json({ success: true, message: 'Your email is already verified.' });
@@ -508,107 +315,19 @@ const resendVerification = asyncHandler(async (req, res) => {
 });
 
 /**
- * DELETE /api/auth/account — Permanently delete the authenticated user's account
- * @access Private
- */
-const deleteAccount = asyncHandler(async (req, res) => {
-  const userId = req.user?.id;
-  const { password } = req.body;
-
-  if (!userId) throw new AppError('Authentication required', 401);
-
-  const user = await User.findById(userId).select('+password');
-  if (!user) throw new AppError('User not found', 404);
-
-  const passwordMatch = await bcrypt.compare(password, user.password);
-  if (!passwordMatch) throw new AppError('Incorrect password. Account not deleted.', 401);
-
-  // Block deletion if the user leads any club that still has other members
-  const ledClubs = await Club.find({ leader: userId }).select('name members');
-  const blockedClubs = ledClubs.filter(c => c.members.length > 1);
-  if (blockedClubs.length > 0) {
-    const names = blockedClubs.map(c => `"${c.name}"`).join(', ');
-    throw new AppError(
-      `Transfer leadership or delete these clubs before deleting your account: ${names}`,
-      400
-    );
-  }
-
-  // Clubs the user leads alone — cascade-delete them
-  const soloClubIds = ledClubs.filter(c => c.members.length <= 1).map(c => c._id);
-  if (soloClubIds.length > 0) {
-    const solodriveIds = await Drive.find({ club: { $in: soloClubIds } }).select('_id').lean();
-    if (solodriveIds.length > 0) {
-      await RSVP.deleteMany({ drive: { $in: solodriveIds.map(d => d._id) } });
-    }
-    await Drive.deleteMany({ club: { $in: soloClubIds } });
-    await Club.deleteMany({ _id: { $in: soloClubIds } });
-  }
-
-  // Remove user from all other clubs' member arrays and pending join requests
-  await Club.updateMany(
-    { $or: [{ members: userId }, { 'joinRequests.user': userId }] },
-    { $pull: { members: userId, joinRequests: { user: userId } } }
-  );
-
-  // Delete all personal RSVPs, refresh tokens, and the user document
-  await RSVP.deleteMany({ user: userId });
-  await RefreshToken.deleteMany({ user: userId });
-  await User.findByIdAndDelete(userId);
-
-  res.json({ success: true, message: 'Account deleted successfully' });
-});
-
-/**
- * PUT /api/auth/password — Change password while logged in
- * @access Private
- */
-const changePassword = asyncHandler(async (req, res) => {
-  const { currentPassword, newPassword } = req.body;
-
-  const user = await User.findById(req.user.id);
-  if (!user) throw new AppError('User not found', 404);
-
-  const match = await bcrypt.compare(currentPassword, user.password);
-  if (!match) throw new AppError('Current password is incorrect.', 401);
-
-  if (await isPasswordReused(newPassword, user)) {
-    throw new AppError('You cannot reuse one of your last 5 passwords. Please choose a different password.', 400);
-  }
-
-  user.passwordHistory = [user.password, ...(user.passwordHistory || [])].slice(0, PASSWORD_HISTORY_LIMIT);
-  user.password = newPassword;
-  // Same reasoning as resetPassword: a lost device's push token outlives the
-  // session it was registered under, so it needs clearing here too, not just
-  // the refresh token.
-  user.pushTokens = [];
-  await user.save(); // pre-save hook re-hashes when password is modified
-
-  // Revoke every outstanding session (this one included) so a stolen refresh
-  // token can't outlive an intentional password change. The frontend logs
-  // the user out immediately on success rather than waiting for their next
-  // access-token refresh to fail.
-  await RefreshToken.deleteMany({ user: user._id });
-
-  res.json({ success: true, message: 'Password updated successfully. Please sign in again.' });
-});
-
-/**
  * PUT /api/auth/username — Change username (once per 60 days)
  * @access Private
  */
 const changeUsername = asyncHandler(async (req, res) => {
   const { username } = req.body;
 
-  const user = await User.findById(req.user.id);
-  if (!user) throw new AppError('User not found', 404);
+  const user = orNotFound(await User.findById(req.user.id), 'User not found');
 
-  // Enforce 60-day cooldown
   if (user.usernameChangedAt) {
     const msSince = Date.now() - new Date(user.usernameChangedAt).getTime();
     const daysSince = msSince / (1000 * 60 * 60 * 24);
-    if (daysSince < 60) {
-      const daysLeft = Math.ceil(60 - daysSince);
+    if (daysSince < USERNAME_COOLDOWN_DAYS) {
+      const daysLeft = Math.ceil(USERNAME_COOLDOWN_DAYS - daysSince);
       throw new AppError(
         `You can change your username again in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}.`,
         400
@@ -648,8 +367,7 @@ const requestEmailChange = asyncHandler(async (req, res) => {
   const { newEmail } = req.body;
   const normalizedEmail = newEmail.toLowerCase();
 
-  const user = await User.findById(req.user.id);
-  if (!user) throw new AppError('User not found', 404);
+  const user = orNotFound(await User.findById(req.user.id), 'User not found');
 
   if (normalizedEmail === user.email) {
     throw new AppError('That is already your current email address.', 400);
@@ -723,112 +441,59 @@ const confirmEmailChange = asyncHandler(async (req, res) => {
   res.json({ success: true, message: `Email updated to ${newEmail}.`, email: newEmail });
 });
 
-const MAX_PUSH_TOKENS = 10; // small-cap convention (see MAX_CARS above) — bounds re-registrations across many devices/reinstalls
-
 /**
- * POST /api/auth/push-token — register (or refresh) this device's Expo push token
+ * DELETE /api/auth/account — Permanently delete the authenticated user's account
  * @access Private
  */
-const registerPushToken = asyncHandler(async (req, res) => {
-  const { expoPushToken, platform } = req.body;
+const deleteAccount = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const { password } = req.body;
 
-  // A single atomic aggregation-pipeline update, not a findById -> mutate in
-  // JS -> save() round trip: the previous version read the whole document,
-  // edited pushTokens in memory, then wrote the whole document back — a
-  // lost-update race whenever two registrations for the same user land
-  // close together (two devices registering at once, or a duplicate/retried
-  // request for the very same token), since whichever save() landed second
-  // silently overwrote the first's change. This pipeline does everything in
-  // one atomic write: if the token is already present, its entry is updated
-  // in place (preserving the existing platform when none is supplied —
-  // `platform || '$$t.platform'` embeds either the literal new value or a
-  // reference back to the current document's own field, matching the
-  // original code's "only overwrite platform if truthy" rule exactly);
-  // otherwise the token is appended. Either way the array is then capped to
-  // the last MAX_PUSH_TOKENS entries.
-  const result = await User.updateOne(
-    { _id: req.user.id },
-    [
-      {
-        $set: {
-          pushTokens: {
-            $let: {
-              vars: {
-                all: { $ifNull: ['$pushTokens', []] },
-                hasExisting: { $in: [expoPushToken, { $ifNull: ['$pushTokens.token', []] }] },
-              },
-              in: {
-                $slice: [
-                  {
-                    $cond: [
-                      '$$hasExisting',
-                      {
-                        $map: {
-                          input: '$$all',
-                          as: 't',
-                          in: {
-                            $cond: [
-                              { $eq: ['$$t.token', expoPushToken] },
-                              { token: '$$t.token', platform: platform || '$$t.platform' },
-                              '$$t',
-                            ],
-                          },
-                        },
-                      },
-                      { $concatArrays: ['$$all', [{ token: expoPushToken, platform: platform || 'unknown' }]] },
-                    ],
-                  },
-                  -MAX_PUSH_TOKENS,
-                ],
-              },
-            },
-          },
-        },
-      },
-    ],
-    { updatePipeline: true } // required by Mongoose 9.x to accept an array (aggregation pipeline) as the update
+  const user = orNotFound(await User.findById(userId).select('+password'), 'User not found');
+
+  const passwordMatch = await bcrypt.compare(password, user.password);
+  if (!passwordMatch) throw new AppError('Incorrect password. Account not deleted.', 401);
+
+  // Block deletion if the user leads any club that still has other members
+  const ledClubs = await Club.find({ leader: userId }).select('name members');
+  const clubsWithOthers = ledClubs.filter(c => c.members.length > 1);
+  if (clubsWithOthers.length > 0) {
+    const names = clubsWithOthers.map(c => `"${c.name}"`).join(', ');
+    throw new AppError(
+      `Transfer leadership or delete these clubs before deleting your account: ${names}`,
+      400
+    );
+  }
+
+  // Clubs the user leads alone go with them
+  await deleteClubsCascade(ledClubs.map(c => c._id));
+
+  // Remove user from all other clubs' member arrays and pending join requests
+  await Club.updateMany(
+    { $or: [{ members: userId }, { 'joinRequests.user': userId }] },
+    { $pull: { members: userId, joinRequests: { user: userId } } }
   );
 
-  if (result.matchedCount === 0) throw new AppError('User not found', 404);
+  // Delete all personal RSVPs, refresh tokens, and the user document
+  await RSVP.deleteMany({ user: userId });
+  await RefreshToken.deleteMany({ user: userId });
+  await User.findByIdAndDelete(userId);
 
-  res.json({ success: true, message: 'Push token registered.' });
-});
-
-/**
- * DELETE /api/auth/push-token — unregister this device's Expo push token (called on logout)
- * @access Private
- */
-const unregisterPushToken = asyncHandler(async (req, res) => {
-  const { expoPushToken } = req.body;
-
-  await User.updateOne(
-    { _id: req.user.id },
-    { $pull: { pushTokens: { token: expoPushToken } } }
-  );
-
-  res.json({ success: true, message: 'Push token unregistered.' });
+  res.json({ success: true, message: 'Account deleted successfully' });
 });
 
 module.exports = {
   registerUser,
   loginUser,
-  getProfile,
-  updateProfile,
-  searchUsers,
-  getPublicProfile,
-  blockUser,
-  unblockUser,
   refreshAccessToken,
   logoutUser,
   forgotPassword,
   resetPassword,
+  changePassword,
   verifyEmail,
   resendVerification,
-  deleteAccount,
   changeUsername,
-  changePassword,
   requestEmailChange,
   confirmEmailChange,
-  registerPushToken,
-  unregisterPushToken,
+  deleteAccount,
 };

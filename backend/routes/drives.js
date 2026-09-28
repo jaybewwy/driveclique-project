@@ -4,31 +4,32 @@ const { protect } = require('../middleware/authentication');
 const { apiLimiter } = require('../middleware/rateLimiters');
 const { validateParams, validateInput, validateQuery } = require('../middleware/validation');
 const { MAX_SEARCH_RADIUS_MILES } = require('../utils/geo');
+const { MAX_DRIVE_PHOTOS, RECURRENCE_FREQUENCIES, MAX_RECURRENCE_COUNT } = require('../models/drive');
 const {
   createDrive,
   getClubDrives,
-  rsvpToDrive,
-  cancelDrive,
-  cancelDriveSeries,
+  getNearbyDrives,
   updateDrive,
   deleteDrive,
-  getDriveAttendees,
+  cancelDrive,
+  cancelDriveSeries,
+} = require('../controllers/driveController');
+const {
+  rsvpToDrive,
   getDriveRSVPStatus,
-  getLeaderDashboard,
+  getDriveAttendees,
   getMyRSVPs,
-  getClubAnalytics,
+} = require('../controllers/rsvpController');
+const {
   requestCheckin,
   getCheckinStatus,
   submitCheckin,
   submitRating,
   getDriveRatings,
-  getCalendarDrives,
-  exportDriveIcs,
-  exportMyScheduleIcs,
-  addDrivePhotos,
-  removeDrivePhoto,
-  getNearbyDrives
-} = require('../controllers/driveController');
+} = require('../controllers/driveAttendanceController');
+const { addDrivePhotos, removeDrivePhoto } = require('../controllers/drivePhotoController');
+const { getLeaderDashboard, getClubAnalytics } = require('../controllers/driveInsightsController');
+const { getCalendarDrives, exportDriveIcs, exportMyScheduleIcs } = require('../controllers/driveCalendarController');
 
 // All routes require authentication
 router.use(protect);
@@ -59,11 +60,11 @@ router.post(
       type: 'object',
       custom: (value) => {
         if (!value) return null;
-        if (!['weekly', 'biweekly', 'monthly'].includes(value.frequency)) {
-          return 'repeat.frequency must be one of: weekly, biweekly, monthly';
+        if (!RECURRENCE_FREQUENCIES.includes(value.frequency)) {
+          return `repeat.frequency must be one of: ${RECURRENCE_FREQUENCIES.join(', ')}`;
         }
-        if (!Number.isInteger(value.count) || value.count < 2 || value.count > 12) {
-          return 'repeat.count must be an integer between 2 and 12';
+        if (!Number.isInteger(value.count) || value.count < 2 || value.count > MAX_RECURRENCE_COUNT) {
+          return `repeat.count must be an integer between 2 and ${MAX_RECURRENCE_COUNT}`;
         }
         return null;
       }
@@ -359,7 +360,7 @@ router.post(
       custom: (value) => {
         if (!Array.isArray(value)) return 'photos must be an array';
         if (value.length < 1) return 'At least one photo is required';
-        if (value.length > 12) return 'You can add at most 12 photos at once';
+        if (value.length > MAX_DRIVE_PHOTOS) return `You can add at most ${MAX_DRIVE_PHOTOS} photos at once`;
         if (value.some(p => typeof p !== 'string' || p.length === 0 || p.length > 300000)) {
           return 'Invalid photo';
         }

@@ -3,31 +3,6 @@
  * Provides reusable validation functions for request data
  */
 
-const { AppError } = require('./errorHandler');
-
-/**
- * Validate required fields in request body
- * @param {string[]} fields - Array of required field names
- * @returns {Function} Middleware function
- */
-const validateRequiredFields = (...fields) => {
-  return (req, res, next) => {
-    const missingFields = fields.filter(field => {
-      const value = req.body[field];
-      return value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
-    });
-
-    if (missingFields.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Missing required fields: ${missingFields.join(', ')}`
-      });
-    }
-
-    next();
-  };
-};
-
 /**
  * Validate email format
  * @param {string} email - Email to validate
@@ -53,15 +28,6 @@ const isValidUsername = (username) => {
 };
 
 /**
- * Validate password strength (min 6 chars, at least one letter and one number)
- * @param {string} password - Password to validate
- * @returns {boolean}
- */
-const isValidPassword = (password) => {
-  return password && password.length >= 6;
-};
-
-/**
  * Validate MongoDB ObjectId format
  * @param {string} id - ID to validate
  * @returns {boolean}
@@ -69,18 +35,6 @@ const isValidPassword = (password) => {
 const isValidObjectId = (id) => {
   const objectIdRegex = /^[0-9a-fA-F]{24}$/;
   return objectIdRegex.test(id);
-};
-
-/**
- * Validate string length
- * @param {string} value - Value to validate
- * @param {number} min - Minimum length
- * @param {number} max - Maximum length
- * @returns {boolean}
- */
-const isValidLength = (value, min, max) => {
-  if (!value) return false;
-  return value.length >= min && value.length <= max;
 };
 
 /**
@@ -308,14 +262,11 @@ const validateParams = (rules) => {
 };
 
 module.exports = {
-  validateRequiredFields,
   validateInput,
   validateQuery,
   validateParams,
   isValidEmail,
   isValidUsername,
-  isValidPassword,
   isValidObjectId,
-  isValidLength,
   sanitizeString
 };

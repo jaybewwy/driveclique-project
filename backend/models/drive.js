@@ -1,5 +1,14 @@
 const mongoose = require('mongoose');
 
+// Post-drive photo gallery cap (UC-5) — leader/co-leader curated, kept small
+// and bounded per the same storage-budget reasoning as User.cars[].photos.
+const MAX_DRIVE_PHOTOS = 12;
+
+// Recurring drive series (UC-11) — materialized upfront as real Drive
+// documents, not open-ended/auto-renewing, so a series is capped.
+const RECURRENCE_FREQUENCIES = ['weekly', 'biweekly', 'monthly'];
+const MAX_RECURRENCE_COUNT = 12;
+
 const DriveSchema = new mongoose.Schema({
   club: { 
     type: mongoose.Schema.Types.ObjectId, 
@@ -74,8 +83,8 @@ const DriveSchema = new mongoose.Schema({
     default: ''
   },
   // Post-drive photo gallery (UC-5) — leader/co-leader curated, hard-capped at
-  // 12 total (enforced in driveController, not here — same convention as
-  // User.cars[].photos, which also has no schema-level cap).
+  // MAX_DRIVE_PHOTOS total (enforced in drivePhotoController, not here — same
+  // convention as User.cars[].photos, which also has no schema-level cap).
   photos: {
     type: [String],
     default: []
@@ -96,7 +105,7 @@ const DriveSchema = new mongoose.Schema({
   // in a series is its own full Drive document; this just links them together.
   recurrence: {
     groupId: { type: mongoose.Schema.Types.ObjectId },
-    frequency: { type: String, enum: ['weekly', 'biweekly', 'monthly'] },
+    frequency: { type: String, enum: RECURRENCE_FREQUENCIES },
     index: { type: Number },
     total: { type: Number },
   }
@@ -111,3 +120,6 @@ DriveSchema.index({ createdBy: 1 });
 DriveSchema.index({ 'recurrence.groupId': 1 });
 
 module.exports = mongoose.model('Drive', DriveSchema);
+module.exports.MAX_DRIVE_PHOTOS = MAX_DRIVE_PHOTOS;
+module.exports.RECURRENCE_FREQUENCIES = RECURRENCE_FREQUENCIES;
+module.exports.MAX_RECURRENCE_COUNT = MAX_RECURRENCE_COUNT;

@@ -10,27 +10,28 @@ const {
   getUserClubs,
   getClubById,
   getClubByInviteCode,
-  requestToJoinClub,
-  handleJoinRequest,
   searchClubs,
-  toggleClubPrivacy,
-  joinClubByInviteCode,
-  updateClub,
-  deleteClub,
   getTopClub,
+  updateClub,
+  toggleClubPrivacy,
+  deleteClub,
+} = require('../controllers/clubController');
+const {
+  requestToJoinClub,
+  joinClubByInviteCode,
+  handleJoinRequest,
   leaveClub,
+  transferOwnership,
   removeMember,
   getBannedMembers,
   unbanMember,
+  promoteCoLeader,
+  demoteCoLeader,
   blockClub,
   unblockClub,
   getBlockedClubs,
-  transferOwnership,
-  postAnnouncement,
-  deleteAnnouncement,
-  promoteCoLeader,
-  demoteCoLeader
-} = require('../controllers/clubController');
+} = require('../controllers/clubMembershipController');
+const { postAnnouncement, deleteAnnouncement } = require('../controllers/clubAnnouncementController');
 
 // All routes require authentication
 router.use(protect);

@@ -2,9 +2,8 @@ const cron = require('node-cron');
 const logger = require('../utils/logger');
 const Drive = require('../models/drive');
 const RSVP = require('../models/rsvp');
-const User = require('../models/user');
-const { notify } = require('./notificationEmitter');
-const { sendEmail, emailTemplates } = require('./emailService');
+const { emailTemplates } = require('./emailService');
+const { notifyAndEmail } = require('./memberNotifications');
 const { driveStartsInFilter, formatDriveWhen } = require('../utils/driveTime');
 
 const sendReminders = async () => {
@@ -29,33 +28,21 @@ const sendReminders = async () => {
 
     if (!rsvps.length) continue;
 
-    const userIds = rsvps.map(r => r.user);
-    const users = await User.find({
-      _id: { $in: userIds },
-      emailVerified: { $ne: false },
-    }).select('_id email').lean();
-    const emailMap = new Map(users.map(u => [u._id.toString(), u.email]));
-
-    const tpl = emailTemplates.driveReminder({
-      driveName: drive.name,
-      clubName: drive.club?.name ?? 'your club',
-      driveDatetime: formatDriveWhen(drive),
-      location: drive.location,
-    });
-
-    const rsvpIds = [];
-    for (const rsvp of rsvps) {
-      const uid = rsvp.user.toString();
-      notify(uid, {
+    await notifyAndEmail(rsvps.map(r => r.user), {
+      notification: {
         type: 'DRIVE_REMINDER',
         message: `Reminder: ${drive.name} is coming up tomorrow`,
         data: { driveId: drive._id, clubId: drive.club?._id },
-      });
-      const email = emailMap.get(uid);
-      if (email) sendEmail({ to: email, ...tpl }); // fire-and-forget
-      rsvpIds.push(rsvp._id);
-    }
+      },
+      email: emailTemplates.driveReminder({
+        driveName: drive.name,
+        clubName: drive.club?.name ?? 'your club',
+        driveDatetime: formatDriveWhen(drive),
+        location: drive.location,
+      }),
+    });
 
+    const rsvpIds = rsvps.map(r => r._id);
     await RSVP.updateMany({ _id: { $in: rsvpIds } }, { reminderSent: true });
     logger.info('drive_reminders_sent', { driveId: drive._id, count: rsvpIds.length });
   }

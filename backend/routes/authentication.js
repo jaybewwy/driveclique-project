@@ -7,12 +7,6 @@ const { apiLimiter } = require('../middleware/rateLimiters');
 const {
   registerUser,
   loginUser,
-  getProfile,
-  updateProfile,
-  searchUsers,
-  getPublicProfile,
-  blockUser,
-  unblockUser,
   refreshAccessToken,
   logoutUser,
   forgotPassword,
@@ -24,9 +18,16 @@ const {
   changePassword,
   requestEmailChange,
   confirmEmailChange,
-  registerPushToken,
-  unregisterPushToken,
 } = require('../controllers/authController');
+const {
+  getProfile,
+  updateProfile,
+  searchUsers,
+  getPublicProfile,
+  blockUser,
+  unblockUser,
+} = require('../controllers/userController');
+const { registerPushToken, unregisterPushToken } = require('../controllers/pushTokenController');
 
 const isDev = process.env.NODE_ENV === 'development';
 

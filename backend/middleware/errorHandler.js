@@ -90,4 +90,13 @@ const asyncHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };
 
-module.exports = { errorHandler, asyncHandler, AppError };
+/**
+ * Return `doc`, or throw a 404 AppError when a lookup came back empty.
+ * Usage: const club = orNotFound(await Club.findById(id), 'Club not found');
+ */
+const orNotFound = (doc, message) => {
+  if (!doc) throw new AppError(message, 404);
+  return doc;
+};
+
+module.exports = { errorHandler, asyncHandler, AppError, orNotFound };
