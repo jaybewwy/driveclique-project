@@ -3,6 +3,7 @@ import { MapPin, Car, Users, X as XIcon, ShieldOff, Shield } from "lucide-react"
 import Modal from "../Modal";
 import { authAPI, getErrorMessage } from "../../services/api";
 import { useAuth } from "../../hooks/useAuth";
+import { displayName as displayNameOf } from "../../lib/userDisplay";
 
 // UC-22 — Member Public Profile View. Fetches on open rather than being
 // pre-loaded like the drive detail modal, since it can be triggered from
@@ -60,8 +61,7 @@ const MemberProfilePanel = ({ userId, isOpen, onClose, canRemove, onRemove }) =>
     }
   };
 
-  const displayName =
-    profile?.useDisplayName && profile?.name ? profile.name : profile?.username;
+  const displayName = displayNameOf(profile);
   const primaryCar = profile?.cars?.find((c) => c.isPrimary) || profile?.cars?.[0];
   const isOwnProfile = currentUser?._id && userId && currentUser._id === userId;
 

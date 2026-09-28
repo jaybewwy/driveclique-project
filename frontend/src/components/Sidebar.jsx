@@ -5,6 +5,7 @@ import { drivesAPI } from "../services/api";
 import { useClubs } from "../hooks/useClubs";
 import { MobileDrawerButton, MobileDrawer } from "./ui/MobileDrawer";
 import { hasDriveStarted } from "../lib/dateUtils";
+import { displayName as displayNameOf } from "../lib/userDisplay";
 
 const SectionLabel = ({ children }) => (
   <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 px-3 mb-2">{children}</p>
@@ -41,7 +42,7 @@ const Sidebar = ({ user }) => {
   const [scheduledDrivesCount, setScheduledDrivesCount] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const displayName = user?.useDisplayName && user?.name ? user.name : user?.username;
+  const displayName = displayNameOf(user);
 
   const goTo = (path) => {
     navigate(path);

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Ban } from "lucide-react";
 import Modal from "../Modal";
 import { clubsAPI, getErrorMessage } from "../../services/api";
+import { displayName as displayNameOf } from "../../lib/userDisplay";
 
 // UC-32 — leader/co-leader-only view of who's been banned from a club (via
 // the "Also ban" checkbox on member removal), with an Unban action per row.
@@ -53,7 +54,7 @@ const BannedMembersPanel = ({ clubId, isOpen, onClose }) => {
       ) : (
         <div className="space-y-2">
           {bannedUsers.map((user) => {
-            const displayName = user.useDisplayName && user.name ? user.name : user.username;
+            const displayName = displayNameOf(user);
             return (
               <div key={user._id} className="flex items-center justify-between gap-3 bg-black/30 rounded-xl p-3">
                 <div className="flex items-center gap-3 min-w-0">
