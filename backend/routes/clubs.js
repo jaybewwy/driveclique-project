@@ -235,7 +235,8 @@ router.delete(
     clubId: { required: true, objectId: true }
   }),
   validateInput({
-    deletionReason: { required: true, type: 'string', minLength: 10, maxLength: 500 },
+    // Optional — only logged, to learn why clubs get deleted
+    deletionReason: { type: 'string', maxLength: 500 },
     leaderEmail: { required: true, type: 'string', email: true }
   }),
   deleteClub

@@ -143,19 +143,22 @@ export const RemoveMemberDialog = ({ member, onConfirm, onClose }) => {
   );
 };
 
-/** onConfirm(leaderEmail, reason) — the email must match the leader's */
+/**
+ * onConfirm(leaderEmail, reason) — the email must match the leader's; the
+ * reason is optional (it's only logged)
+ */
 export const DeleteClubDialog = ({ onConfirm, onClose }) => {
   const [email, setEmail] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
 
   const submit = async () => {
-    if (!email || !reason) {
-      setError("Please fill in all fields");
+    if (!email.trim()) {
+      setError("Please enter the club leader's email to confirm");
       return;
     }
     try {
-      await onConfirm(email, reason);
+      await onConfirm(email.trim(), reason.trim());
     } catch (err) {
       setError(apiErrorMessage(err, "Failed to delete club"));
     }

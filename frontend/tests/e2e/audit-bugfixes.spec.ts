@@ -89,3 +89,37 @@ test.describe('Club sidebar drive lists', () => {
     await expect(dialog.getByText('Completed')).toBeVisible();
   });
 });
+
+test.describe('Delete Club reason is optional, as labelled', () => {
+  test('a leader can delete a club from the UI without giving a reason', async ({ page, request }) => {
+    const leader = newUser('auditdel');
+    const { token } = await register(request, leader);
+    const clubName = `Audit Delete Me ${Date.now()}`;
+    const clubId = await createClub(request, token, clubName);
+
+    await login(page, leader);
+    await page.goto(`/club/${clubId}`);
+    await expect(page.getByRole('heading', { level: 1, name: clubName })).toBeVisible();
+    await page.getByRole('button', { name: 'Manage Club' }).click();
+    await page.getByRole('button', { name: 'Delete Club' }).click();
+
+    await page.getByLabel(/Confirm Leader Email/).fill(leader.email);
+    await page.getByRole('button', { name: 'Delete Permanently' }).click();
+
+    await expect(page).toHaveURL(/\/my-clubs$/);
+    const gone = await request.get(`${API}/clubs/${clubId}`, { headers: auth(token) });
+    expect(gone.status()).toBe(404);
+  });
+
+  test('the API accepts a deletion with no deletionReason', async ({ request }) => {
+    const leader = newUser('auditdelapi');
+    const { token } = await register(request, leader);
+    const clubId = await createClub(request, token, `Audit Delete API ${Date.now()}`);
+
+    const res = await request.delete(`${API}/clubs/${clubId}`, {
+      headers: auth(token),
+      data: { leaderEmail: leader.email },
+    });
+    expect(res.status()).toBe(200);
+  });
+});
