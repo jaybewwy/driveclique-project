@@ -174,3 +174,29 @@ test.describe('Account deletion leaves nothing behind', () => {
     expect(body.average).toBeNull();
   });
 });
+
+async function openProfileSettings(page: Page) {
+  await page.goto('/settings');
+  await page.getByRole('navigation', { name: 'Settings navigation' }).getByRole('button', { name: 'Profile' }).click();
+  await expect(page.getByRole('heading', { name: 'Profile Settings' })).toBeVisible();
+}
+
+test.describe('Notification preferences', () => {
+  test('photo-gallery notifications (UC-5) can be muted like every other type', async ({ page, request }) => {
+    const user = newUser('auditphotos');
+    const { token } = await register(request, user);
+
+    await login(page, user);
+    await openProfileSettings(page);
+
+    const toggle = page.getByRole('switch', { name: 'New photos are added to a drive you went on' });
+    await expect(toggle).toHaveAttribute('aria-checked', 'true');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-checked', 'false');
+
+    await expect.poll(async () => {
+      const res = await request.get(`${API}/notifications/preferences`, { headers: auth(token) });
+      return (await res.json()).data.notificationPreferences.DRIVE_PHOTOS_ADDED;
+    }).toBe(false);
+  });
+});

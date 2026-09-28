@@ -17,6 +17,7 @@ const NOTIFICATION_PREFERENCE_OPTIONS = [
   { type: "NEW_ANNOUNCEMENT", label: "A club posts a new announcement" },
   { type: "COLEADER_PROMOTED", label: "You're promoted to co-leader" },
   { type: "COLEADER_DEMOTED", label: "You're removed as co-leader" },
+  { type: "DRIVE_PHOTOS_ADDED", label: "New photos are added to a drive you went on" },
 ];
 
 /** `preferences` is useNotificationPreferences()'s result */
