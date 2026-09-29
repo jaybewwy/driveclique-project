@@ -80,7 +80,14 @@ const ClubDetail = ({ user, onLogout }) => {
 
   const [coLeaderActionError, setCoLeaderActionError] = useState('');
 
+  // Escape closes the first open one, so confirmations (which can open on
+  // top of the Members / Manage Club / drive modals) come first
   usePageOverlays([
+    [Boolean(driveToDelete), () => setDriveToDelete(null)],
+    [Boolean(driveToCancel), () => setDriveToCancel(null)],
+    [Boolean(memberToRemove), () => setMemberToRemove(null)],
+    [showDeleteConfirm, () => setShowDeleteConfirm(false)],
+    [showLeaveConfirm, () => setShowLeaveConfirm(false)],
     [driveDetail.isOpen, driveDetail.close],
     [Boolean(driveBeingEdited), () => setDriveBeingEdited(null)],
     [showScheduleDriveModal, () => setShowScheduleDriveModal(false)],
@@ -88,11 +95,6 @@ const ClubDetail = ({ user, onLogout }) => {
     [showPastEventsModal, () => setShowPastEventsModal(false)],
     [showMembersModal, () => setShowMembersModal(false)],
     [showClubEditModal, () => setShowClubEditModal(false)],
-    [showLeaveConfirm, () => setShowLeaveConfirm(false)],
-    [showDeleteConfirm, () => setShowDeleteConfirm(false)],
-    [Boolean(driveToDelete), () => setDriveToDelete(null)],
-    [Boolean(memberToRemove), () => setMemberToRemove(null)],
-    [Boolean(driveToCancel), () => setDriveToCancel(null)],
   ]);
 
   useEffect(() => {

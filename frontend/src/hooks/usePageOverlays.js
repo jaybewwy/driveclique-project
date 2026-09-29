@@ -3,15 +3,17 @@ import { useDocumentFocusTrap } from './useFocusTrap';
 
 /**
  * For a page that renders many of its own overlays (e.g. ClubDetail's
- * modals and confirmation dialogs): traps focus in whichever one is open
- * and, on Escape, closes the first open one in the given order.
+ * modals and confirmation dialogs): traps focus in the top open one and,
+ * on Escape, closes the first open one in the given order.
  *
  * @param {Array<[boolean, () => void]>} overlays - [isOpen, close] pairs,
- *   highest Escape priority first
+ *   highest Escape priority first — so anything that can open on top of
+ *   another overlay (a confirmation) must come before it
  */
 export const usePageOverlays = (overlays) => {
-  const anyOpen = overlays.some(([isOpen]) => isOpen);
-  useDocumentFocusTrap(anyOpen);
+  const openCount = overlays.filter(([isOpen]) => isOpen).length;
+  const anyOpen = openCount > 0;
+  useDocumentFocusTrap(openCount);
 
   // Re-registered every render so the handler always sees current state
   useEffect(() => {

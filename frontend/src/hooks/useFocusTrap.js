@@ -55,34 +55,54 @@ const useFocusTrap = (isOpen) => {
   return containerRef;
 };
 
+// The topmost open modal dialog: the last one in the DOM, since overlays
+// stacked on another (a confirmation over a list modal) render after it
+const topDialog = () => {
+  const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
+  return dialogs[dialogs.length - 1] || null;
+};
+
 /**
  * Same trap/restore behavior as useFocusTrap, but for components that render
- * many mutually-exclusive overlay panels (e.g. a page with a dozen `{show*Modal
- * && <div role="dialog">...}` blocks) where attaching a separate ref to every
- * one isn't practical. Operates on whichever `[role="dialog"][aria-modal="true"]`
- * is currently in the DOM rather than a fixed ref.
+ * many overlay panels themselves (e.g. a page with a dozen `{show*Modal &&
+ * <div role="dialog">...}` blocks) where attaching a separate ref to every
+ * one isn't practical. Works on whichever `[role="dialog"][aria-modal="true"]`
+ * is on top rather than a fixed ref, and handles overlays stacked on one
+ * another: each newly opened one gets focus, and closing it returns focus to
+ * whatever opened it.
  *
- * Usage: useDocumentFocusTrap(isAnyOverlayOpen) — pass a single boolean that's
- * true whenever *any* of the page's overlays is open.
+ * Usage: useDocumentFocusTrap(openOverlayCount) — how many of the page's
+ * overlays are currently open.
  */
-export const useDocumentFocusTrap = (isOpen) => {
-  const previousFocusRef = useRef(null);
+export const useDocumentFocusTrap = (openCount) => {
+  const isOpen = openCount > 0;
+  const returnFocusStack = useRef([]);
+  const previousCount = useRef(0);
 
+  // Focus into each overlay as it opens; hand focus back as each one closes
+  useEffect(() => {
+    const before = previousCount.current;
+    previousCount.current = openCount;
+
+    if (openCount > before) {
+      returnFocusStack.current.push(document.activeElement);
+      const dialog = topDialog();
+      if (dialog) (dialog.querySelector(FOCUSABLE_SELECTOR) || dialog).focus();
+    } else if (openCount < before) {
+      let returnTo = null;
+      for (let i = openCount; i < before; i++) returnTo = returnFocusStack.current.pop() ?? returnTo;
+      if (returnTo?.isConnected) returnTo.focus();
+    }
+  }, [openCount]);
+
+  // Keep Tab / Shift+Tab inside the top overlay
   useEffect(() => {
     if (!isOpen) return;
-
-    previousFocusRef.current = document.activeElement;
-
-    const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
-    if (dialog) {
-      const firstFocusable = dialog.querySelector(FOCUSABLE_SELECTOR);
-      (firstFocusable || dialog).focus();
-    }
 
     const handleKeyDown = (e) => {
       if (e.key !== 'Tab') return;
 
-      const currentDialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+      const currentDialog = topDialog();
       if (!currentDialog) return;
 
       const focusable = Array.from(
@@ -104,10 +124,7 @@ export const useDocumentFocusTrap = (isOpen) => {
     };
 
     document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      previousFocusRef.current?.focus?.();
-    };
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
 };
 

@@ -1,8 +1,8 @@
 import { X } from "lucide-react";
 
 // The club page's overlays don't manage their own focus or Escape key:
-// ClubDetail traps focus in whichever [role="dialog"] is open
-// (useDocumentFocusTrap) and routes Escape to the topmost one.
+// ClubDetail (usePageOverlays) traps focus in the top [role="dialog"] and
+// routes Escape to it.
 
 /** Full-size dialog: large title, an icon-only close button, then children */
 export const ClubDialog = ({ titleId, title, closeLabel, onClose, panelClassName, titleClassName = "", children }) => (

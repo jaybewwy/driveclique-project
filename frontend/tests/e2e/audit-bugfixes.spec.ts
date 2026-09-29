@@ -252,3 +252,38 @@ test.describe('Changing your username keeps you signed in as yourself', () => {
     expect(stored._id).toBeTruthy();
   });
 });
+
+test.describe('Stacked dialogs on the club page', () => {
+  test('a confirmation over the Members list gets focus, and Escape closes only the confirmation', async ({ page, request }) => {
+    const leader = newUser('auditstack');
+    const member = newUser('auditstackm');
+    const { token } = await register(request, leader);
+    const { token: memberToken } = await register(request, member);
+    const clubName = `Audit Stacked ${Date.now()}`;
+    const clubId = await createClub(request, token, clubName);
+    expect((await request.post(`${API}/clubs/${clubId}/join`, { headers: auth(memberToken) })).status()).toBe(200);
+
+    await login(page, leader);
+    await page.goto(`/club/${clubId}`);
+    await expect(page.getByRole('heading', { level: 1, name: clubName })).toBeVisible();
+    await page.getByRole('button', { name: 'View All', exact: true }).click();
+    const members = page.getByRole('dialog', { name: /All Members/ });
+    await expect(members).toBeVisible();
+
+    const removeButton = members.getByTitle('Remove from club');
+    await removeButton.click();
+    const confirm = page.getByRole('dialog', { name: 'Remove Member' });
+    await expect(confirm).toBeVisible();
+    // Keyboard focus moves into the confirmation, not the list behind it
+    await expect(confirm.getByRole('checkbox')).toBeFocused();
+
+    await page.keyboard.press('Escape');
+    await expect(confirm).toBeHidden();
+    await expect(members).toBeVisible();
+    // ...and returns to the button that opened it
+    await expect(removeButton).toBeFocused();
+
+    await page.keyboard.press('Escape');
+    await expect(members).toBeHidden();
+  });
+});
