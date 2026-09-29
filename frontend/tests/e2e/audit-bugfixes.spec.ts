@@ -226,3 +226,29 @@ test.describe('Notification preferences', () => {
     expect((await saved.json()).data.notificationPreferences.NEW_ANNOUNCEMENT).toBe(false);
   });
 });
+
+test.describe('Changing your username keeps you signed in as yourself', () => {
+  test('after a username change, a club leader is still recognised as its leader', async ({ page, request }) => {
+    const leader = newUser('auditrename');
+    const { token } = await register(request, leader);
+    const clubName = `Audit Rename ${Date.now()}`;
+    const clubId = await createClub(request, token, clubName);
+
+    await login(page, leader);
+    await openProfileSettings(page);
+    const newUsername = `renamed_${Date.now()}`;
+    await page.getByRole('button', { name: 'Change' }).first().click();
+    await page.locator('input[type="text"]:focus').fill(newUsername);
+    await page.getByRole('button', { name: 'Confirm' }).click();
+    await expect(page.getByText('Username updated successfully!')).toBeVisible();
+
+    // Before the fix the stored user became just { username }, losing _id,
+    // so the club page no longer recognised its own leader
+    await page.goto(`/club/${clubId}`);
+    await expect(page.getByRole('heading', { level: 1, name: clubName })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Manage Club' })).toBeVisible();
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('driveclique_user') || '{}'));
+    expect(stored.username).toBe(newUsername);
+    expect(stored._id).toBeTruthy();
+  });
+});

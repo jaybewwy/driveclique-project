@@ -48,9 +48,14 @@ export const AuthProvider = ({ children }) => {
     await authAPI.logout();
   };
 
-  const updateUser = (updatedUserData) => {
-    setUser(updatedUserData);
-    localStorage.setItem('driveclique_user', JSON.stringify(updatedUserData));
+  // Merges rather than replaces: callers pass partial updates (Settings
+  // sends just the new username), and replacing would drop _id, avatar, etc.
+  const updateUser = (changes) => {
+    setUser((prev) => {
+      const merged = { ...prev, ...changes };
+      localStorage.setItem('driveclique_user', JSON.stringify(merged));
+      return merged;
+    });
   };
 
   const value = {
