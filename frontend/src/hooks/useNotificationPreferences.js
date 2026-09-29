@@ -5,16 +5,22 @@ import { getErrorMessage, notificationsAPI } from '../services/api';
  * The user's per-type notification preferences (UC-30), loaded on mount.
  * A type missing from the map, or set to anything but false, is enabled.
  * toggle() updates optimistically and reverts if the save fails.
+ *
+ * `loaded` stays false until the initial fetch settles; toggles should be
+ * disabled until then, or a change made first would be overwritten by the
+ * late response (while the server kept the change).
  */
 export const useNotificationPreferences = () => {
   const [prefs, setPrefs] = useState({});
+  const [loaded, setLoaded] = useState(false);
   const [savingType, setSavingType] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
     notificationsAPI.getPreferences()
       .then(res => { if (res.data.success) setPrefs(res.data.data.notificationPreferences || {}); })
-      .catch(err => console.warn('Failed to load notification preferences, defaulting to all enabled:', err));
+      .catch(err => console.warn('Failed to load notification preferences, defaulting to all enabled:', err))
+      .finally(() => setLoaded(true));
   }, []);
 
   const toggle = async (type, value) => {
@@ -32,5 +38,5 @@ export const useNotificationPreferences = () => {
     }
   };
 
-  return { prefs, savingType, error, toggle };
+  return { prefs, loaded, savingType, error, toggle };
 };

@@ -22,7 +22,7 @@ const NOTIFICATION_PREFERENCE_OPTIONS = [
 
 /** `preferences` is useNotificationPreferences()'s result */
 const NotificationPreferencesSection = ({ preferences }) => {
-  const { prefs, savingType, error, toggle } = preferences;
+  const { prefs, loaded, savingType, error, toggle } = preferences;
   return (
     <SettingsSection
       title="Notifications"
@@ -39,7 +39,7 @@ const NotificationPreferencesSection = ({ preferences }) => {
               <ToggleSwitch
                 checked={enabled}
                 ariaLabel={label}
-                disabled={savingType === type}
+                disabled={!loaded || savingType === type}
                 onChange={(value) => toggle(type, value)}
               />
             </div>

@@ -199,4 +199,30 @@ test.describe('Notification preferences', () => {
       return (await res.json()).data.notificationPreferences.DRIVE_PHOTOS_ADDED;
     }).toBe(false);
   });
+
+  test('a toggle made while saved preferences are still loading is not overwritten', async ({ page, request }) => {
+    const user = newUser('auditprefrace');
+    const { token } = await register(request, user);
+    await login(page, user);
+
+    // The server answers the initial fetch right away (before any toggle),
+    // but the answer reaches the page late, as on a slow network
+    await page.route('**/api/notifications/preferences', async (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
+      const response = await route.fetch();
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await route.fulfill({ response });
+    });
+    const initialFetch = page.waitForResponse((res) =>
+      res.url().includes('/api/notifications/preferences') && res.request().method() === 'GET');
+
+    await openProfileSettings(page);
+    const toggle = page.getByRole('switch', { name: 'A club posts a new announcement' });
+    await toggle.click();
+    await initialFetch;
+
+    await expect(toggle).toHaveAttribute('aria-checked', 'false');
+    const saved = await request.get(`${API}/notifications/preferences`, { headers: auth(token) });
+    expect((await saved.json()).data.notificationPreferences.NEW_ANNOUNCEMENT).toBe(false);
+  });
 });
