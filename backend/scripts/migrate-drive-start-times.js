@@ -14,6 +14,12 @@
  *   node scripts/migrate-drive-start-times.js --apply
  *   node scripts/migrate-drive-start-times.js --time-zone America/Phoenix --apply
  *
+ * Runs against MONGO_URI from backend/.env. To target another database, put
+ * its MONGO_URI in a gitignored env file and pass it to Node, which takes
+ * precedence over .env:
+ *
+ *   node --env-file=.env.production scripts/migrate-drive-start-times.js
+ *
  * The zone defaults to DEFAULT_TIME_ZONE (America/Los_Angeles). Only drives
  * without `startsAt` are touched, so re-running is safe. Drives whose time
  * text can't be parsed are listed and left alone; they keep working through
@@ -42,7 +48,10 @@ async function migrate() {
   }
   // autoIndex/autoCreate off so a dry run stays strictly read-only
   await mongoose.connect(process.env.MONGO_URI, { autoIndex: false, autoCreate: false });
-  console.log(`Mode: ${APPLY ? 'APPLY (writing)' : 'DRY RUN (no writes)'} · zone: ${TIME_ZONE}\n`);
+  // Host and database name only (never the credentials), so it's obvious
+  // which database a run is about to read or write
+  const { host, name } = mongoose.connection;
+  console.log(`Connected to ${host}/${name}. Mode: ${APPLY ? 'APPLY (writing)' : 'DRY RUN (no writes)'} · zone: ${TIME_ZONE}\n`);
 
   const legacy = await Drive.find({ startsAt: null }).select('name date time').lean();
   console.log(`${legacy.length} drive(s) have no start instant yet.\n`);

@@ -46,6 +46,8 @@ const ClubDetail = ({ user, onLogout }) => {
   const [clubNotFound, setClubNotFound] = useState(false);
   const [isBlockedByViewer, setIsBlockedByViewer] = useState(false);
   const [drives, setDrives] = useState([]);
+  // True when the drive list is withheld: a private club seen by a non-member
+  const [drivesMembersOnly, setDrivesMembersOnly] = useState(false);
   // Seeded by the club fetch; the form/posting UI lives in AnnouncementsSection
   const [announcements, setAnnouncements] = useState([]);
 
@@ -97,19 +99,38 @@ const ClubDetail = ({ user, onLogout }) => {
     [showClubEditModal, () => setShowClubEditModal(false)],
   ]);
 
+  const viewerId = user?._id || user?.id;
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [clubResponse, drivesResponse] = await Promise.all([
-          clubsAPI.getClubById(clubId),
-          drivesAPI.getClubDrives(clubId),
-        ]);
-        if (clubResponse.data?.success) {
-          setClub(clubResponse.data.club);
-          setAnnouncements((clubResponse.data.club.announcements || []).slice().reverse());
-          setIsBlockedByViewer(Boolean(clubResponse.data.isBlockedByViewer));
+        const clubResponse = await clubsAPI.getClubById(clubId);
+        if (!clubResponse.data?.success) return;
+        const loadedClub = clubResponse.data.club;
+
+        // A private club's drive list is members-only (the API answers 403).
+        // The club loads first so an ordinary visit by a non-member never
+        // asks for the list, and so never logs an authorization-denied event.
+        let membersOnly = Boolean(loadedClub.isPrivate) && !getClubRole(loadedClub, { _id: viewerId }).isMember;
+        let loadedDrives = [];
+        if (!membersOnly) {
+          try {
+            const drivesResponse = await drivesAPI.getClubDrives(clubId);
+            if (drivesResponse.data?.success) loadedDrives = drivesResponse.data.drives || [];
+          } catch (error) {
+            // Removed from the club between the two requests
+            if (error?.response?.status !== 403) throw error;
+            membersOnly = true;
+          }
         }
-        if (drivesResponse.data?.success) setDrives(drivesResponse.data.drives || []);
+
+        // Set together, so switching clubs never shows one club's header
+        // over another's drives
+        setClub(loadedClub);
+        setAnnouncements((loadedClub.announcements || []).slice().reverse());
+        setIsBlockedByViewer(Boolean(clubResponse.data.isBlockedByViewer));
+        setDrives(loadedDrives);
+        setDrivesMembersOnly(membersOnly);
       } catch (error) {
         const status = error?.response?.status;
         if (status === 404 || status === 400) {
@@ -121,7 +142,7 @@ const ClubDetail = ({ user, onLogout }) => {
     };
 
     fetchData();
-  }, [clubId]);
+  }, [clubId, viewerId]);
 
   const role = getClubRole(club, user);
   const pendingJoinRequests = (club?.joinRequests || []).filter((r) => r.status === 'pending');
@@ -389,6 +410,7 @@ const ClubDetail = ({ user, onLogout }) => {
           <ClubDrivesPanel
             upcomingDrives={upcomingDrives}
             pastDrives={pastDrives}
+            membersOnly={drivesMembersOnly}
             role={role}
             actions={{
               onOpen: driveDetail.open,

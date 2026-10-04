@@ -10,6 +10,19 @@
  *   node scripts/backfill-club-coordinates.js           # dry run
  *   node scripts/backfill-club-coordinates.js --apply   # write geo points
  *
+ * A dry run usually turns up matches that shouldn't be written (a made-up
+ * "Test City" resolves to some unrelated building). Repeat --only with the
+ * exact location strings that were reviewed to limit a run to those:
+ *
+ *   node scripts/backfill-club-coordinates.js --apply \
+ *     --only "San Diego, California, United States" --only "Toronto"
+ *
+ * Runs against MONGO_URI from backend/.env. To target another database, put
+ * its MONGO_URI in a gitignored env file and pass it to Node, which takes
+ * precedence over .env:
+ *
+ *   node --env-file=.env.production scripts/backfill-club-coordinates.js
+ *
  * Uses the same public Nominatim API as the frontend's LocationSearch, at
  * its usage-policy limit of one request per second with an identifying
  * User-Agent. Not part of any automated suite.
@@ -22,7 +35,10 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const Club = require('../models/club');
 const { toGeoPoint } = require('../utils/geo');
 
-const APPLY = process.argv.includes('--apply');
+const args = process.argv.slice(2);
+const APPLY = args.includes('--apply');
+// Exact location strings to limit the run to; empty means every club with a location
+const ONLY = args.flatMap((arg, i) => (arg === '--only' ? [args[i + 1]] : [])).filter(Boolean);
 const NOMINATIM_DELAY_MS = 1100;
 const USER_AGENT = 'DriveClique club-coordinates backfill (one-off maintenance script)';
 
@@ -44,10 +60,16 @@ async function backfill() {
   // autoIndex/autoCreate off so a dry run stays strictly read-only — no
   // index builds or collection creation against whatever MONGO_URI points at
   await mongoose.connect(process.env.MONGO_URI, { autoIndex: false, autoCreate: false });
-  console.log(`Connected. Mode: ${APPLY ? 'APPLY (writing)' : 'DRY RUN (no writes)'}\n`);
+  // Host and database name only (never the credentials), so it's obvious
+  // which database a run is about to read or write
+  const { host, name } = mongoose.connection;
+  console.log(`Connected to ${host}/${name}. Mode: ${APPLY ? 'APPLY (writing)' : 'DRY RUN (no writes)'}\n`);
 
+  if (ONLY.length > 0) {
+    console.log(`Limited to ${ONLY.length} location(s): ${ONLY.map((l) => `"${l}"`).join(', ')}\n`);
+  }
   const clubs = await Club.find({
-    location: { $nin: ['', null] },
+    location: ONLY.length > 0 ? { $in: ONLY } : { $nin: ['', null] },
     'geo.coordinates': { $exists: false },
   })
     .select('name location')

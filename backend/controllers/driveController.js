@@ -10,7 +10,7 @@ const User = require('../models/user');
 const { asyncHandler, AppError, orNotFound } = require('../middleware/errorHandler');
 const { emailTemplates } = require('../services/emailService');
 const { getVerifiedEmails, notifyAndEmail } = require('../services/memberNotifications');
-const { isClubLeader, isClubCoLeader, hasLeaderPrivileges } = require('../utils/clubPermissions');
+const { isClubLeader, isClubCoLeader, hasLeaderPrivileges, isClubMember } = require('../utils/clubPermissions');
 const { clampLimit, parsePageParams, paginationMeta } = require('../utils/pagination');
 // validateCoordinates guards the optional drive meeting-point pin (UC-23)
 const { validateCoordinates, parseProximityQuery, haversineMiles, boundingBox, roundMiles } = require('../utils/geo');
@@ -147,10 +147,21 @@ const createDrive = asyncHandler(async (req, res) => {
 /**
  * Get all drives for a specific club
  * @route GET /api/drives/club/:clubId
- * @access Private
+ * @access Private. A private club's drives are members-only; a public
+ *         club's stay visible to any signed-in user, so a visitor can see
+ *         what the club does before joining.
  */
 const getClubDrives = asyncHandler(async (req, res) => {
   const { clubId } = req.params;
+
+  // A club id that no longer exists still gets an empty list rather than a
+  // 404: the dashboard and sidebar fetch every club in the user's list in
+  // one Promise.all, and a just-deleted club shouldn't fail the whole batch.
+  const club = await Club.findById(clubId).select('isPrivate members').lean();
+  if (club?.isPrivate && !isClubMember(club, req.user.id)) {
+    throw new AppError("This club's drives are visible to members only", 403);
+  }
+
   const clubDrives = () => Drive.find({ club: clubId })
     .sort({ date: 1, startsAt: 1 })
     .populate('createdBy', 'username name');

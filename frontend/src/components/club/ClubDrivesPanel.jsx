@@ -74,9 +74,10 @@ const SIDEBAR_DRIVE_COUNT = 2;
  * leader's action menu), plus buttons into the full upcoming and past lists.
  * `role` is getClubRole()'s result; `actions` holds onOpen, onEdit,
  * onComplete, onCancel, onDelete (each called with the drive), onViewAll,
- * and onViewPast.
+ * and onViewPast. `membersOnly` means the list was withheld (a private
+ * club seen by a non-member), so the empty state says so.
  */
-const ClubDrivesPanel = ({ upcomingDrives, pastDrives, role, actions }) => {
+const ClubDrivesPanel = ({ upcomingDrives, pastDrives, membersOnly = false, role, actions }) => {
   const [openMenuDriveId, setOpenMenuDriveId] = useState(null);
 
   const runAction = (action, drive) => {
@@ -93,7 +94,9 @@ const ClubDrivesPanel = ({ upcomingDrives, pastDrives, role, actions }) => {
 
       {upcomingDrives.length === 0 ? (
         <div className="bg-zinc-900 rounded-2xl p-4">
-          <p className="text-zinc-400 text-sm">No drives scheduled yet</p>
+          <p className="text-zinc-400 text-sm">
+            {membersOnly ? "Only members can see this club's drives" : "No drives scheduled yet"}
+          </p>
         </div>
       ) : (
         <div className="space-y-2 xl:space-y-3">
