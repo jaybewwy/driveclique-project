@@ -1,4 +1,5 @@
-// Layout and input primitives for the Profile Settings view
+// Layout and input primitives for the Profile Settings view. Club Settings'
+// sections reuse the field and input ones.
 
 export const settingsInputClass =
   "w-full bg-black border border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-red-600 transition-colors";

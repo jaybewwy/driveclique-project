@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, X, Plus, Edit3 } from "lucide-react";
+import { ArrowLeft, X, Plus, Settings } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 import ReportModal from "../components/ui/ReportModal";
@@ -19,10 +19,8 @@ import JoinClubPanel from "../components/club/JoinClubPanel";
 import InviteMembersPanel from "../components/club/InviteMembersPanel";
 import { DriveListModal } from "../components/club/DriveListModal";
 import { MembersModal } from "../components/club/MembersModal";
-import ClubEditModal from "../components/club/ClubEditModal";
 import {
   CancelDriveDialog,
-  DeleteClubDialog,
   DeleteDriveDialog,
   LeaveClubDialog,
   RemoveMemberDialog,
@@ -39,7 +37,7 @@ import { compareDriveStart, hasDriveStarted } from "../lib/dateUtils";
 const ClubDetail = ({ user, onLogout }) => {
   const { clubId } = useParams();
   const navigate = useNavigate();
-  const { removeClub, updateClub } = useClubs();
+  const { removeClub } = useClubs();
 
   const [club, setClub] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -65,9 +63,7 @@ const ClubDetail = ({ user, onLogout }) => {
   const [showAllDrivesModal, setShowAllDrivesModal] = useState(false);
   const [showPastEventsModal, setShowPastEventsModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
-  const [showClubEditModal, setShowClubEditModal] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [driveToDelete, setDriveToDelete] = useState(null);
   const [driveToCancel, setDriveToCancel] = useState(null);
   const [memberToRemove, setMemberToRemove] = useState(null); // { id, username }
@@ -83,12 +79,11 @@ const ClubDetail = ({ user, onLogout }) => {
   const [coLeaderActionError, setCoLeaderActionError] = useState('');
 
   // Escape closes the first open one, so confirmations (which can open on
-  // top of the Members / Manage Club / drive modals) come first
+  // top of the Members / drive modals) come first
   usePageOverlays([
     [Boolean(driveToDelete), () => setDriveToDelete(null)],
     [Boolean(driveToCancel), () => setDriveToCancel(null)],
     [Boolean(memberToRemove), () => setMemberToRemove(null)],
-    [showDeleteConfirm, () => setShowDeleteConfirm(false)],
     [showLeaveConfirm, () => setShowLeaveConfirm(false)],
     [driveDetail.isOpen, driveDetail.close],
     [Boolean(driveBeingEdited), () => setDriveBeingEdited(null)],
@@ -96,7 +91,6 @@ const ClubDetail = ({ user, onLogout }) => {
     [showAllDrivesModal, () => setShowAllDrivesModal(false)],
     [showPastEventsModal, () => setShowPastEventsModal(false)],
     [showMembersModal, () => setShowMembersModal(false)],
-    [showClubEditModal, () => setShowClubEditModal(false)],
   ]);
 
   const viewerId = user?._id || user?.id;
@@ -302,26 +296,6 @@ const ClubDetail = ({ user, onLogout }) => {
     }
   };
 
-  // Errors propagate to DeleteClubDialog, which shows them
-  const confirmDeleteClub = async (leaderEmail, reason) => {
-    const response = await clubsAPI.delete(clubId, reason, leaderEmail);
-    if (response.data?.success) {
-      removeClub(clubId);
-      navigate('/my-clubs');
-    }
-  };
-
-  const handleClubSaved = (updatedClub) => {
-    setClub(updatedClub);
-    setShowClubEditModal(false);
-  };
-
-  const handleOwnershipTransferred = (updatedClub) => {
-    setClub(updatedClub);
-    updateClub(clubId, updatedClub);
-    setShowClubEditModal(false);
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
@@ -439,13 +413,14 @@ const ClubDetail = ({ user, onLogout }) => {
                 {role.isLeader ? "Club Settings" : "Members"}
               </h3>
 
+              {/* Opens the club's settings page (pages/ClubSettings.jsx) */}
               {role.isLeader && (
                 <button
                   type="button"
-                  onClick={() => setShowClubEditModal(true)}
+                  onClick={() => navigate(`/club/${clubId}/settings`)}
                   className="w-full bg-zinc-800 hover:bg-zinc-700 py-2 xl:py-3 rounded-xl xl:rounded-2xl text-sm xl:text-base font-medium flex items-center justify-center gap-2 transition mb-3 xl:mb-4"
                 >
-                  <Edit3 size={18} />
+                  <Settings size={18} />
                   Manage Club
                 </button>
               )}
@@ -580,17 +555,6 @@ const ClubDetail = ({ user, onLogout }) => {
         onClose={() => setShowBannedMembers(false)}
       />
 
-      {showClubEditModal && (
-        <ClubEditModal
-          club={club}
-          currentUserId={role.userId}
-          onSaved={handleClubSaved}
-          onTransferred={handleOwnershipTransferred}
-          onRequestDelete={() => setShowDeleteConfirm(true)}
-          onClose={() => setShowClubEditModal(false)}
-        />
-      )}
-
       {showScheduleDriveModal && (
         <ScheduleDriveModal
           clubId={clubId}
@@ -618,10 +582,6 @@ const ClubDetail = ({ user, onLogout }) => {
 
       {memberToRemove && (
         <RemoveMemberDialog member={memberToRemove} onConfirm={confirmRemoveMember} onClose={() => setMemberToRemove(null)} />
-      )}
-
-      {showDeleteConfirm && (
-        <DeleteClubDialog onConfirm={confirmDeleteClub} onClose={() => setShowDeleteConfirm(false)} />
       )}
 
       {reportTarget && (

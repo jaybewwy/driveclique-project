@@ -271,6 +271,7 @@ test.describe('Full User Journey', () => {
     await scheduleDrive(page, clubId, driveName);
 
     await page.getByRole('button', { name: /Manage Club/i }).click();
+    await page.getByRole('link', { name: 'Danger Zone' }).click();
     await page.getByRole('button', { name: /Delete Club/i }).click();
     await expect(page.getByRole('heading', { name: /Delete Club/i })).toBeVisible({ timeout: 5_000 });
 
@@ -401,6 +402,7 @@ test.describe('Full User Journey', () => {
     // Wait for club page to be fully loaded before interacting
     await expect(page.getByRole('button', { name: /Manage Club/i })).toBeVisible({ timeout: 10_000 });
     await page.getByRole('button', { name: /Manage Club/i }).click();
+    await page.getByRole('link', { name: 'Danger Zone' }).click();
     await page.getByRole('button', { name: /Delete Club/i }).click();
     await expect(page.getByRole('heading', { name: /Delete Club/i })).toBeVisible({ timeout: 5_000 });
     await page.getByPlaceholder('leader@example.com').fill(leader.email);

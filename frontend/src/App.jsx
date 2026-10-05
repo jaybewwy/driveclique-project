@@ -21,6 +21,7 @@ const Dashboard    = lazy(() => import('./pages/Dashboard'));
 const CalendarPage = lazy(() => import('./pages/Calendar'));
 const MyClubs      = lazy(() => import('./pages/MyClubs'));
 const ClubDetail   = lazy(() => import('./pages/ClubDetail'));
+const ClubSettings = lazy(() => import('./pages/ClubSettings'));
 const CreateClub   = lazy(() => import('./pages/CreateClub'));
 const FindClub     = lazy(() => import('./pages/FindClub'));
 const Profile      = lazy(() => import('./pages/Profile'));
@@ -78,6 +79,7 @@ function AppRoutes() {
         <Route path="/calendar"     element={isAuthenticated ? <CalendarPage user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/my-clubs"     element={isAuthenticated ? <MyClubs      user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/club/:clubId" element={isAuthenticated ? <ClubDetail   user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
+        <Route path="/club/:clubId/settings/:section?" element={isAuthenticated ? <ClubSettings user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/create-club"  element={isAuthenticated ? <CreateClub /> : <Navigate to="/login" replace />} />
         <Route path="/find-club"    element={isAuthenticated ? <FindClub     user={user} onLogout={logout} /> : <Navigate to="/login" replace />} />
         <Route path="/profile"      element={isAuthenticated ? <Profile      user={user} onLogout={logout} onUpdateUser={updateUser} /> : <Navigate to="/login" replace />} />

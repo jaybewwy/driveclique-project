@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { ClubDialog, CompactDialog, CompactDialogActions } from "./ClubDialogs";
 
-// Confirmation dialogs for ClubDetail. Each owns its form and error state,
+// Confirmation dialogs for ClubDetail and, for DeleteClubDialog, the Club
+// Settings page's Danger Zone. Each owns its form and error state,
 // so unmounting (close/Escape) discards it. `onConfirm` does the work and
 // may reject with an API error, whose message the dialog shows.
 

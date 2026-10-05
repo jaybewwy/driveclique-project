@@ -197,9 +197,9 @@ test.describe('DriveClique - end-to-end tests', () => {
     // Use first() to avoid strict mode violation
     await expect(page.getByText(driveName).first()).toBeVisible({ timeout: 10000 });
 
-    // Edit club
+    // Edit club: Manage Club opens the Club Settings page on its General section
     await page.getByRole('button', { name: /Manage Club/i }).click();
-    await expect(page.getByRole('heading', { name: /Edit Club/i })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('heading', { level: 1, name: 'Club Settings' })).toBeVisible({ timeout: 5000 });
 
     // Update club name using the input field (has label "Club Name")
     await page.getByLabel('Club Name').fill(updatedClubName);
@@ -207,11 +207,14 @@ test.describe('DriveClique - end-to-end tests', () => {
     await page.getByPlaceholder(/Search city or region|Search city in/i).fill('Updated City, UC');
 
     await page.getByRole('button', { name: /Save Changes/i }).click();
+    await expect(page.getByText('Club details saved.')).toBeVisible({ timeout: 10000 });
 
+    await page.getByRole('button', { name: 'Back to club' }).click();
     await expect(page.getByRole('heading', { name: updatedClubName })).toBeVisible({ timeout: 10000 });
 
     // Delete club
     await page.getByRole('button', { name: /Manage Club/i }).click();
+    await page.getByRole('link', { name: 'Danger Zone' }).click();
     await page.getByRole('button', { name: /Delete Club/i }).click();
     await expect(page.getByRole('heading', { name: /Delete Club/i })).toBeVisible({ timeout: 5000 });
 

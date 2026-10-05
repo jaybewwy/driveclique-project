@@ -1,7 +1,7 @@
 import { CLUB_TAGS } from "../../lib/clubTags";
 
-// Multi-select toggle-pill picker shared by CreateClub.jsx and ClubDetail.jsx's Edit
-// Club modal (a club's own tags, capped at `max`) and FindClub.jsx (a filter row, no cap).
+// Multi-select toggle-pill picker shared by CreateClub.jsx and Club Settings'
+// General section (a club's own tags, capped at `max`) and FindClub.jsx (a filter row, no cap).
 const ClubTagPicker = ({ selected, onChange, max }) => {
   const toggle = (tag) => {
     if (selected.includes(tag)) {

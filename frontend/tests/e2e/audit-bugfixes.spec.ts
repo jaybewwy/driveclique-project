@@ -101,6 +101,7 @@ test.describe('Delete Club reason is optional, as labelled', () => {
     await page.goto(`/club/${clubId}`);
     await expect(page.getByRole('heading', { level: 1, name: clubName })).toBeVisible();
     await page.getByRole('button', { name: 'Manage Club' }).click();
+    await page.getByRole('link', { name: 'Danger Zone' }).click();
     await page.getByRole('button', { name: 'Delete Club' }).click();
 
     await page.getByLabel(/Confirm Leader Email/).fill(leader.email);

@@ -83,8 +83,8 @@ test.describe.serial('LocationSearch on club pages', () => {
     expect(body.club.location.toLowerCase()).toContain('vancouver');
   });
 
-  // ── TEST 3: Club Detail edit panel has LocationSearch, saves new value ────
-  test('Club Detail edit: LocationSearch pre-fills and saves new location to DB', async ({ page }) => {
+  // ── TEST 3: Club Settings (General) has LocationSearch, saves new value ───
+  test('Club Settings: LocationSearch pre-fills and saves new location to DB', async ({ page }) => {
     await loginUI(page);
     await page.goto(`${BASE}/club/${clubId}`);
     await page.waitForLoadState('domcontentloaded');
@@ -92,12 +92,12 @@ test.describe.serial('LocationSearch on club pages', () => {
     // Wait for club page content to load (heading is unique)
     await expect(page.getByRole('heading', { name: /LocTest_/ })).toBeVisible({ timeout: 10000 });
 
-    // Open the Manage Club / edit panel
+    // Manage Club opens the Club Settings page on its General section
     const manageBtn = page.getByRole('button', { name: /manage club/i });
     await expect(manageBtn).toBeVisible({ timeout: 8000 });
     await manageBtn.click();
 
-    // LocationSearch input should be in the edit form, pre-filled with 'Vancouver'
+    // LocationSearch input should be in the General form, pre-filled with 'Vancouver'
     const locInput = page.getByPlaceholder(/search city/i).first();
     await expect(locInput).toBeVisible({ timeout: 6000 });
     const prefilled = await locInput.inputValue();
