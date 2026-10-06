@@ -16,6 +16,8 @@ const NOTIFICATION_TYPES = [
   'COLEADER_PROMOTED',
   'COLEADER_DEMOTED',
   'DRIVE_PHOTOS_ADDED',
+  // UC-42 — sent only to the reported club's leader and co-leaders
+  'NEW_REPORT',
 ];
 
 const NotificationSchema = new mongoose.Schema({

@@ -1,7 +1,8 @@
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
 
 // The Club Settings page (/club/:clubId/settings/:section), which replaced the
-// club page's "Manage Club" modal. Leader-only; one URL per section.
+// club page's "Manage Club" modal. One URL per section, all of them the
+// leader's; a co-leader gets Reports only (see report-moderation.spec.ts).
 
 const API = 'http://localhost:5000/api';
 const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -77,6 +78,10 @@ test.describe('Club Settings page', () => {
     await settingsNav(page).getByRole('link', { name: 'Privacy' }).click();
     await expect(page).toHaveURL(new RegExp(`/club/${clubId}/settings/privacy$`));
     await expect(sectionHeading(page, 'Privacy')).toBeVisible();
+
+    await settingsNav(page).getByRole('link', { name: 'Reports' }).click();
+    await expect(page).toHaveURL(new RegExp(`/club/${clubId}/settings/reports$`));
+    await expect(page.getByText('No open reports.')).toBeVisible();
 
     await settingsNav(page).getByRole('link', { name: 'Ownership' }).click();
     await expect(page).toHaveURL(new RegExp(`/club/${clubId}/settings/ownership$`));
@@ -218,7 +223,7 @@ test.describe('Club Settings page', () => {
     expect(gone.status()).toBe(404);
   });
 
-  test('a member, even a co-leader, is sent back to the club page', async ({ page, request }) => {
+  test("a member is sent back to the club page; a co-leader can't open the leader's sections", async ({ page, request }) => {
     const leader = newUser('csgate');
     const { token: leaderToken } = await register(request, leader);
     const clubName = `Settings Club gate ${Date.now()}`;
@@ -240,10 +245,12 @@ test.describe('Club Settings page', () => {
     });
     expect(promoted.status()).toBe(200);
 
+    // A co-leader lands on Reports, the one section open to them (UC-42)
     await page.goto(`/club/${clubId}/settings/danger-zone`);
-    await expect(page).toHaveURL(new RegExp(`/club/${clubId}$`));
-    await expect(page.getByRole('heading', { level: 1, name: clubName })).toBeVisible();
-    await expect(page.getByRole('heading', { level: 1, name: 'Club Settings' })).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(`/club/${clubId}/settings/reports$`));
+    await expect(sectionHeading(page, 'Reports')).toBeVisible();
+    await expect(settingsNav(page).getByRole('link')).toHaveText(['Reports']);
+    await expect(page.getByRole('button', { name: 'Delete Club' })).toHaveCount(0);
   });
 
   test('a missing or unknown section opens General; an unknown club is "not found"', async ({ page, request }) => {
@@ -272,7 +279,7 @@ test.describe('Club Settings page on a phone', () => {
     await expect(sectionHeading(page, 'General')).toBeVisible();
 
     // The links wrap rather than scroll sideways, so the last one isn't hidden
-    for (const name of ['General', 'Privacy', 'Ownership', 'Danger Zone']) {
+    for (const name of ['General', 'Privacy', 'Reports', 'Ownership', 'Danger Zone']) {
       await expect(settingsNav(page).getByRole('link', { name })).toBeInViewport({ ratio: 1 });
     }
 

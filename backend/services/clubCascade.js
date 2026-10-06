@@ -2,11 +2,13 @@ const Club = require('../models/club');
 const Drive = require('../models/drive');
 const RSVP = require('../models/rsvp');
 const DriveRating = require('../models/driveRating');
+const Report = require('../models/report');
 
 /**
  * Permanently delete clubs along with everything that hangs off them: their
- * drives and those drives' RSVPs and ratings. Shared by club deletion and
- * account deletion (for clubs the departing user leads alone).
+ * drives, those drives' RSVPs and ratings, and the reports in their review
+ * queues (UC-42), which nobody could reach afterwards. Shared by club deletion
+ * and account deletion (for clubs the departing user leads alone).
  */
 const deleteClubsCascade = async (clubIds) => {
   if (clubIds.length === 0) return;
@@ -18,6 +20,7 @@ const deleteClubsCascade = async (clubIds) => {
     await DriveRating.deleteMany({ drive: { $in: driveIds } });
   }
   await Drive.deleteMany({ club: { $in: clubIds } });
+  await Report.deleteMany({ club: { $in: clubIds } });
   await Club.deleteMany({ _id: { $in: clubIds } });
 };
 

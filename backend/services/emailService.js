@@ -116,7 +116,7 @@ const emailTemplates = {
         <tr><td style="padding:8px;color:#aaa">Reason</td><td style="padding:8px">${reason}</td></tr>
         ${details ? `<tr><td style="padding:8px;color:#aaa">Details</td><td style="padding:8px">${details}</td></tr>` : ''}
       </table>
-      <p style="color:#aaa;font-size:13px">Log in to review and take action on this report.</p>`),
+      <p style="color:#aaa;font-size:13px">Log in and open Club Settings &rarr; Reports to review it.</p>`),
   }),
 
   driveReminder: ({ driveName, clubName, driveDatetime, location }) => ({

@@ -5,14 +5,16 @@ import NavBar from "../components/NavBar";
 import Sidebar from "../components/Sidebar";
 import { ClubNotFound } from "../components/club/ClubHeader";
 import ClubSettingsNav from "../components/club-settings/ClubSettingsNav";
-import { CLUB_SETTINGS_SECTIONS, DEFAULT_CLUB_SETTINGS_SECTION } from "../components/club-settings/sections";
+import { clubSettingsSectionsFor } from "../components/club-settings/sections";
 import { clubsAPI } from "../services/api";
 import { useClubs } from "../hooks/useClubs";
 import { getClubRole } from "../lib/clubRole";
 
 /**
- * Leader-only settings for one club, at /club/:clubId/settings/:section.
- * The sections themselves are listed in components/club-settings/sections.js.
+ * Settings for one club, at /club/:clubId/settings/:section. The sections
+ * are listed in components/club-settings/sections.js: the leader gets all of
+ * them, a co-leader only the ones marked for co-leaders, and nobody else can
+ * open the page.
  */
 const ClubSettings = ({ user, onLogout }) => {
   const { clubId, section } = useParams();
@@ -48,13 +50,16 @@ const ClubSettings = ({ user, onLogout }) => {
   }
 
   const role = getClubRole(club, user);
-  if (!role.isLeader) {
+  const sections = clubSettingsSectionsFor(role);
+  if (sections.length === 0) {
     return <Navigate to={`/club/${clubId}`} replace />;
   }
 
-  const activeSection = CLUB_SETTINGS_SECTIONS.find((s) => s.id === section);
+  // A missing or unknown section, or one this viewer may not open, goes to
+  // the first one they can
+  const activeSection = sections.find((s) => s.id === section);
   if (!activeSection) {
-    return <Navigate to={`/club/${clubId}/settings/${DEFAULT_CLUB_SETTINGS_SECTION}`} replace />;
+    return <Navigate to={`/club/${clubId}/settings/${sections[0].id}`} replace />;
   }
 
   // Merged, not replaced: the update endpoint returns the club without its
@@ -99,7 +104,7 @@ const ClubSettings = ({ user, onLogout }) => {
           </div>
 
           <div className="flex flex-col lg:flex-row gap-6 lg:gap-10">
-            <ClubSettingsNav clubId={clubId} />
+            <ClubSettingsNav clubId={clubId} sections={sections} />
             <div className="flex-1 min-w-0 max-w-2xl">
               <ActiveSection
                 key={club._id}

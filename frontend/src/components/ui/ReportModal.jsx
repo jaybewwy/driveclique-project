@@ -3,13 +3,7 @@ import { X, Flag, AlertTriangle, CheckCircle } from 'lucide-react';
 import { reportsAPI } from '../../services/api';
 import { trackEvent } from '../../services/analytics';
 import useFocusTrap from '../../hooks/useFocusTrap';
-
-const REASONS = [
-  { value: 'harassment', label: 'Harassment or hate speech' },
-  { value: 'spam',       label: 'Spam or fake content' },
-  { value: 'dangerous',  label: 'Dangerous or illegal activity' },
-  { value: 'other',      label: 'Other' },
-];
+import { REPORT_REASONS } from '../../lib/reportReasons';
 
 /**
  * ReportModal — reusable report dialog.
@@ -18,9 +12,11 @@ const REASONS = [
  *   targetType  'user' | 'club' | 'drive'
  *   targetId    MongoDB ObjectId string
  *   targetName  Display name shown in the modal title
+ *   clubId      For a member reported from a club page: the club whose leader
+ *               and co-leaders should review it (UC-42). Omit otherwise.
  *   onClose     Called when the modal should be dismissed
  */
-const ReportModal = ({ targetType, targetId, targetName, onClose }) => {
+const ReportModal = ({ targetType, targetId, targetName, clubId, onClose }) => {
   const [reason,  setReason]  = useState('');
   const [details, setDetails] = useState('');
   const [loading, setLoading] = useState(false);
@@ -42,7 +38,7 @@ const ReportModal = ({ targetType, targetId, targetName, onClose }) => {
     setLoading(true);
     setError('');
     try {
-      await reportsAPI.submit({ targetType, targetId, reason, details });
+      await reportsAPI.submit({ targetType, targetId, reason, details, clubId });
       trackEvent('REPORT_SUBMITTED', { targetType });
       setSuccess(true);
     } catch (err) {
@@ -107,7 +103,7 @@ const ReportModal = ({ targetType, targetId, targetName, onClose }) => {
             <div className="mb-4">
               <p className="section-label mb-3">Reason</p>
               <div className="space-y-2">
-                {REASONS.map(({ value, label }) => (
+                {REPORT_REASONS.map(({ value, label }) => (
                   <label
                     key={value}
                     className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-150 ${

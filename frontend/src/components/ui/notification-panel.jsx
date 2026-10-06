@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bell, Calendar, CheckCircle, Users, UserCheck, UserX,
-  Clock, Megaphone, CheckCheck, MapPin, Shield, ShieldOff,
+  Clock, Megaphone, CheckCheck, MapPin, Shield, ShieldOff, Flag,
 } from "lucide-react";
 
 // Map SSE event types to lucide icons and accent colours
@@ -19,6 +19,7 @@ const TYPE_META = {
   DRIVE_CHECKIN_REQUEST:{ icon: MapPin,       color: "text-sky-400"    },
   COLEADER_PROMOTED:    { icon: Shield,       color: "text-sky-400"    },
   COLEADER_DEMOTED:     { icon: ShieldOff,    color: "text-amber-400"  },
+  NEW_REPORT:           { icon: Flag,         color: "text-orange-400" },
 };
 
 const relativeTime = (createdAt) => {
@@ -40,6 +41,11 @@ const NotificationPanel = ({ notifications, unreadCount, markAllRead, markOneRea
     markOneRead(n.id);
     if (n.type === "DRIVE_CHECKIN_REQUEST" && n.data?.driveId) {
       navigate(`/drive/${n.data.driveId}/checkin`);
+      onClose();
+    }
+    // UC-42 — straight to the club's review queue
+    if (n.type === "NEW_REPORT" && n.data?.clubId) {
+      navigate(`/club/${n.data.clubId}/settings/reports`);
       onClose();
     }
   };

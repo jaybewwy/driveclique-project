@@ -248,8 +248,14 @@ export const drivesAPI = {
 };
 
 export const reportsAPI = {
-  submit: ({ targetType, targetId, reason, details }) =>
-    api.post('/reports', { targetType, targetId, reason, details }),
+  // `clubId` is for a member reported from a club page: that club's leader
+  // and co-leaders review the report. Drive reports go to the drive's club.
+  submit: ({ targetType, targetId, reason, details, clubId }) =>
+    api.post('/reports', { targetType, targetId, reason, details, clubId }),
+  // A club's review queue (UC-42); `status` is 'open' or 'closed'
+  getClubReports: (clubId, status, page) => api.get(`/reports/club/${clubId}`, { params: { status, page } }),
+  // `status`: 'resolved' or 'dismissed' to close a report, 'open' to reopen it
+  review: (reportId, status) => api.put(`/reports/${reportId}`, { status }),
 };
 
 /**

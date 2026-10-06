@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, X, Plus, Settings } from "lucide-react";
+import { ArrowLeft, X, Plus, Settings, Flag } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import NavBar from "../components/NavBar";
 import ReportModal from "../components/ui/ReportModal";
@@ -74,7 +74,7 @@ const ClubDetail = ({ user, onLogout }) => {
   // UC-22 — { userId, canRemove } | null. canRemove is decided at click time
   // by the list the member was picked from.
   const [profilePanelTarget, setProfilePanelTarget] = useState(null);
-  const [reportTarget, setReportTarget] = useState(null); // { type, id, name }
+  const [reportTarget, setReportTarget] = useState(null); // { type, id, name, clubId? }
 
   const [coLeaderActionError, setCoLeaderActionError] = useState('');
 
@@ -439,6 +439,19 @@ const ClubDetail = ({ user, onLogout }) => {
                   </button>
                 </div>
               </div>
+
+              {/* A co-leader's way into the settings page, where the Reports
+                  section is the one open to them (UC-42) */}
+              {!role.isLeader && role.isCoLeader && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/club/${clubId}/settings/reports`)}
+                  className="w-full bg-zinc-800 hover:bg-zinc-700 py-2 xl:py-3 rounded-xl xl:rounded-2xl text-sm xl:text-base font-medium flex items-center justify-center gap-2 transition mt-3 xl:mt-4"
+                >
+                  <Flag size={18} />
+                  Review Reports
+                </button>
+              )}
             </div>
 
             {!role.isLeader && role.isMember && (
@@ -505,7 +518,8 @@ const ClubDetail = ({ user, onLogout }) => {
           error={coLeaderActionError}
           actions={{
             onViewProfile: openProfile,
-            onReport: (member) => setReportTarget({ type: 'user', id: member._id, name: `@${member.username}` }),
+            // clubId sends the report to this club's leader and co-leaders (UC-42)
+            onReport: (member) => setReportTarget({ type: 'user', id: member._id, name: `@${member.username}`, clubId }),
             onPromote: handlePromoteCoLeader,
             onDemote: handleDemoteCoLeader,
             onRemove: (member) => requestRemoveMember(member._id, member.username),
@@ -589,6 +603,7 @@ const ClubDetail = ({ user, onLogout }) => {
           targetType={reportTarget.type}
           targetId={reportTarget.id}
           targetName={reportTarget.name}
+          clubId={reportTarget.clubId}
           onClose={() => setReportTarget(null)}
         />
       )}
