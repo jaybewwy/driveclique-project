@@ -6,8 +6,6 @@
 // device's copy exists so the right theme can be applied before the app has
 // loaded, and on the sign-in pages where there is no account yet.
 
-import { isNative } from '../services/api';
-
 export const THEMES = ['dark', 'light'];
 export const DEFAULT_THEME = 'dark';
 
@@ -22,9 +20,13 @@ export const getTheme = () =>
  * In the native app the page draws underneath the phone's status bar, so the
  * clock and battery icons have to contrast with the nav bar behind them.
  * (capacitor.config.ts starts them light-on-dark, which suits the default.)
+ *
+ * The build-time flag is tested here, not imported as services/api.js's
+ * isNative, so the bundler can see the branch is dead in a web build and
+ * leave the status-bar plugin out of it.
  */
 const syncNativeStatusBar = (theme) => {
-  if (!isNative) return;
+  if (import.meta.env.VITE_IS_NATIVE !== 'true') return;
   import('@capacitor/status-bar')
     .then(({ StatusBar, Style }) =>
       StatusBar.setStyle({ style: theme === 'light' ? Style.Light : Style.Dark }))

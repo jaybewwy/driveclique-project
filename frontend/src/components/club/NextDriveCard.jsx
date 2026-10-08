@@ -24,22 +24,22 @@ const NextDriveCard = ({ drive, rsvpCounts, moreCount, canOpen, onOpen, onReport
       </div>
     </div>
 
-    <div
-      role={canOpen ? 'button' : undefined}
-      tabIndex={canOpen ? 0 : undefined}
-      className={`glass-card p-4 transition-all duration-200 group rounded-2xl ${canOpen ? 'cursor-pointer hover:border-white/[0.12] hover:-translate-y-0.5' : 'cursor-default opacity-70'}`}
-      onClick={() => canOpen && onOpen(drive)}
-      onKeyDown={(e) => {
-        if (canOpen && (e.key === 'Enter' || e.key === ' ')) {
-          e.preventDefault();
-          onOpen(drive);
-        }
-      }}
-    >
+    {/* Same shape as find-club/ClubResultCard: the drive's name is the button
+        and its hit area covers the card, so the card isn't a button with the
+        Report button nested inside it */}
+    <div className={`relative glass-card p-4 transition-all duration-200 group rounded-2xl ${canOpen ? 'hover:border-white/[0.12] hover:-translate-y-0.5' : 'opacity-70'}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm text-white group-hover:text-red-400 transition-colors mb-1.5">
-            {drive.name}
+            {canOpen ? (
+              <button
+                type="button"
+                onClick={() => onOpen(drive)}
+                className="text-left after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-red-600"
+              >
+                {drive.name}
+              </button>
+            ) : drive.name}
           </p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
             <span className="flex items-center gap-1">
@@ -70,10 +70,10 @@ const NextDriveCard = ({ drive, rsvpCounts, moreCount, canOpen, onOpen, onReport
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="relative z-10 flex items-center gap-1.5 shrink-0">
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); onReport(drive); }}
+            onClick={() => onReport(drive)}
             className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-orange-400 hover:bg-orange-500/10 rounded-xl transition-all"
             title="Report drive"
           >

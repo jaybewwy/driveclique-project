@@ -74,7 +74,7 @@ const OwnershipSection = ({ club, currentUserId, onOwnershipTransferred }) => {
           type="button"
           onClick={transfer}
           disabled={!target}
-          className="bg-amber-600 hover:bg-amber-500 px-6 py-2.5 rounded-xl font-medium transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+          className="bg-amber-700 hover:bg-amber-800 px-6 py-2.5 rounded-xl font-medium transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
         >
           <Crown size={15} />
           Transfer to {target ? displayName(target) : '...'}

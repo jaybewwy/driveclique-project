@@ -40,6 +40,10 @@ async function mockGeocoding(page: Page) {
 // The location autocomplete's dropdown option, never a club card that happens to mention the label
 const suggestion = (page: Page) => page.getByRole('listitem').getByRole('button', { name: PICKED_LABEL, exact: true });
 
+// A Find Clubs result: the card whose name is the button that opens that club
+const resultCard = (page: Page, clubName: string | RegExp) =>
+  page.locator('.glass-card').filter({ has: page.getByRole('button', { name: clubName, exact: true }) });
+
 async function login(page: Page, user: { username: string; password: string }) {
   await page.goto('/login');
   await page.getByPlaceholder('Username').fill(user.username);
@@ -228,7 +232,7 @@ test.describe('Proximity search (UC-46)', () => {
     await page.getByRole('button', { name: /Use my location/i }).click();
     await expect(page.getByText(/Clubs within 25 mi of your location/i)).toBeVisible();
 
-    const nearCard = page.locator('div[role="button"]', { hasText: nearClubName });
+    const nearCard = resultCard(page, nearClubName);
     await expect(nearCard).toBeVisible();
     await expect(nearCard.getByText(/\d+(\.\d)? mi away/)).toBeVisible();
     // Scoped to the results column — the Popular sidebar is a separate, unfiltered list
@@ -241,7 +245,7 @@ test.describe('Proximity search (UC-46)', () => {
     await expect(drives.getByText(unpinnedDriveName)).not.toBeVisible();
 
     await page.getByLabel('Search radius').selectOption('50');
-    const cards = page.locator('div[role="button"]', { hasText: new RegExp(`Proximity (Near|Far) Club ${suffix}`) });
+    const cards = resultCard(page, new RegExp(`^Proximity (Near|Far) Club ${suffix}$`));
     await expect(cards).toHaveCount(2);
     await expect(cards.nth(0)).toContainText(nearClubName);
     await expect(cards.nth(1)).toContainText(farClubName);
@@ -258,7 +262,7 @@ test.describe('Proximity search (UC-46)', () => {
     await page.locator('#find-club-near').fill('Testv');
     await suggestion(page).click();
     await expect(page.getByText(`Clubs within 25 mi of ${PICKED_LABEL}`)).toBeVisible();
-    await expect(page.locator('div[role="button"]', { hasText: nearClubName })).toBeVisible();
+    await expect(resultCard(page, nearClubName)).toBeVisible();
   });
 
   test('Create Club: picking a location suggestion pins the club for nearby search', async ({ page, request }) => {

@@ -1,6 +1,12 @@
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import { readdirSync, readFileSync } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Regression tests for bugs found in the 2026-09-28 codebase audit. Each
+// Regression tests for bugs found by reading or auditing the code rather than
+// by a failing feature: first the 2026-09-28 codebase audit, then (further
+// down) what turned up on 2026-10-07 while building the light theme. Each
 // describe block pins one fix; see FIXES_APPLIED.md for root causes.
 
 const API = 'http://localhost:5000/api';
@@ -223,8 +229,11 @@ test.describe('Notification preferences', () => {
     await initialFetch;
 
     await expect(toggle).toHaveAttribute('aria-checked', 'false');
-    const saved = await request.get(`${API}/notifications/preferences`, { headers: auth(token) });
-    expect((await saved.json()).data.notificationPreferences.NEW_ANNOUNCEMENT).toBe(false);
+    // The switch flips before its save has been answered, so poll for the save
+    await expect.poll(async () => {
+      const saved = await request.get(`${API}/notifications/preferences`, { headers: auth(token) });
+      return (await saved.json()).data.notificationPreferences.NEW_ANNOUNCEMENT;
+    }).toBe(false);
   });
 });
 
@@ -286,5 +295,277 @@ test.describe('Stacked dialogs on the club page', () => {
 
     await page.keyboard.press('Escape');
     await expect(members).toBeHidden();
+  });
+});
+
+// ─── Found 2026-10-07 while building the light theme (UC-49) ────────────────
+
+test.describe("Other people's account details stay private", () => {
+  test('user search returns only what a result row shows', async ({ request }) => {
+    const target = newUser('auditfind');
+    await register(request, target);
+    const { token } = await register(request, newUser('auditseek'));
+
+    const res = await request.get(`${API}/auth/users/search`, { headers: auth(token), params: { query: target.username } });
+    expect(res.status()).toBe(200);
+    const { users } = await res.json();
+    expect(users).toHaveLength(1);
+    expect(users[0].username).toBe(target.username);
+
+    // Before the fix this was the whole account minus the password: email,
+    // push tokens, block lists, old password hashes, reset-token hash
+    const allowed = ['_id', 'username', 'name', 'useDisplayName', 'avatar'];
+    expect(Object.keys(users[0]).filter((field) => !allowed.includes(field))).toEqual([]);
+  });
+
+  test('your own profile comes back without password hashes or token hashes', async ({ request }) => {
+    const user = newUser('auditself');
+    const { token, id } = await register(request, user);
+
+    const res = await request.get(`${API}/auth/profile`, { headers: auth(token) });
+    expect(res.status()).toBe(200);
+    const profile = (await res.json()).user;
+
+    // Everything the web and mobile apps read from it is still there
+    expect(profile).toMatchObject({ _id: id, username: user.username, email: user.email, theme: 'dark', useDisplayName: false });
+    for (const field of ['cars', 'emailVerified', 'usernameChangedAt', 'role']) {
+      expect(profile, `profile.${field}`).toHaveProperty(field);
+    }
+
+    // The sign-in form keeps this object in localStorage
+    // (pushTokens is the user's own device list and stays: push-token-registration.spec.ts reads it here)
+    const serverOnly = [
+      'password', 'passwordHistory', 'passwordResetToken', 'passwordResetExpires',
+      'emailVerifyToken', 'emailVerifyExpiry', 'emailChangeToken', 'emailChangeExpires', '__v',
+    ];
+    expect(Object.keys(profile).filter((field) => serverOnly.includes(field))).toEqual([]);
+  });
+
+  test('a leader can still find people in "Find Users to Invite"', async ({ page, request }) => {
+    const target = newUser('auditinvitee');
+    await register(request, target);
+    const leader = newUser('auditinviter');
+    const { token } = await register(request, leader);
+    const clubName = `Audit Invite Club ${Date.now()}`;
+    const clubId = await createClub(request, token, clubName);
+
+    await login(page, leader);
+    await page.goto(`/club/${clubId}`);
+    await expect(page.getByRole('heading', { level: 1, name: clubName })).toBeVisible();
+    await page.getByRole('textbox', { name: 'Find users to invite' }).fill(target.username);
+    await expect(page.getByText(target.username, { exact: true })).toBeVisible();
+  });
+});
+
+test.describe('Find Clubs works with a keyboard and a screen reader', () => {
+  test('the search box has a name, results open from the keyboard, and the loaded list passes axe', async ({ page, request }) => {
+    const { token: ownerToken } = await register(request, newUser('auditfcown'));
+    const clubName = `Audit Keyboard Club ${Date.now()}`;
+    const clubId = await createClub(request, ownerToken, clubName);
+    const visitor = newUser('auditfcvis');
+    await register(request, visitor);
+
+    await login(page, visitor);
+    await page.goto('/find-club');
+    await page.getByRole('textbox', { name: 'Search clubs' }).fill(clubName);
+
+    // The club's name is the control that opens it; Join, Report, and Block
+    // are separate controls beside it, not buttons inside a button
+    const open = page.getByRole('button', { name: clubName, exact: true });
+    await expect(open).toBeVisible();
+    const { violations } = await new AxeBuilder({ page }).withRules(['label', 'nested-interactive']).analyze();
+    expect(violations.map((v) => `${v.id} (${v.nodes.length} node(s))`)).toEqual([]);
+
+    // A button on the card acts on its own and does not open the club
+    await page.getByRole('button', { name: 'Report club' }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page).toHaveURL(/\/find-club$/);
+    // A dialog starts listening for Escape when it takes focus, a few ms after it appears
+    await expect(page.getByRole('button', { name: 'Close report dialog' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+
+    await open.focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(new RegExp(`/club/${clubId}$`));
+    await expect(page.getByRole('heading', { level: 1, name: clubName })).toBeVisible();
+
+    // A mouse user can still click anywhere on the card: here, its top-left
+    // padding, well away from the name and the buttons
+    await page.goto('/find-club');
+    await page.getByRole('textbox', { name: 'Search clubs' }).fill(clubName);
+    await page.locator('.glass-card').filter({ hasText: clubName }).click({ position: { x: 8, y: 8 } });
+    await expect(page).toHaveURL(new RegExp(`/club/${clubId}$`));
+  });
+});
+
+test.describe('Every control has a name, and no button holds another', () => {
+  // The same three rules that Find Clubs failed, on the other screens that
+  // failed them: the club page, Profile Settings, and the nav bar on a phone
+  test('club page, Profile Settings, and the phone nav bar', async ({ page, request }) => {
+    const leader = newUser('auditnames');
+    const { token } = await register(request, leader);
+    const clubName = `Audit Names Club ${Date.now()}`;
+    const clubId = await createClub(request, token, clubName);
+    await createDrive(request, token, clubId, 'Named Controls Drive', 7);
+
+    const expectNamedAndFlat = async (where: string) => {
+      const { violations } = await new AxeBuilder({ page }).withRules(['label', 'button-name', 'nested-interactive']).analyze();
+      expect(violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`), where).toEqual([]);
+    };
+
+    await login(page, leader);
+
+    // The avatar menu holds only menu items and plain text (its name line was a heading)
+    await page.locator('nav button[aria-haspopup="menu"]').click();
+    await expect(page.getByRole('menu')).toBeVisible();
+    const menu = await new AxeBuilder({ page }).include('[role="menu"]').withRules(['aria-required-children']).analyze();
+    expect(menu.violations.map((v) => v.nodes.map((n) => n.failureSummary).join(' ')), 'avatar menu').toEqual([]);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+
+    await page.goto(`/club/${clubId}`);
+    // The featured drive's name is the button that opens it
+    const openDrive = page.getByRole('button', { name: 'Named Controls Drive', exact: true });
+    await expect(openDrive).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Drive options' })).toBeVisible();
+    await expectNamedAndFlat('club page');
+
+    // Report sits on the card as a button of its own and does not open the drive
+    await page.getByRole('button', { name: 'Report drive' }).first().click();
+    await expect(page.getByRole('dialog')).toContainText('Report');
+    await expect(page.getByText('Mark your attendance')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Close report dialog' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+
+    await openDrive.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('dialog')).toContainText('Mark your attendance');
+    await expect(page.getByRole('button', { name: 'Dismiss drive details panel' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+
+    await openProfileSettings(page);
+    await expect(page.getByRole('switch', { name: 'Show Display Name' })).toBeVisible();
+    await expect(page.getByLabel('Current Password')).toBeVisible();
+    await expectNamedAndFlat('Profile Settings');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/dashboard');
+    await expect(page.getByPlaceholder(/What's the plan\?/i)).toBeVisible();
+    await expectNamedAndFlat('dashboard at phone width');
+  });
+});
+
+test.describe('The phone menu covers the page behind it', () => {
+  test('the menu has its own background, not just a blur', async ({ page, request }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const user = newUser('auditmenu');
+    await register(request, user);
+    await login(page, user);
+
+    await page.getByRole('button', { name: 'Toggle menu' }).click();
+    const menu = page.locator('div.fixed').filter({ has: page.getByRole('button', { name: 'Log out' }) });
+    // zinc-950 at 98%. `bg-zinc-950/98` generated nothing, leaving it transparent.
+    await expect(menu).toHaveCSS('background-color', 'rgba(9, 9, 11, 0.98)');
+  });
+
+  test('every opacity modifier in the source is one Tailwind generates', async () => {
+    // Tailwind 3 silently drops e.g. `bg-red-500/8`: only the steps of its
+    // opacity scale work bare, anything else needs brackets (`/[0.08]`)
+    const scale = new Set([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]);
+    const srcDir = fileURLToPath(new URL('../../src/', import.meta.url));
+    const dropped: string[] = [];
+    for (const file of readdirSync(srcDir, { recursive: true, encoding: 'utf8' })) {
+      if (!/\.(jsx?|css)$/.test(file)) continue;
+      const text = readFileSync(path.join(srcDir, file), 'utf8');
+      const modifiers = /[\w:-]+-(?:[a-z]+-\d{2,3}|white|black|true-white|true-black|background|primary|secondary|destructive)\/(\d+)(?![\w.[])/g;
+      for (const [cls, step] of text.matchAll(modifiers)) {
+        if (!scale.has(Number(step))) dropped.push(`${file}: ${cls}`);
+      }
+    }
+    expect(dropped).toEqual([]);
+  });
+});
+
+test.describe('Text on coloured buttons and badges is readable', () => {
+  // Contrast only: every piece of text in `scope` must reach WCAG AA
+  async function expectReadable(page: Page, scope: string, where: string) {
+    const { violations } = await new AxeBuilder({ page }).include(scope).withRules(['color-contrast']).analyze();
+    const failures = violations.flatMap((v) => v.nodes.map((n) => `${n.target.join(' ')} — ${n.any[0]?.message ?? v.help}`));
+    expect(failures, `low-contrast text in ${where}`).toEqual([]);
+  }
+
+  for (const theme of ['dark', 'light']) {
+    test(`${theme} theme: the "New" badge, each selected RSVP button, the avatar placeholder, and Transfer`, async ({ page, request }) => {
+      const leader = newUser(`auditaa${theme}`);
+      const { token } = await register(request, leader);
+      const saved = await request.put(`${API}/auth/profile`, { headers: auth(token), data: { theme } });
+      expect(saved.status()).toBe(200);
+      const clubName = `Audit Contrast Club ${theme} ${Date.now()}`;
+      const clubId = await createClub(request, token, clubName);
+      await createDrive(request, token, clubId, 'Contrast Check Drive', 7);
+      const member = newUser(`aamem${theme}`);
+      const { token: memberToken } = await register(request, member);
+      const joined = await request.post(`${API}/clubs/${clubId}/join`, { headers: auth(memberToken) });
+      expect(joined.status()).toBe(200);
+
+      await login(page, leader);
+      await page.locator('nav button[aria-haspopup="menu"]').click();
+      await expect(page.getByRole('menu')).toBeVisible();
+      await expectReadable(page, '[role="menu"]', 'the avatar menu');
+      await page.keyboard.press('Escape');
+
+      await page.goto(`/club/${clubId}`);
+      await page.getByText('Contrast Check Drive').first().click();
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toBeVisible();
+      for (const [label, colour] of [['Going', 'green'], ['Maybe', 'yellow'], ['Not Going', 'red']]) {
+        const option = dialog.getByRole('button', { name: label, exact: true });
+        await option.click();
+        // Selected: a solid fill, where unselected has only a hover tint
+        await expect(option).toHaveClass(new RegExp(`(^| )bg-${colour}-\\d00( |$)`));
+        // The buttons fade between colours (150 ms); axe must see the end state
+        await page.waitForTimeout(400);
+        await expectReadable(page, '[role="dialog"]', `the drive dialog with "${label}" selected`);
+      }
+
+      await page.goto(`/club/${clubId}/settings/general`);
+      await expect(page.getByText('No Image')).toBeVisible();
+      await expectReadable(page, '#main-content', 'Club Settings → General');
+
+      // The amber Transfer button is disabled, and so skipped by axe, until a member is picked
+      await page.goto(`/club/${clubId}/settings/ownership`);
+      await page.getByRole('button', { name: new RegExp(member.username) }).click();
+      await expect(page.getByRole('button', { name: /^Transfer to / })).toBeEnabled();
+      await page.waitForTimeout(400);
+      await expectReadable(page, '#main-content', 'Club Settings → Ownership');
+    });
+  }
+});
+
+test.describe('Delete Account is a real dialog', () => {
+  test('it is announced as a dialog, takes focus, keeps Tab inside, and Escape returns to the button', async ({ page, request }) => {
+    const user = newUser('auditdeldlg');
+    await register(request, user);
+    await login(page, user);
+    await openProfileSettings(page);
+
+    const opener = page.getByRole('button', { name: 'Delete Account' });
+    await opener.click();
+    const dialog = page.getByRole('dialog', { name: 'Delete Account' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByLabel('Password')).toBeFocused();
+
+    // Tab from the last control wraps to the first instead of reaching the page behind
+    await dialog.getByLabel('Password').fill('not-my-password');
+    await dialog.getByRole('button', { name: 'Delete My Account' }).focus();
+    await page.keyboard.press('Tab');
+    await expect(dialog.getByLabel('Password')).toBeFocused();
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(opener).toBeFocused();
   });
 });

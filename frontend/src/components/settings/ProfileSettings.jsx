@@ -187,6 +187,7 @@ const ProfileSettings = ({ onLogout, onUpdateUser }) => {
               </div>
             </div>
             <ToggleSwitch
+              ariaLabel="Show Display Name"
               checked={formData.useDisplayName}
               onChange={(value) => setFormData(prev => ({ ...prev, useDisplayName: value }))}
             />

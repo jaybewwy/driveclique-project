@@ -73,7 +73,7 @@ const FindClubSidebar = ({ popularClubs, mobileOpen, onMobileOpen, onMobileClose
         <ShieldOff className="w-4 h-4" /> Blocked Clubs
       </button>
 
-      <div className="relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-red-500/8 to-orange-500/6 border border-red-500/15">
+      <div className="relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-red-500/[0.08] to-orange-500/[0.06] border border-red-500/15">
         <div className="flex items-start gap-2 mb-3">
           <Sparkles className="w-3.5 h-3.5 text-red-400 mt-0.5 shrink-0" />
           <p className="text-xs font-semibold text-white">Why join a club?</p>

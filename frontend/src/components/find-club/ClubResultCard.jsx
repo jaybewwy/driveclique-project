@@ -17,22 +17,16 @@ export const ClubAvatar = ({ club, className, initialClassName }) => (
 );
 
 /**
- * One search result. Clicking the card opens the club; the buttons report
- * it, block it (non-members only), and join or view it.
+ * One search result. The club's name is the button that opens it, and its
+ * hit area is stretched over the whole card (the `after:` classes), so a
+ * click anywhere still opens the club. Report, Block, and Join/View sit above
+ * that area as buttons of their own.
+ *
+ * The card itself is not a button: one that contains other buttons can't be
+ * operated or announced properly (axe's nested-interactive rule).
  */
 const ClubResultCard = ({ club, isMember, isBlocking, onOpen, onReport, onBlock, onJoin }) => (
-  <div
-    role="button"
-    tabIndex={0}
-    onClick={onOpen}
-    onKeyDown={(e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        onOpen();
-      }
-    }}
-    className="glass-card p-5 cursor-pointer hover:border-white/[0.12] hover:-translate-y-0.5 transition-all duration-200 group rounded-3xl"
-  >
+  <div className="relative glass-card p-5 hover:border-white/[0.12] hover:-translate-y-0.5 transition-all duration-200 group rounded-3xl">
     <div className="flex items-start justify-between gap-4">
       <div className="flex items-start gap-3.5 flex-1 min-w-0">
         <ClubAvatar
@@ -44,7 +38,15 @@ const ClubResultCard = ({ club, isMember, isBlocking, onOpen, onReport, onBlock,
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <h3 className="font-semibold text-white group-hover:text-red-400 transition-colors truncate min-w-0">
-              {club.name}
+              {/* The keyboard focus ring goes on the stretched area, i.e. the card:
+                  the heading clips its overflow, which would cut a ring on the text */}
+              <button
+                type="button"
+                onClick={onOpen}
+                className="max-w-full truncate align-bottom text-left after:absolute after:inset-0 after:rounded-3xl focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-red-600"
+              >
+                {club.name}
+              </button>
             </h3>
             {club.isPrivate ? (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/[0.06] border border-white/[0.08] rounded-full text-[10px] text-zinc-400">
@@ -95,9 +97,10 @@ const ClubResultCard = ({ club, isMember, isBlocking, onOpen, onReport, onBlock,
         </div>
       </div>
 
-      <div className="shrink-0 self-center flex items-center gap-1.5">
+      <div className="relative z-10 shrink-0 self-center flex items-center gap-1.5">
         <button
-          onClick={(e) => { e.stopPropagation(); onReport(); }}
+          type="button"
+          onClick={onReport}
           className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-orange-400 hover:bg-orange-500/10 rounded-xl transition-all"
           title="Report club"
         >
@@ -105,7 +108,8 @@ const ClubResultCard = ({ club, isMember, isBlocking, onOpen, onReport, onBlock,
         </button>
         {!isMember && (
           <button
-            onClick={(e) => { e.stopPropagation(); onBlock(); }}
+            type="button"
+            onClick={onBlock}
             disabled={isBlocking}
             className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             title="Block club"
@@ -115,14 +119,16 @@ const ClubResultCard = ({ club, isMember, isBlocking, onOpen, onReport, onBlock,
         )}
         {isMember ? (
           <button
-            onClick={(e) => { e.stopPropagation(); onOpen(); }}
+            type="button"
+            onClick={onOpen}
             className="btn-ghost px-4 py-2 text-xs font-medium flex items-center gap-1.5"
           >
             View <ArrowRight className="w-3.5 h-3.5" />
           </button>
         ) : (
           <button
-            onClick={(e) => { e.stopPropagation(); onJoin(); }}
+            type="button"
+            onClick={onJoin}
             className="btn-primary px-4 py-2 text-xs font-medium"
           >
             Join

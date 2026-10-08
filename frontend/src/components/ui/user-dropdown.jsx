@@ -39,7 +39,7 @@ const MENU_ITEMS = {
       label: "Create a Club",
       action: "create-club",
       iconClass: "text-amber-500",
-      badge: { text: "New", className: "bg-amber-600 text-white text-[11px]" },
+      badge: { text: "New", className: "bg-amber-700 text-white text-[11px]" },
     },
   ],
   support: [
@@ -148,7 +148,8 @@ export function UserDropdown({
               />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-sm text-white truncate">{user.name}</h3>
+              {/* A <p>, not a heading: a menu may only contain menu items and plain text */}
+              <p className="font-semibold text-sm text-white truncate">{user.name}</p>
               <p className="text-zinc-400 text-xs truncate">{user.username}</p>
             </div>
             <Badge className={cn("border text-[11px] rounded-md capitalize px-1.5 py-0.5", getStatusColor(selectedStatus))}>

@@ -70,7 +70,9 @@ export const UsernameField = ({ username, changedAt, onChanged }) => {
 
       {editing ? (
         <div className="space-y-2">
+          {/* Same id as the read-only field it replaces, so the Username label names it too */}
           <input
+            id="pv-username"
             type="text"
             value={newUsername}
             onChange={e => { setNewUsername(e.target.value); setError(""); }}
@@ -149,6 +151,7 @@ export const EmailField = ({ email }) => {
       {editing ? (
         <div className="space-y-2">
           <input
+            id="pv-email"
             type="email"
             value={newEmail}
             onChange={e => { setNewEmail(e.target.value); setError(""); }}
@@ -233,8 +236,9 @@ export const PasswordSection = ({ onChanged }) => {
         </div>
       )}
 
-      <SettingsField label="Current Password">
+      <SettingsField label="Current Password" htmlFor="pv-current-password">
         <input
+          id="pv-current-password"
           type="password"
           value={form.current}
           onChange={updateField("current")}
@@ -246,9 +250,11 @@ export const PasswordSection = ({ onChanged }) => {
       <div className="grid grid-cols-2 gap-4">
         <SettingsField
           label="New Password"
+          htmlFor="pv-new-password"
           hint="Cannot be the same as any of your last 5 passwords."
         >
           <input
+            id="pv-new-password"
             type="password"
             value={form.new}
             onChange={updateField("new")}
@@ -256,8 +262,9 @@ export const PasswordSection = ({ onChanged }) => {
             className={settingsInputClass}
           />
         </SettingsField>
-        <SettingsField label="Confirm New Password">
+        <SettingsField label="Confirm New Password" htmlFor="pv-confirm-password">
           <input
+            id="pv-confirm-password"
             type="password"
             value={form.confirm}
             onChange={updateField("confirm")}

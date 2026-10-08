@@ -181,11 +181,14 @@ const FindClub = ({ user, onLogout }) => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder=""
+                aria-label="Search clubs"
                 className="w-full h-11 bg-white/[0.06] border border-white/[0.08] rounded-2xl pl-11 pr-10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-red-500/40 focus:ring-1 focus:ring-red-500/15 transition-all duration-200"
               />
               {searchQuery && (
                 <button
+                  type="button"
                   onClick={() => setSearchQuery("")}
+                  aria-label="Clear search"
                   className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
                 >
                   <X className="w-3.5 h-3.5" />

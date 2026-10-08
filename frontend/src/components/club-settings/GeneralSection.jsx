@@ -67,7 +67,7 @@ const GeneralSection = ({ club, onClubUpdated }) => {
                 <img src={formData.avatar} alt="Club avatar preview" className="w-full h-full object-cover" onError={hideBrokenImage} />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
-                  <span className="text-zinc-400 text-xs">No Image</span>
+                  <span className="text-zinc-300 text-xs">No Image</span>
                 </div>
               )}
             </div>

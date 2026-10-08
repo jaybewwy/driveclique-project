@@ -264,7 +264,7 @@ const Dashboard = ({ user, onLogout }) => {
 
           {/* Create drive card */}
           <div className="relative overflow-hidden glass-card p-5 mb-6">
-            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-red-500/8 to-orange-500/5 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-red-500/[0.08] to-orange-500/5 rounded-full blur-3xl pointer-events-none" />
             <div className="relative">
               <div className="flex items-center gap-3.5 mb-4">
                 <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-500/25 shrink-0">
@@ -424,7 +424,7 @@ const Dashboard = ({ user, onLogout }) => {
           </div>
 
           {/* Tip card */}
-          <div className="relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-red-500/10 to-orange-500/8 border border-red-500/15">
+          <div className="relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-red-500/10 to-orange-500/[0.08] border border-red-500/15">
             <div className="absolute top-0 right-0 w-16 h-16 bg-red-500/10 rounded-full blur-xl pointer-events-none" />
             <div className="relative flex items-start gap-2.5">
               <Sparkles className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />

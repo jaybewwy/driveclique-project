@@ -11,6 +11,24 @@ const { capArray } = require('../utils/arrayCap');
 const MAX_CARS = 5;
 const MAX_PHOTOS_PER_CAR = 4;
 
+// What one user may learn about another from a search: enough to show them
+// in a list. Named, not "everything but…", so a field added to the model
+// later stays private until someone lists it here.
+const SEARCH_RESULT_FIELDS = 'username name useDisplayName avatar';
+
+// What a user is not sent about their own account. The web app keeps the
+// profile in localStorage, and none of this is anything a client needs:
+// hashes of old passwords and of pending reset / verification tokens.
+// (pushTokens stays: it is the user's own device list, and the only place
+// a client or a test can see what POST /auth/push-token registered.)
+const OWN_PROFILE_EXCLUDED_FIELDS = [
+  'password', 'passwordHistory',
+  'passwordResetToken', 'passwordResetExpires',
+  'emailVerifyToken', 'emailVerifyExpiry',
+  'emailChangeToken', 'emailChangeExpires',
+  '__v',
+].map((field) => `-${field}`).join(' ');
+
 /** Caps car/photo counts and ensures exactly one car is flagged primary (if any exist) */
 const normalizeCars = (cars) => {
   // 'start' keeps the first MAX_CARS entries submitted, matching this
@@ -38,7 +56,7 @@ const normalizeCars = (cars) => {
  * @access Private
  */
 const getProfile = asyncHandler(async (req, res) => {
-  const user = orNotFound(await User.findById(req.user.id).select('-password'), 'User not found');
+  const user = orNotFound(await User.findById(req.user.id).select(OWN_PROFILE_EXCLUDED_FIELDS), 'User not found');
 
   // Ensure useDisplayName field exists for backward compatibility
   if (user.useDisplayName === undefined) {
@@ -117,7 +135,7 @@ const searchUsers = asyncHandler(async (req, res) => {
   const users = await User.find({
     username: { $regex: escapeRegex(query.trim()), $options: 'i' }
   })
-  .select('-password')
+  .select(SEARCH_RESULT_FIELDS)
   .limit(10);
 
   res.json({ success: true, users });

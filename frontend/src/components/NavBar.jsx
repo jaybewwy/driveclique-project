@@ -1,4 +1,4 @@
-import { Search, Home, Users, Settings, Bell, Menu, X, LogOut } from "lucide-react";
+import { Search, Home, Users, User, Settings, Bell, Menu, X, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useRef } from "react";
 import { useNotifications } from "../hooks/useNotifications";
@@ -92,7 +92,7 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
 
         {/* Mobile search icon */}
         {showSearch && (
-          <button className="md:hidden p-2 text-zinc-400 hover:text-white hover:bg-white/[0.06] rounded-lg transition-all duration-200">
+          <button type="button" aria-label="Search" className="md:hidden p-2 text-zinc-400 hover:text-white hover:bg-white/[0.06] rounded-lg transition-all duration-200">
             <Search className="w-4.5 h-4.5" />
           </button>
         )}
@@ -153,7 +153,7 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
 
       {/* ── Mobile fullscreen menu ─────────────────────────────────────── */}
       {showMobileMenu && (
-        <div className="sm:hidden fixed inset-0 top-[calc(49px+var(--sat))] bg-zinc-950/98 backdrop-blur-2xl z-40 animate-fade-slide-up">
+        <div className="sm:hidden fixed inset-0 top-[calc(49px+var(--sat))] bg-zinc-950/[0.98] backdrop-blur-2xl z-40 animate-fade-slide-up">
           <div className="p-4 space-y-1">
 
             {/* User info header */}
@@ -177,7 +177,8 @@ const NavBar = ({ user, onLogout, showSearch = true }) => {
               { label: "Dashboard",       icon: Home,    path: "/dashboard" },
               { label: "My Clubs",        icon: Users,   path: "/my-clubs" },
               { label: "Find Clubs",      icon: Search,  path: "/find-club" },
-              { label: "Profile & Settings", icon: Settings, path: "/profile" },
+              { label: "Profile",         icon: User,     path: "/profile" },
+              { label: "Settings",        icon: Settings, path: "/settings" },
             ].map(({ label, icon: Icon, path }) => (
               <button
                 key={path}

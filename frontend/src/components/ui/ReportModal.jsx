@@ -144,7 +144,7 @@ const ReportModal = ({ targetType, targetId, targetName, clubId, onClose }) => {
             </div>
 
             {/* Disclaimer */}
-            <div className="flex items-start gap-2 p-3 bg-amber-500/8 border border-amber-500/20 rounded-xl mb-5">
+            <div className="flex items-start gap-2 p-3 bg-amber-500/[0.08] border border-amber-500/20 rounded-xl mb-5">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
               <p className="text-[11px] text-amber-400/80 leading-relaxed">
                 False reports may result in action against your account. Only report content that genuinely violates community guidelines.

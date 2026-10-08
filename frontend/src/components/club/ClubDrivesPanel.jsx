@@ -27,6 +27,10 @@ const MenuItem = ({ onClick, className = "", children }) => (
 const DriveActionMenu = ({ isOpen, onToggle, isLeader, canCancel, onAction }) => (
   <div className="relative">
     <button
+      type="button"
+      aria-label="Drive options"
+      aria-haspopup="true"
+      aria-expanded={isOpen}
       onClick={(e) => {
         e.stopPropagation();
         onToggle();

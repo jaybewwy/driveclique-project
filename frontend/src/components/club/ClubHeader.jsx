@@ -38,7 +38,7 @@ export const ClubNotFound = () => {
 
 export const ClubHero = ({ club }) => (
   <div className="relative overflow-hidden glass-card p-5 mb-6 rounded-3xl">
-    <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-red-500/8 to-orange-500/5 rounded-full blur-3xl pointer-events-none" />
+    <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-red-500/[0.08] to-orange-500/5 rounded-full blur-3xl pointer-events-none" />
     <div className="relative flex items-center gap-4">
       <div className="w-16 h-16 rounded-2xl overflow-hidden ring-2 ring-white/[0.10] shrink-0">
         {club.avatar ? (

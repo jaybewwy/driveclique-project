@@ -1,13 +1,25 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { authAPI } from "../../services/api";
+import useFocusTrap from "../../hooks/useFocusTrap";
 import { SettingsSection } from "./settingsForm";
 
 const DeleteAccountModal = ({ onDeleted, onClose }) => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  // Mounted only while open: focus goes to the password field, Tab stays
+  // inside, and closing hands focus back to the Delete Account button
+  const dialogRef = useFocusTrap(true);
+
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === "Escape" && !isDeleting) onClose();
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [isDeleting, onClose]);
 
   const confirmDelete = async () => {
     if (!password) return;
@@ -25,12 +37,19 @@ const DeleteAccountModal = ({ onDeleted, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-true-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-zinc-900 rounded-3xl p-6 max-w-md w-full border border-zinc-800 shadow-2xl">
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-account-title"
+        className="bg-zinc-900 rounded-3xl p-6 max-w-md w-full border border-zinc-800 shadow-2xl"
+      >
         <div className="flex items-center gap-3 mb-5">
           <div className="w-10 h-10 bg-red-600/20 rounded-xl flex items-center justify-center flex-shrink-0">
             <X className="w-5 h-5 text-red-500" />
           </div>
-          <h2 className="text-xl font-bold">Delete Account</h2>
+          <h2 id="delete-account-title" className="text-xl font-bold">Delete Account</h2>
         </div>
 
         <p className="text-zinc-400 text-sm mb-3">This will permanently:</p>

@@ -21,7 +21,10 @@ const isDev = process.env.NODE_ENV === 'development';
  */
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 min
-  max: isDev ? 2000 : 120,
+  // Dev: every Playwright worker shares one IP (localhost). The suite's
+  // busiest minute reached 2,656 requests at 4 workers (2026-10-07), so the
+  // old cap of 2,000 was refusing requests mid-run. Production is unchanged.
+  max: isDev ? 10000 : 120,
   message: { success: false, message: 'Too many requests. Please slow down and try again shortly.' },
   standardHeaders: true,
   legacyHeaders: false,

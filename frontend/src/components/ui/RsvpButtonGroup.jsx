@@ -18,8 +18,8 @@ const BASE_CLASSES = {
 
 const ACTIVE_CLASSES = {
   default: {
-    green: 'bg-green-600 text-white',
-    yellow: 'bg-yellow-600 text-white',
+    green: 'bg-green-700 text-white',
+    yellow: 'bg-yellow-700 text-white',
     red: 'bg-red-600 text-white',
   },
   compact: {
