@@ -14,7 +14,7 @@ export function MobileDrawerButton({ onClick, breakpointClass, side = "left", la
       onClick={onClick}
       aria-label={`Open ${label}`}
       style={{ bottom: `max(1.25rem, calc(var(--sab) + 0.75rem))` }}
-      className={`${breakpointClass} fixed ${positionClass} z-40 flex items-center justify-center w-12 h-12 rounded-full bg-zinc-900/90 backdrop-blur-xl border border-zinc-700/50 text-white shadow-lg shadow-black/40 hover:border-red-500/50 transition-all duration-300`}
+      className={`${breakpointClass} fixed ${positionClass} z-40 flex items-center justify-center w-12 h-12 rounded-full bg-zinc-900/90 backdrop-blur-xl border border-zinc-700/50 text-white shadow-lg shadow-true-black/40 hover:border-red-500/50 transition-all duration-300`}
     >
       <Menu className="w-5 h-5" />
     </button>
@@ -54,7 +54,7 @@ export function MobileDrawer({ isOpen, onClose, side = "left", children }) {
       <div
         role="presentation"
         aria-hidden="true"
-        className={`absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-300 ${
+        className={`absolute inset-0 bg-true-black/70 backdrop-blur-sm transition-opacity duration-300 ${
           isOpen ? "opacity-100" : "opacity-0"
         }`}
         onClick={onClose}

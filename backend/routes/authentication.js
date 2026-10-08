@@ -4,6 +4,7 @@ const rateLimit = require('express-rate-limit');
 const { protect } = require('../middleware/authentication');
 const { validateInput, validateQuery } = require('../middleware/validation');
 const { apiLimiter } = require('../middleware/rateLimiters');
+const { THEMES } = require('../models/user');
 const {
   registerUser,
   loginUser,
@@ -137,6 +138,7 @@ router.put(
     lastName: { type: 'string', maxLength: 50 },
     location: { type: 'string', maxLength: 200 },
     useDisplayName: { type: 'boolean' },
+    theme: { type: 'string', enum: THEMES },
     cars: {
       type: 'array',
       custom: (value) => {

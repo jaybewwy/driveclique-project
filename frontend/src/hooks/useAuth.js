@@ -1,5 +1,6 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { authAPI } from '../services/api';
+import { applyTheme } from '../lib/theme';
 
 const AuthContext = createContext(null);
 
@@ -35,6 +36,9 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = (userData, token, refreshToken) => {
+    // The account's theme replaces whatever this device was last showing, so
+    // each person who signs in here gets their own
+    applyTheme(userData?.theme);
     setUser(userData);
     setIsAuthenticated(true);
     if (token) localStorage.setItem('token', token);

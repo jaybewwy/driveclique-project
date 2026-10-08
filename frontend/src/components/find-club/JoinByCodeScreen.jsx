@@ -29,7 +29,7 @@ const JoinByCodeScreen = ({ onSubmit, onClose }) => {
 
   return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
-      <div role="presentation" aria-hidden="true" className="fixed inset-0 bg-black/70 backdrop-blur-xl" onClick={onClose} />
+      <div role="presentation" aria-hidden="true" className="fixed inset-0 bg-true-black/70 backdrop-blur-xl" onClick={onClose} />
       <div className="relative glass-card p-8 max-w-sm w-full animate-fade-slide-up rounded-3xl">
         <button
           onClick={onClose}

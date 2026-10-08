@@ -4,6 +4,7 @@ import SettingsSidebar from "../components/settings/SettingsSidebar";
 import PersonalAnalytics from "../components/settings/PersonalAnalytics";
 import ClubsAnalytics from "../components/settings/ClubsAnalytics";
 import ProfileSettings from "../components/settings/ProfileSettings";
+import AppearanceSettings from "../components/settings/AppearanceSettings";
 
 const UserSettings = ({ user, onLogout, onUpdateUser }) => {
   const [activeView, setActiveView] = useState("clubs");
@@ -17,6 +18,7 @@ const UserSettings = ({ user, onLogout, onUpdateUser }) => {
           {activeView === "personal" && <PersonalAnalytics />}
           {activeView === "clubs"    && <ClubsAnalytics />}
           {activeView === "profile"  && <ProfileSettings onLogout={onLogout} onUpdateUser={onUpdateUser} />}
+          {activeView === "appearance" && <AppearanceSettings onUpdateUser={onUpdateUser} />}
         </main>
       </div>
     </div>

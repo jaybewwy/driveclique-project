@@ -7,7 +7,7 @@ import { X } from "lucide-react";
 
 /** Full-size dialog: large title, an icon-only close button, then children */
 export const ClubDialog = ({ titleId, title, closeLabel, onClose, panelClassName, titleClassName = "", children }) => (
-  <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div className="fixed inset-0 bg-true-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div
       role="dialog"
       aria-modal="true"
@@ -56,7 +56,7 @@ export const ClubListDialog = ({ titleId, title, closeLabel, onClose, header, ch
 
 /** Small confirmation dialog: a title, then the caller's body and buttons */
 export const CompactDialog = ({ titleId, title, children }) => (
-  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div className="fixed inset-0 bg-true-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div
       role="dialog"
       aria-modal="true"

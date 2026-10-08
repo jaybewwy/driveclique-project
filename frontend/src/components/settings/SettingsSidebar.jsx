@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BarChart2, ChevronDown, ChevronRight, Home, User as UserIcon, Users } from "lucide-react";
+import { BarChart2, ChevronDown, ChevronRight, Home, Palette, User as UserIcon, Users } from "lucide-react";
 import { MobileDrawerButton, MobileDrawer } from "../ui/MobileDrawer";
 import { displayName as displayNameOf } from "../../lib/userDisplay";
 
@@ -24,8 +24,9 @@ const SidebarNavItem = ({ icon: Icon, label, active, onClick }) => (
 );
 
 /**
- * Settings page navigation: app links, the three settings views
- * ("profile", "personal", "clubs"), and the user card. A drawer below xl.
+ * Settings page navigation: app links, the four settings views
+ * ("profile", "appearance", "personal", "clubs"), and the user card. A
+ * drawer below xl.
  */
 const SettingsSidebar = ({ user, activeView, onViewChange }) => {
   const navigate = useNavigate();
@@ -57,6 +58,18 @@ const SettingsSidebar = ({ user, activeView, onViewChange }) => {
               onClick={() => onViewChangeAndClose("profile")}
             />
             <SidebarNavItem icon={Users} label="My Clubs" onClick={() => goTo("/my-clubs")} />
+          </div>
+        </div>
+
+        <div>
+          <SidebarSectionLabel>Preferences</SidebarSectionLabel>
+          <div className="space-y-1">
+            <SidebarNavItem
+              icon={Palette}
+              label="Appearance"
+              active={activeView === "appearance"}
+              onClick={() => onViewChangeAndClose("appearance")}
+            />
           </div>
         </div>
 

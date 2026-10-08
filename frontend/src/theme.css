@@ -1,0 +1,200 @@
+/*
+  DriveClique colour themes
+  ─────────────────────────
+  Every value is an RGB-channel triplet so Tailwind 3's
+  "rgb(var(--x) / <alpha-value>)" opacity modifiers work.
+
+  tailwind.config.js points the zinc scale, `white`, and `black` at the
+  variables below, so the classes components already use (bg-zinc-900,
+  text-white, border-white/[0.08]…) take their colour from here. The dark
+  theme uses Tailwind's own values, so it looks exactly as it did when those
+  classes were hard-coded. The light theme redefines the same names by the job
+  each one does in this app:
+
+    zinc-950  page background          zinc-400 / 300  secondary text
+    zinc-900  cards, modals, panels    white           primary text, and the
+    zinc-800  raised / hover / chips                   faint washes and hairlines
+    zinc-700  borders, switch tracks                   (bg-white/[0.06])
+    black     inputs and inset wells
+
+  The theme is chosen by data-theme="light" on <html>, set before first paint
+  by public/theme-init.js and afterwards by src/lib/theme.js. No attribute
+  means dark.
+
+  This file is plain CSS and must stay separate from index.css: main.jsx
+  imports it first, so every rule here sits before Tailwind's output and a
+  utility class on the same element always wins. (Inside index.css, Tailwind's
+  @apply would also copy these rules into .btn-primary and .gradient-text.)
+*/
+
+/*
+  The first rule also matches two kinds of element inside a light page, which
+  therefore keep the dark palette for themselves and their children:
+    .theme-dark   — opt-in, for content that sits on a photo or is dark by
+                    design (the sign-in hero, toasts, overlays on images)
+    solid fills   — brand and status colours (bg-red-600, from-red-600…),
+                    so a red button's label stays white
+  A new solid fill (say bg-teal-600) needs adding to both lists below.
+*/
+:root,
+.theme-dark,
+.btn-primary,
+.bg-red-500, .bg-red-600, .bg-red-700, .hover\:bg-red-600:hover,
+.bg-orange-500, .bg-orange-600,
+.bg-amber-500, .bg-amber-600,
+.bg-yellow-500, .bg-yellow-600,
+.bg-green-500, .bg-green-600,
+.bg-emerald-500, .bg-emerald-600,
+.bg-sky-500, .bg-sky-600,
+.bg-blue-500, .bg-blue-600,
+.bg-purple-500, .bg-purple-600,
+.bg-primary, .bg-destructive,
+.from-red-500, .from-red-600,
+.from-orange-500, .from-orange-600,
+.from-amber-500, .from-emerald-500, .from-sky-500, .from-purple-500 {
+  --zinc-50:  250 250 250;
+  --zinc-100: 244 244 245;
+  --zinc-200: 228 228 231;
+  --zinc-300: 212 212 216;
+  --zinc-400: 161 161 170;
+  --zinc-500: 113 113 122;
+  --zinc-600: 82  82  91;
+  --zinc-700: 63  63  70;
+  --zinc-800: 39  39  42;
+  --zinc-900: 24  24  27;
+  --zinc-950: 9   9   11;
+  --white:    255 255 255;
+  --black:    0   0   0;
+
+  /* Coloured text (tailwind.config.js → textColor) */
+  --text-red-300:     252 165 165;
+  --text-red-400:     248 113 113;
+  --text-red-500:     239 68  68;
+  --text-orange-300:  253 186 116;
+  --text-orange-400:  251 146 60;
+  --text-amber-300:   252 211 77;
+  --text-amber-400:   251 191 36;
+  --text-amber-500:   245 158 11;
+  --text-yellow-400:  250 204 21;
+  --text-green-300:   134 239 172;
+  --text-green-400:   74  222 128;
+  --text-green-500:   34  197 94;
+  --text-emerald-400: 52  211 153;
+  --text-sky-400:     56  189 248;
+  --text-blue-400:    96  165 250;
+  --text-purple-400:  192 132 252;
+
+  /* Tinted panels: bg-{colour}-900 (tailwind.config.js → backgroundColor) */
+  --tint-red:    127 29  29;
+  --tint-amber:  120 53  15;
+  --tint-yellow: 113 63  18;
+  --tint-green:  20  83  45;
+  --tint-sky:    12  74  110;
+  --tint-blue:   30  58  138;
+
+  /* Opacity of the shadow-glass / shadow-glass-lg drop shadows */
+  --shadow-glass:    0.4;
+  --shadow-glass-lg: 0.5;
+
+  /* Semantic tokens (Button, Badge, Tooltip, dropdown-menu) */
+  --background:  var(--zinc-950);
+  --foreground:  var(--zinc-50);
+
+  --primary:            220  38  38;  /* red-600  — gooey blob, cta */
+  --primary-foreground: 250 250 250;
+
+  --secondary:            var(--zinc-800);
+  --secondary-foreground: var(--zinc-50);
+
+  --muted:            var(--zinc-800);
+  --muted-foreground: var(--zinc-400);
+
+  --accent:            var(--zinc-700);  /* ghost hover */
+  --accent-foreground: var(--zinc-50);
+
+  --destructive:            239 68 68;
+  --destructive-foreground: 250 250 250;
+
+  --card:            var(--zinc-900);
+  --card-foreground: var(--zinc-50);
+
+  --popover:            var(--zinc-900);  /* tooltip bg */
+  --popover-foreground: var(--zinc-50);
+
+  --border: var(--zinc-800);
+  --input:  var(--zinc-700);
+  --ring:   220 38  38;  /* red-600  */
+}
+
+:root[data-theme="light"] {
+  --zinc-50:  9   9   11;
+  --zinc-100: 24  24  27;
+  --zinc-200: 39  39  42;
+  --zinc-300: 63  63  70;
+  --zinc-400: 82  82  91;
+  --zinc-500: 104 104 113;
+  --zinc-600: 161 161 170;
+  --zinc-700: 212 212 216;
+  --zinc-800: 228 228 231;
+  --zinc-900: 255 255 255;
+  --zinc-950: 244 244 245;
+  --white:    24  24  27;
+  --black:    244 244 245;
+
+  /* Dark enough for 4.5:1 on white, on the page, and on their own tints */
+  --text-red-300:     153 27  27;
+  --text-red-400:     185 28  28;
+  --text-red-500:     200 30  30;
+  --text-orange-300:  154 52  18;
+  --text-orange-400:  194 65  12;
+  --text-amber-300:   146 64  14;
+  --text-amber-400:   161 72  10;
+  --text-amber-500:   161 72  10;
+  --text-yellow-400:  146 86  8;
+  --text-green-300:   22  101 52;
+  --text-green-400:   20  115 56;
+  --text-green-500:   20  115 56;
+  --text-emerald-400: 4   120 87;
+  --text-sky-400:     3   105 161;
+  --text-blue-400:    29  78  216;
+  --text-purple-400:  126 34  206;
+
+  /* Pale enough that /20–/50 leaves a soft wash on white */
+  --tint-red:    252 165 165;
+  --tint-amber:  252 211 77;
+  --tint-yellow: 253 224 71;
+  --tint-green:  134 239 172;
+  --tint-sky:    125 211 252;
+  --tint-blue:   147 197 253;
+
+  --shadow-glass:    0.10;
+  --shadow-glass-lg: 0.16;
+}
+
+/*
+  Text on those dark islands defaults to white in the light theme. One class
+  of specificity: enough to beat Tailwind's reset (button { color: inherit }),
+  and, because this file loads first, not enough to beat a text-* utility on
+  the same element. In the dark theme the inherited colour is already right,
+  and is left alone.
+*/
+:where(:root[data-theme="light"]) .theme-dark,
+:where(:root[data-theme="light"]) .btn-primary,
+:where(:root[data-theme="light"]) :is(
+  .bg-red-500, .bg-red-600, .bg-red-700,
+  .bg-orange-500, .bg-orange-600,
+  .bg-amber-500, .bg-amber-600,
+  .bg-yellow-500, .bg-yellow-600,
+  .bg-green-500, .bg-green-600,
+  .bg-emerald-500, .bg-emerald-600,
+  .bg-sky-500, .bg-sky-600,
+  .bg-blue-500, .bg-blue-600,
+  .bg-purple-500, .bg-purple-600,
+  .bg-primary, .bg-destructive,
+  .from-red-500, .from-red-600,
+  .from-orange-500, .from-orange-600,
+  .from-amber-500, .from-emerald-500, .from-sky-500, .from-purple-500
+),
+:where(:root[data-theme="light"]) .hover\:bg-red-600:hover {
+  color: rgb(255 255 255);
+}

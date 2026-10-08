@@ -24,7 +24,7 @@ const DeleteAccountModal = ({ onDeleted, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-true-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-zinc-900 rounded-3xl p-6 max-w-md w-full border border-zinc-800 shadow-2xl">
         <div className="flex items-center gap-3 mb-5">
           <div className="w-10 h-10 bg-red-600/20 rounded-xl flex items-center justify-center flex-shrink-0">

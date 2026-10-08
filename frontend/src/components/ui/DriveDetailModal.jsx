@@ -36,7 +36,7 @@ const DriveDetailModal = ({ drive, isMember, canModerate, onClose, onViewProfile
   };
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-true-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div role="dialog" aria-modal="true" aria-labelledby="drive-detail-modal-title" tabIndex={-1} className="bg-zinc-900 rounded-3xl p-8 max-w-lg w-full border border-zinc-800 shadow-2xl">
         <div className="flex justify-between items-center mb-6">
           <h2 id="drive-detail-modal-title" className="text-2xl font-bold">{drive.name}</h2>
@@ -414,7 +414,7 @@ const DriveDetailModal = ({ drive, isMember, canModerate, onClose, onViewProfile
                           type="button"
                           onClick={() => photos.onRemove(index)}
                           aria-label={`Remove drive photo ${index + 1}`}
-                          className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 p-1 rounded-lg transition"
+                          className="theme-dark absolute top-1 right-1 bg-black/60 hover:bg-black/80 p-1 rounded-lg transition"
                         >
                           <X size={12} />
                         </button>

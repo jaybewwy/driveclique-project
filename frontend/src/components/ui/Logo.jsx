@@ -5,7 +5,7 @@
 export default function Logo({ size = 36, className = "" }) {
   return (
     <div
-      className={`bg-white rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-black/20 ${className}`}
+      className={`bg-true-white rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-true-black/20 ${className}`}
       style={{ width: size, height: size }}
     >
       <img

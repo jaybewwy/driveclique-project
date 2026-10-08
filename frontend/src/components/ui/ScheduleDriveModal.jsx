@@ -116,7 +116,7 @@ const ScheduleDriveModal = ({ clubId, onClose, onScheduled }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-true-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div role="dialog" aria-modal="true" aria-labelledby="schedule-drive-modal-title" tabIndex={-1} className="bg-zinc-900 rounded-3xl p-6 max-w-2xl w-full border border-zinc-800 shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-3">
@@ -285,7 +285,7 @@ const ScheduleDriveModal = ({ clubId, onClose, onScheduled }) => {
                 <button
                   type="button"
                   onClick={() => { setDriveImagePreview(''); setScheduleForm(prev => ({ ...prev, image: '' })); }}
-                  className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 p-1 rounded-lg transition"
+                  className="theme-dark absolute top-2 right-2 bg-black/60 hover:bg-black/80 p-1 rounded-lg transition"
                 >
                   <X size={14} />
                 </button>

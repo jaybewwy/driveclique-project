@@ -91,6 +91,7 @@ const toSessionUser = (user) => ({
   location:  user.location,
   role: user.role,
   useDisplayName: user.useDisplayName,
+  theme: user.theme,
   emailVerified: user.emailVerified
 });
 

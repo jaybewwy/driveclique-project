@@ -227,7 +227,7 @@ const Profile = ({ onLogout, onUpdateUser }) => {
                     ) : (
                       <User className="w-full h-full p-8 text-zinc-400" />
                     )}
-                    <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition cursor-pointer rounded-full">
+                    <label className="theme-dark absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition cursor-pointer rounded-full">
                       <Camera className="w-8 h-8 text-white" />
                       <input
                         type="file"
@@ -409,7 +409,7 @@ const Profile = ({ onLogout, onUpdateUser }) => {
                                     <button
                                       type="button"
                                       onClick={() => handleRemoveCarPhoto(index, photoIndex)}
-                                      className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition"
+                                      className="theme-dark absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition"
                                       aria-label="Remove photo"
                                     >
                                       <X className="w-5 h-5 text-white" />

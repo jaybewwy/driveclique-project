@@ -70,7 +70,7 @@ export default function RegisterForm({ onRegister }) {
     <div className="flex h-screen w-full overflow-hidden bg-zinc-950">
 
       {/* ── Left panel ─────────────────────────────────────────────────── */}
-      <aside className="hidden md:block md:w-1/2 lg:w-[58%] relative overflow-hidden">
+      <aside className="theme-dark hidden md:block md:w-1/2 lg:w-[58%] relative overflow-hidden">
         <img
           src="https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1400&q=80"
           alt="Sports car meet"

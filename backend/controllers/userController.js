@@ -54,7 +54,7 @@ const getProfile = asyncHandler(async (req, res) => {
  * @access Private
  */
 const updateProfile = asyncHandler(async (req, res) => {
-  const { name, bio, avatar, cars, useDisplayName, firstName, lastName, location } = req.body;
+  const { name, bio, avatar, cars, useDisplayName, firstName, lastName, location, theme } = req.body;
 
   const user = orNotFound(await User.findById(req.user.id), 'User not found');
 
@@ -70,6 +70,7 @@ const updateProfile = asyncHandler(async (req, res) => {
   if (lastName    !== undefined) user.lastName  = lastName;
   if (location    !== undefined) user.location  = location;
   if (useDisplayName !== undefined) user.useDisplayName = normalizedUseDisplayName;
+  if (theme       !== undefined) user.theme     = theme;
 
   if (cars !== undefined) {
     if (!Array.isArray(cars)) {
@@ -95,7 +96,8 @@ const updateProfile = asyncHandler(async (req, res) => {
       avatar: user.avatar,
       cars: user.cars,
       role: user.role,
-      useDisplayName: user.useDisplayName
+      useDisplayName: user.useDisplayName,
+      theme: user.theme
     }
   });
 });

@@ -1,6 +1,9 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
+// The web app's colour themes. The first one is the default.
+const THEMES = ['dark', 'light'];
+
 const UserSchema = new mongoose.Schema({
   username: { 
     type: String, 
@@ -64,6 +67,14 @@ const UserSchema = new mongoose.Schema({
   useDisplayName: {
     type: Boolean,
     default: false
+  },
+  // The web app's colour theme, chosen in Settings → Appearance. Kept on the
+  // account so it follows the user to any browser they sign in on. Accounts
+  // created before this field existed read back as the default.
+  theme: {
+    type: String,
+    enum: THEMES,
+    default: THEMES[0]
   },
   passwordResetToken: {
     type: String,
@@ -155,3 +166,4 @@ UserSchema.pre('save', async function() {
 });
 
 module.exports = mongoose.model('User', UserSchema);
+module.exports.THEMES = THEMES;

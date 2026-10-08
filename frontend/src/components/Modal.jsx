@@ -51,7 +51,7 @@ const Modal = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Overlay */}
       <div 
-        className={`fixed inset-0 bg-black/80 backdrop-blur-xl animate-in fade-in duration-200 ${closeOnOverlayClick ? 'cursor-pointer' : ''}`}
+        className={`fixed inset-0 bg-true-black/80 backdrop-blur-xl animate-in fade-in duration-200 ${closeOnOverlayClick ? 'cursor-pointer' : ''}`}
         onClick={closeOnOverlayClick ? onClose : undefined}
         aria-hidden="true"
       />

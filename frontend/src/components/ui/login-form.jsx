@@ -56,7 +56,7 @@ export default function LoginForm({ onLogin }) {
     <div className="flex h-screen w-full overflow-hidden bg-zinc-950">
 
       {/* ── Left panel: hero image with overlay ───────────────────────── */}
-      <aside className="hidden md:block md:w-1/2 lg:w-[58%] relative overflow-hidden">
+      <aside className="theme-dark hidden md:block md:w-1/2 lg:w-[58%] relative overflow-hidden">
         <img
           src="https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1400&q=80"
           alt="Sports car"
