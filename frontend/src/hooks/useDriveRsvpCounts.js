@@ -10,11 +10,16 @@ import { hasDriveStarted } from '../lib/dateUtils';
  *
  * setCounts(driveId, counts) records fresher counts from elsewhere (e.g.
  * the drive detail modal) so the cards stay current.
+ *
+ * `canViewRsvps` is whether the viewer is a member of the club. RSVP data is
+ * members-only on the server, so for a visitor nothing is requested: every
+ * call would come back 403 and be logged as a denied-access event.
  */
-export const useDriveRsvpCounts = (drives) => {
+export const useDriveRsvpCounts = (drives, canViewRsvps) => {
   const [countsByDrive, setCountsByDrive] = useState({});
 
   useEffect(() => {
+    if (!canViewRsvps) return;
     const upcomingIds = drives
       .filter((d) => !d.isCancelled && !d.isCompleted && !hasDriveStarted(d))
       .map((d) => d._id);
@@ -40,7 +45,7 @@ export const useDriveRsvpCounts = (drives) => {
       });
       setCountsByDrive((prev) => ({ ...prev, ...update }));
     });
-  }, [drives]);
+  }, [drives, canViewRsvps]);
 
   const setCounts = useCallback((driveId, counts) => {
     setCountsByDrive((prev) => ({ ...prev, [driveId]: counts }));

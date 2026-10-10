@@ -132,11 +132,36 @@ test.describe('Private club drive access', () => {
     await expect(page.getByText("Only members can see this club's drives")).toHaveCount(0);
   });
 
-  test('club page: a non-member still sees a public club and its drives', async ({ page }) => {
+  test('club page: a non-member still sees a public club and its drives, and nothing they load is refused', async ({ page }) => {
+    // RSVP data is members-only, so the page must not ask for it on a
+    // visitor's behalf: each such call is a 403 the server logs as denied access
+    const rsvpRequests: string[] = [];
+    const refused: string[] = [];
+    page.on('request', (req) => {
+      if (req.url().includes('/rsvp-status')) rsvpRequests.push(req.url());
+    });
+    page.on('response', (res) => {
+      if (res.url().includes('/api/') && res.status() === 403) refused.push(res.url());
+    });
+
     await login(page, outsider);
     await page.goto(`/club/${publicClubId}`);
     await expect(page.getByRole('heading', { name: publicClubName })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText(publicDriveName).first()).toBeVisible();
+    // Give anything the page fires after rendering the drives time to land
+    await page.waitForTimeout(1000);
+
+    expect(rsvpRequests).toEqual([]);
+    expect(refused).toEqual([]);
+    // No count they aren't allowed to see, and no "couldn't load" placeholder for it
+    await expect(page.getByText(/(\d+|—) going/)).toHaveCount(0);
+  });
+
+  test('club page: a member still gets the attendee count', async ({ page }) => {
+    await login(page, leader);
+    await page.goto(`/club/${publicClubId}`);
+    await expect(page.getByText(publicDriveName).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('0 going')).toBeVisible();
   });
 
   test('access follows membership and privacy as they change', async ({ request }) => {

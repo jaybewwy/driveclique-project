@@ -49,7 +49,8 @@ const ClubDetail = ({ user, onLogout }) => {
   // Seeded by the club fetch; the form/posting UI lives in AnnouncementsSection
   const [announcements, setAnnouncements] = useState([]);
 
-  const [driveRsvpCounts, setDriveRsvpCounts] = useDriveRsvpCounts(drives);
+  const role = getClubRole(club, user);
+  const [driveRsvpCounts, setDriveRsvpCounts] = useDriveRsvpCounts(drives, role.canViewDrives);
   const driveDetail = useDriveDetail({
     onRsvpCounts: setDriveRsvpCounts,
     // Keep the page's copy in step so the change survives closing the modal
@@ -138,7 +139,6 @@ const ClubDetail = ({ user, onLogout }) => {
     fetchData();
   }, [clubId, viewerId]);
 
-  const role = getClubRole(club, user);
   const pendingJoinRequests = (club?.joinRequests || []).filter((r) => r.status === 'pending');
 
   const upcomingDrives = drives

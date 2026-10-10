@@ -91,6 +91,11 @@ function DriveCard({ drive, isMember, onRsvpChange }) {
   );
 }
 
+// The club's leader or one of its members; both arrive populated from the API
+const belongsToClub = (club, userId) =>
+  Boolean(userId) &&
+  (club?.leader?._id === userId || Boolean(club?.members?.some((m) => m._id === userId)));
+
 export default function ClubDetail() {
   const { clubId } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
@@ -98,26 +103,35 @@ export default function ClubDetail() {
   const router = useRouter();
   const [club, setClub] = useState(null);
   const [drives, setDrives] = useState([]);
+  // True when the drive list is withheld: a private club seen by a non-member
+  const [drivesMembersOnly, setDrivesMembersOnly] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [joining, setJoining] = useState(false);
+  const userId = user?._id;
 
   const load = useCallback(async () => {
     try {
-      const [clubRes, drivesRes] = await Promise.all([
-        clubsAPI.getClubById(clubId),
-        drivesAPI.getClubDrives(clubId).catch(() => ({ data: { drives: [] } })),
-      ]);
-      setClub(clubRes.data.club);
+      const clubRes = await clubsAPI.getClubById(clubId);
+      const loadedClub = clubRes.data.club;
+      // A private club's drive list is members-only (the API answers 403).
+      // The club loads first, so a non-member's visit never asks for the list
+      // and never logs a denied-access event.
+      const membersOnly = Boolean(loadedClub.isPrivate) && !belongsToClub(loadedClub, userId);
+      const drivesRes = membersOnly
+        ? { data: { drives: [] } }
+        : await drivesAPI.getClubDrives(clubId).catch(() => ({ data: { drives: [] } }));
+      setClub(loadedClub);
       setDrives((drivesRes.data.drives || []).sort(compareDriveStart));
+      setDrivesMembersOnly(membersOnly);
       setError("");
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [clubId]);
+  }, [clubId, userId]);
 
   useEffect(() => {
     load();
@@ -207,7 +221,9 @@ export default function ClubDetail() {
       <Text className="text-zinc500 text-xs uppercase tracking-widest mb-3">DRIVES</Text>
       {drives.length === 0 ? (
         <Card>
-          <Text className="text-zinc400 text-center">No drives scheduled yet.</Text>
+          <Text className="text-zinc400 text-center">
+            {drivesMembersOnly ? "Only members can see this club's drives." : "No drives scheduled yet."}
+          </Text>
         </Card>
       ) : (
         drives.map((drive) => (

@@ -5,7 +5,8 @@ import { formatDriveDate, formatDriveTimeLabel } from "../../lib/dateUtils";
  * The club's soonest upcoming drive, featured at the top of the page.
  * `rsvpCounts` is that drive's entry in the page's per-drive count map
  * ({ going, … } or { failed: true }); `moreCount` is how many other upcoming
- * drives follow it.
+ * drives follow it. A visitor (`canOpen` false) gets no attendee count,
+ * because RSVP data is members-only and is never requested for them.
  */
 const NextDriveCard = ({ drive, rsvpCounts, moreCount, canOpen, onOpen, onReport }) => (
   <div className="mb-8">
@@ -58,16 +59,18 @@ const NextDriveCard = ({ drive, rsvpCounts, moreCount, canOpen, onOpen, onReport
                 <span className="truncate max-w-[140px]">{drive.location}</span>
               </span>
             )}
-            <span className="flex items-center gap-1">
-              <Users className="w-3.5 h-3.5" />
-              {rsvpCounts?.failed ? (
-                <span className="text-amber-400" title="Couldn't load attendee count">
-                  — going
-                </span>
-              ) : (
-                <>{rsvpCounts?.going ?? 0} going</>
-              )}
-            </span>
+            {canOpen && (
+              <span className="flex items-center gap-1">
+                <Users className="w-3.5 h-3.5" />
+                {rsvpCounts?.failed ? (
+                  <span className="text-amber-400" title="Couldn't load attendee count">
+                    — going
+                  </span>
+                ) : (
+                  <>{rsvpCounts?.going ?? 0} going</>
+                )}
+              </span>
+            )}
           </div>
         </div>
         <div className="relative z-10 flex items-center gap-1.5 shrink-0">
