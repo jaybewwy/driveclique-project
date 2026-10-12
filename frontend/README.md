@@ -1,16 +1,73 @@
-# React + Vite
+# DriveClique web app
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The React client for DriveClique. Setup, configuration, deployment, and the API are covered in the [root README](../README.md). This page covers what is specific to working in `frontend/`.
 
-Currently, two official plugins are available:
+## Scripts
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Install with `npm install --legacy-peer-deps`, then:
 
-## React Compiler
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Vite dev server on `http://localhost:5173`. The port is fixed, so it fails if 5173 is taken |
+| `npm run build` | Production build into `dist/` |
+| `npm run build:capacitor` | Build for the Android and iOS shells, reading `.env.capacitor` |
+| `npm run preview` | Serve the built app locally |
+| `npm run lint` | ESLint, including the `jsx-a11y` accessibility rules |
+| `npm test` | Playwright end-to-end suite. The API and the dev server must already be running |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Layout
 
-## Expanding the ESLint configuration
+| Path | Contents |
+| --- | --- |
+| `src/pages/` | One component per route. Routes are declared in `src/App.jsx` |
+| `src/components/` | Shared UI. Subfolders match the page they belong to: `club/`, `club-settings/`, `find-club/`, `settings/`. `ui/` holds reusable pieces and the modals |
+| `src/hooks/` | State and data hooks: `useAuth`, `useClubs`, `useNotifications`, and one per feature |
+| `src/lib/` | Pure helpers: dates and time zones, theme, club roles, display names |
+| `src/services/api.js` | The single Axios instance. It attaches the token and refreshes it on a 401 |
+| `src/theme.css` | Color variables for the dark and light themes |
+| `public/theme-init.js` | Applies the saved theme before first paint |
+| `tests/e2e/` | Playwright specs |
+| `nginx.conf` | Production web server: security headers and caching |
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Imports can use `@/` for `src/`.
+
+## Conventions
+
+- **HTTP.** Every request goes through `src/services/api.js`. A background call that must never sign the user out on a 401, such as analytics, passes `{ skipAuthRedirect: true }`.
+- **Dates.** Show a drive's date and time with the helpers in `src/lib/dateUtils.js`. Formatting `drive.date` with `toLocaleDateString()` shows the previous day to anyone west of UTC.
+- **Roles.** Ask `getClubRole()` in `src/lib/clubRole.js` what the viewer may do. Do not request members-only data for someone who cannot see it.
+- **Club settings.** A new section is one entry in `src/components/club-settings/sections.js` plus its component. Set `coLeaders: true` to open it to co-leaders.
+- **Saving.** After a save, merge the fields you changed into state instead of replacing it with the response. `PUT /api/clubs/:clubId`, for one, returns the club without its populated leader and members.
+
+## Theming
+
+The app has a dark theme (the default) and a light theme. Colors are CSS variables in `src/theme.css`, and `tailwind.config.js` points the `zinc` scale, `white`, and `black` at them. `<html data-theme="light">` selects the light set.
+
+- Keep using the `zinc`, `white`, and `black` classes. They follow the theme.
+- A scrim or shadow that must stay black uses `true-black` (`bg-true-black/60`). Something that must stay white uses `true-white`.
+- Content drawn over a photo gets the class `theme-dark`.
+- A new solid fill color, such as `bg-teal-600`, must be added to the two selector lists at the top of `theme.css` so its text stays white.
+- White text needs the 700 shade of amber, yellow, and green to reach a 4.5:1 contrast ratio.
+- An opacity that is not on Tailwind's scale needs brackets: `bg-red-500/[0.08]`. Without them, `bg-red-500/8` generates no CSS at all.
+- Theme rules stay in `theme.css`, which `main.jsx` imports before `index.css`.
+
+## Accessibility
+
+- Muted text is `text-zinc-400` or lighter. `text-zinc-500` and `text-zinc-600` fail contrast on the page background.
+- Every control has an accessible name. For an icon-only button, pick an `aria-label` that does not repeat the visible text of a nearby button.
+- Do not nest buttons. A clickable card makes its title the button and stretches the hit area over the card.
+- Dialogs use `useFocusTrap`. Overlays on the club page register with `usePageOverlays`, which also sets the order Escape closes them in.
+
+## Tests
+
+```bash
+npm test                                      # whole suite
+npm test -- tests/e2e/theme.spec.ts           # one file
+npm test -- --workers=4                       # a steadier local run of the whole suite
+```
+
+Start Playwright from this folder, because some specs resolve their fixtures from the working directory. The [root README](../README.md#testing) lists the things to know before writing a spec.
+
+## Native shells
+
+`android/` and `ios/` are generated by Capacitor and are not committed. See [Native builds of the web app](../README.md#native-builds-of-the-web-app-optional) for how to create them. `VITE_IS_NATIVE=true` in `.env.capacitor` turns on native-only behavior, such as switching the status bar icons with the theme.
