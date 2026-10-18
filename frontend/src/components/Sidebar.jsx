@@ -61,7 +61,7 @@ const Sidebar = ({ user }) => {
   useEffect(() => {
     if (userClubs.length === 0) { setScheduledDrivesCount(0); return; }
     const now = new Date();
-    Promise.all(userClubs.map(c => drivesAPI.getClubDrives(c._id)))
+    Promise.all(userClubs.map(c => drivesAPI.getClubDrives(c._id, { upcoming: true })))
       .then(results => {
         let count = 0;
         results.forEach(res => {

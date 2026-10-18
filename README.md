@@ -41,7 +41,7 @@ DriveClique fills the gap between general-purpose social media (Facebook groups,
 
 - Scheduling with a calendar picker, a meeting point on a map, and a time zone. Viewers in another zone also see the start in their own time.
 - Recurring series: weekly, every two weeks, or monthly, up to 12 occurrences.
-- RSVP as going, maybe, or not going. A full drive keeps a waitlist and promotes the next person when a spot opens.
+- RSVP as going, maybe, or not going. A full drive keeps a waitlist and promotes the next person when a spot opens, including when someone leaves the club or is removed from it.
 - Check-in on the day, star ratings afterward, and a photo gallery curated by the club's leaders.
 - A month calendar of every drive in your clubs, with `.ics` export for one drive or your whole schedule.
 
@@ -195,7 +195,7 @@ docker-compose up --build               # web on http://localhost, API on http:/
 
 | Suite | Where | Command | Size |
 | --- | --- | --- | --- |
-| End to end | `frontend/tests/e2e/` | `npm test` in `frontend/` | About 440 tests in 54 spec files |
+| End to end | `frontend/tests/e2e/` | `npm test` in `frontend/` | About 450 tests in 56 spec files |
 | Backend units | `backend/utils/*.test.js` | `npm test` in `backend/` | 18 tests |
 | Lint | `frontend/` | `npm run lint` | ESLint with `jsx-a11y` |
 
@@ -350,11 +350,11 @@ DELETE /:clubId                              Delete the club, its drives, RSVPs,
 POST   /:clubId/join                         Join, or ask to join
 POST   /:clubId/handle-request               Approve or deny a join request
 POST   /:clubId/toggle-privacy               Switch between public and private
-PUT    /:clubId/leave                        Leave the club
+PUT    /:clubId/leave                        Leave the club, and its upcoming drives
 PUT    /:clubId/transfer                     Hand ownership to another member
 PUT    /:clubId/promote                      Make a member a co-leader
 PUT    /:clubId/demote                       Return a co-leader to member
-DELETE /:clubId/members/:memberId            Remove a member, optionally banning them
+DELETE /:clubId/members/:memberId            Remove a member from the club and its upcoming drives, optionally banning them
 GET    /:clubId/banned                       Banned members
 DELETE /:clubId/banned/:userId               Lift a ban
 POST   /:clubId/block                        Block the club
@@ -367,13 +367,14 @@ DELETE /:clubId/announcements/:announcementId  Delete an announcement
 
 ```text
 POST   /                                     Schedule a drive or a recurring series
-GET    /club/:clubId                         A club's drives (members only for a private club)
+GET    /club/:clubId                         A club's drives without images (members only for a private club; ?upcoming=true for upcoming ones)
 GET    /calendar                             Drives in a given month
 GET    /nearby                               Upcoming drives within a radius
 GET    /dashboard                            Leader dashboard
 GET    /analytics                            Club analytics for leaders
 GET    /my-rsvps                             The user's RSVP history
 GET    /my-rsvps/export.ics                  The user's schedule as a calendar file
+GET    /:driveId                             One drive, with its route image and photo gallery
 PUT    /:driveId                             Edit a drive
 DELETE /:driveId                             Delete a drive
 POST   /:driveId/cancel                      Cancel a drive, with a reason
@@ -452,6 +453,8 @@ The project is organized around numbered use cases. These are the ones that have
 | UC-42 | Report review queue for club leaders |
 | UC-46 | Distance search for clubs and drives |
 | UC-49 | Light and dark themes |
+| UC-51 | Leaving a club, or being removed from it, gives up your places on its upcoming drives |
+| UC-53 | Club and drive lists leave out photos, which load with the one drive opened |
 
 ---
 

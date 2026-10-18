@@ -5,6 +5,7 @@ const RSVP = require('../models/rsvp');
 const { emailTemplates } = require('./emailService');
 const { notifyAndEmail } = require('./memberNotifications');
 const { driveStartsInFilter, formatDriveWhen } = require('../utils/driveTime');
+const { isClubMember } = require('../utils/clubPermissions');
 
 const sendReminders = async () => {
   const now = new Date();
@@ -15,16 +16,18 @@ const sendReminders = async () => {
   const drives = await Drive.find({
     ...driveStartsInFilter({ $gte: now, $lte: in24h }),
     isCancelled: false,
-  }).populate('club', 'name _id').lean();
+  }).populate('club', 'name members').lean();
 
   if (!drives.length) return;
 
   for (const drive of drives) {
-    const rsvps = await RSVP.find({
+    // Only current members are reminded (UC-51). Leaving or removal deletes
+    // the RSVPs too; this covers any left over from before it did.
+    const rsvps = (await RSVP.find({
       drive: drive._id,
       status: { $in: ['going', 'maybe'] },
       reminderSent: false,
-    }).lean();
+    }).lean()).filter((r) => isClubMember(drive.club, r.user));
 
     if (!rsvps.length) continue;
 

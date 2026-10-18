@@ -18,17 +18,16 @@ const flash = (setMessage, text, ms) => {
  * Everything behind ClubDetail's drive detail modal: which drive is open,
  * the viewer's RSVP (UC-03 waitlist aware), check-in (UC-08), the leader's
  * attendee list, ratings (UC-25), and the photo gallery (UC-5). All of it
- * is modal-scoped and reset by close().
+ * is modal-scoped and reset by close(). The route image and the gallery
+ * aren't in the club's drive list (UC-53), so open() fetches them.
  *
  * The returned `modalProps` are shaped for DriveDetailModal's grouped props.
  *
  * @param {object} callbacks
  * @param {(driveId, counts) => void} callbacks.onRsvpCounts - fresh RSVP
  *   counts for a drive, so the page's drive cards stay current after close
- * @param {(driveId, photos) => void} callbacks.onPhotosChanged - the drive's
- *   new photo list, so the page's copy survives closing/reopening the modal
  */
-export const useDriveDetail = ({ onRsvpCounts, onPhotosChanged }) => {
+export const useDriveDetail = ({ onRsvpCounts }) => {
   const [drive, setDrive] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
 
@@ -108,13 +107,27 @@ export const useDriveDetail = ({ onRsvpCounts, onPhotosChanged }) => {
     }
   };
 
+  // The route image and the gallery, which the club's drive list leaves out
+  const fetchImages = async (driveId) => {
+    try {
+      const response = await drivesAPI.getDrive(driveId);
+      if (!response.data?.success) return;
+      const { image, photos } = response.data.drive;
+      setDrive((prev) => (prev && prev._id === driveId ? { ...prev, image, photos } : prev));
+    } catch (error) {
+      console.error('Error fetching drive images:', error);
+      setDrivePhotosError("Couldn't load this drive's photos.");
+    }
+  };
+
   // Load the drive's data first, then show the modal already filled in
   const open = async (nextDrive) => {
     setDrive(nextDrive);
-    await fetchRsvpData(nextDrive._id);
-    if (nextDrive.isCompleted) {
-      await fetchRatings(nextDrive._id);
-    }
+    await Promise.all([
+      fetchImages(nextDrive._id),
+      fetchRsvpData(nextDrive._id),
+      nextDrive.isCompleted && fetchRatings(nextDrive._id),
+    ]);
     setIsOpen(true);
   };
 
@@ -214,10 +227,8 @@ export const useDriveDetail = ({ onRsvpCounts, onPhotosChanged }) => {
     }
   };
 
-  const applyPhotos = (driveId, photos) => {
+  const applyPhotos = (driveId, photos) =>
     setDrive((prev) => (prev && prev._id === driveId ? { ...prev, photos } : prev));
-    onPhotosChanged(driveId, photos);
-  };
 
   // Leader/co-leader adds photos to a completed drive's gallery (UC-5).
   // Compressed like avatar/car-photo uploads, at a larger size to keep more

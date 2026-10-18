@@ -8,10 +8,12 @@ const User = require('../models/user');
 const { asyncHandler, AppError, orNotFound } = require('../middleware/errorHandler');
 const { notify } = require('../services/notificationEmitter');
 const { sendEmail, emailTemplates } = require('../services/emailService');
+const { withdrawFromUpcomingDrives } = require('../services/waitlist');
 const { isClubLeader, isClubCoLeader, isClubMember, hasLeaderPrivileges } = require('../utils/clubPermissions');
 const { MAX_CO_LEADERS } = Club;
+const { CAR_SUMMARY_FIELDS } = User;
 
-const MEMBER_FIELDS = 'username email avatar name useDisplayName cars';
+const MEMBER_FIELDS = `username email avatar name useDisplayName ${CAR_SUMMARY_FIELDS}`;
 
 /**
  * Push a pending join request onto a club and notify the leader + co-leaders.
@@ -215,7 +217,12 @@ const leaveClub = asyncHandler(async (req, res) => {
   }
 
   club.members = club.members.filter((m) => m.toString() !== userId);
+  // A co-leader who leaves stops being one, as with removeMember below
+  club.coLeaders = club.coLeaders.filter((id) => id.toString() !== userId);
   await club.save();
+
+  // UC-51 — their places on the club's upcoming drives pass to the waitlists
+  await withdrawFromUpcomingDrives(userId, [club._id]);
 
   res.json({ success: true, message: 'You have left the club' });
 });
@@ -301,6 +308,9 @@ const removeMember = asyncHandler(async (req, res) => {
     club.bannedUsers.push(memberId);
   }
   await club.save();
+
+  // UC-51 — the same as leaving: off the club's upcoming drives
+  await withdrawFromUpcomingDrives(memberId, [club._id]);
 
   res.json({ success: true, message: 'Member removed successfully' });
 });

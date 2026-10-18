@@ -26,6 +26,27 @@ const {
   DEFAULT_TIME_ZONE,
 } = require('../utils/driveTime');
 
+// What a club's drive list returns: everything the cards and the drive modal
+// read, except the route image and the gallery (UC-53). Those are base64
+// images, up to 13 a drive, and come with the one drive the modal opens.
+const DRIVE_LIST_FIELDS = [
+  'club', 'name', 'date', 'time', 'startsAt', 'timeZone', 'location', 'coordinates',
+  'description', 'difficulty', 'maxAttendees', 'createdBy', 'recurrence',
+  'isCancelled', 'cancellationReason', 'cancelledAt', 'cancelledBy',
+  'isCompleted', 'completedAt', 'checkInRequestedAt', 'createdAt', 'updatedAt',
+].join(' ');
+const DRIVE_DETAIL_FIELDS = `${DRIVE_LIST_FIELDS} image photos`;
+
+// A private club's drives are members-only. A public club's stay visible to
+// any signed-in user, so a visitor can see what the club does before
+// joining. A club that no longer exists has nothing to hide.
+const assertCanSeeClubDrives = async (clubId, userId) => {
+  const club = await Club.findById(clubId).select('isPrivate members').lean();
+  if (club?.isPrivate && !isClubMember(club, userId)) {
+    throw new AppError("This club's drives are visible to members only", 403);
+  }
+};
+
 // Each occurrence's calendar day for a recurring series (UC-11). Stepping
 // calendar days (not adding 7 × 24h to an instant) keeps a 10 AM drive at
 // 10 AM local on both sides of a DST change; each day's start instant is
@@ -145,11 +166,11 @@ const createDrive = asyncHandler(async (req, res) => {
 });
 
 /**
- * Get all drives for a specific club
- * @route GET /api/drives/club/:clubId
- * @access Private. A private club's drives are members-only; a public
- *         club's stay visible to any signed-in user, so a visitor can see
- *         what the club does before joining.
+ * Get all drives for a specific club, without their images (UC-53)
+ * @route GET /api/drives/club/:clubId?upcoming=true
+ * @access Private. Members only for a private club (assertCanSeeClubDrives).
+ * @note  `upcoming=true` keeps only drives that haven't started and aren't
+ *        cancelled or completed: all the dashboard and sidebar show.
  */
 const getClubDrives = asyncHandler(async (req, res) => {
   const { clubId } = req.params;
@@ -157,12 +178,15 @@ const getClubDrives = asyncHandler(async (req, res) => {
   // A club id that no longer exists still gets an empty list rather than a
   // 404: the dashboard and sidebar fetch every club in the user's list in
   // one Promise.all, and a just-deleted club shouldn't fail the whole batch.
-  const club = await Club.findById(clubId).select('isPrivate members').lean();
-  if (club?.isPrivate && !isClubMember(club, req.user.id)) {
-    throw new AppError("This club's drives are visible to members only", 403);
+  await assertCanSeeClubDrives(clubId, req.user.id);
+
+  const filter = { club: clubId };
+  if (req.query.upcoming === 'true') {
+    Object.assign(filter, { isCancelled: { $ne: true }, isCompleted: { $ne: true }, ...upcomingDriveFilter() });
   }
 
-  const clubDrives = () => Drive.find({ club: clubId })
+  const clubDrives = () => Drive.find(filter)
+    .select(DRIVE_LIST_FIELDS)
     .sort({ date: 1, startsAt: 1 })
     .populate('createdBy', 'username name');
 
@@ -171,12 +195,31 @@ const getClubDrives = asyncHandler(async (req, res) => {
     const paging = parsePageParams(req.query);
     const [drives, total] = await Promise.all([
       clubDrives().skip(paging.skip).limit(paging.limit),
-      Drive.countDocuments({ club: clubId }),
+      Drive.countDocuments(filter),
     ]);
     return res.json({ success: true, drives, pagination: paginationMeta(paging, total, drives.length) });
   }
 
   res.json({ success: true, drives: await clubDrives() });
+});
+
+/**
+ * One drive, with the route image and photo gallery (UC-5) that the club's
+ * drive list leaves out (UC-53). The drive modal loads it when it opens.
+ * @route GET /api/drives/:driveId
+ * @access Private. The same rule as the club's drive list.
+ */
+const getDrive = asyncHandler(async (req, res) => {
+  const drive = orNotFound(
+    await Drive.findById(req.params.driveId)
+      .select(DRIVE_DETAIL_FIELDS)
+      .populate('createdBy', 'username name')
+      .lean(),
+    'Drive not found'
+  );
+  await assertCanSeeClubDrives(drive.club, req.user.id);
+
+  res.json({ success: true, drive });
 });
 
 /**
@@ -412,6 +455,7 @@ const cancelDriveSeries = asyncHandler(async (req, res) => {
 module.exports = {
   createDrive,
   getClubDrives,
+  getDrive,
   getNearbyDrives,
   updateDrive,
   deleteDrive,

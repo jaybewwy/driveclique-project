@@ -6,38 +6,14 @@ const Drive = require('../models/drive');
 const RSVP = require('../models/rsvp');
 const { asyncHandler, AppError, orNotFound } = require('../middleware/errorHandler');
 const { notify } = require('../services/notificationEmitter');
-const { emailTemplates } = require('../services/emailService');
-const { notifyAndEmail } = require('../services/memberNotifications');
+const { promoteNextWaitlisted } = require('../services/waitlist');
 const { hasLeaderPrivileges, findClubAsMember } = require('../utils/clubPermissions');
 const { countRsvpStatuses } = require('../utils/rsvpStats');
-const { formatDriveWhen } = require('../utils/driveTime');
 
 // A waitlisted RSVP's 1-based place in line. Derived from createdAt order at
 // query time, so there's no stored position to keep in sync.
 const waitlistPosition = async (driveId, createdAt) =>
   await RSVP.countDocuments({ drive: driveId, status: 'waitlisted', createdAt: { $lt: createdAt } }) + 1;
-
-// A confirmed spot just freed up: move the longest-waiting member to 'going'
-const promoteNextWaitlisted = async (drive, clubName) => {
-  const nextInLine = await RSVP.findOne({ drive: drive._id, status: 'waitlisted' }).sort({ createdAt: 1 });
-  if (!nextInLine) return;
-
-  nextInLine.status = 'going';
-  await nextInLine.save();
-
-  await notifyAndEmail([nextInLine.user], {
-    notification: {
-      type: 'WAITLIST_PROMOTED',
-      message: `A spot opened up — you're now confirmed for "${drive.name}"!`,
-      data: { driveId: drive._id }
-    },
-    email: emailTemplates.waitlistPromoted({
-      driveName: drive.name,
-      clubName,
-      driveDate: formatDriveWhen(drive)
-    }),
-  });
-};
 
 /**
  * RSVP to a Drive / Change RSVP Status

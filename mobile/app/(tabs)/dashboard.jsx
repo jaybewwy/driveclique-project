@@ -19,7 +19,7 @@ export default function Dashboard() {
 
   const loadDrives = async () => {
     try {
-      const results = await Promise.all(clubs.map((c) => drivesAPI.getClubDrives(c._id)));
+      const results = await Promise.all(clubs.map((c) => drivesAPI.getClubDrives(c._id, { upcoming: true })));
       const all = results.flatMap((r) => r.data.drives || []);
       const upcoming = all
         .filter((d) => !d.isCancelled && !hasDriveStarted(d))

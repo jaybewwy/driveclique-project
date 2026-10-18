@@ -16,6 +16,7 @@ const { isValidUsername } = require('../middleware/validation');
 const { sendEmail, emailTemplates } = require('../services/emailService');
 const { verifyEmailAddress } = require('../services/emailVerifier');
 const { deleteClubsCascade } = require('../services/clubCascade');
+const { withdrawFromUpcomingDrives } = require('../services/waitlist');
 
 const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -476,7 +477,10 @@ const deleteAccount = asyncHandler(async (req, res) => {
     { $pull: { members: userId, coLeaders: userId, joinRequests: { user: userId } } }
   );
 
-  // Delete all personal RSVPs, ratings, refresh tokens, and the user document
+  // Places they held on upcoming drives pass to the waitlists (UC-51) before
+  // the rest of their RSVPs go with their ratings, refresh tokens, and the
+  // user document
+  await withdrawFromUpcomingDrives(userId);
   await RSVP.deleteMany({ user: userId });
   await DriveRating.deleteMany({ user: userId });
   await RefreshToken.deleteMany({ user: userId });

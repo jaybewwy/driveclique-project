@@ -8,6 +8,7 @@ const { MAX_DRIVE_PHOTOS, RECURRENCE_FREQUENCIES, MAX_RECURRENCE_COUNT } = requi
 const {
   createDrive,
   getClubDrives,
+  getDrive,
   getNearbyDrives,
   updateDrive,
   deleteDrive,
@@ -136,7 +137,7 @@ router.get(
 
 /**
  * @route   GET /api/drives/club/:clubId
- * @desc    Get all drives for a specific club
+ * @desc    Get all drives for a specific club, without images; `upcoming=true` for upcoming ones only (UC-53)
  * @access  Private
  */
 router.get(
@@ -144,7 +145,26 @@ router.get(
   validateParams({
     clubId: { required: true, objectId: true }
   }),
+  validateQuery({
+    upcoming: { type: 'string', enum: ['true', 'false'] }
+  }),
   getClubDrives
+);
+
+/**
+ * @route   GET /api/drives/:driveId
+ * @desc    Get one drive, with its route image and photo gallery (UC-53)
+ * @access  Private (members only for a private club)
+ * @note    Registered after every fixed one-segment GET path (/dashboard,
+ *          /my-rsvps, /analytics, /calendar, /nearby), which it would
+ *          otherwise swallow.
+ */
+router.get(
+  '/:driveId',
+  validateParams({
+    driveId: { required: true, objectId: true }
+  }),
+  getDrive
 );
 
 /**

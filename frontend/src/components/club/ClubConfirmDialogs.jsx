@@ -17,9 +17,12 @@ export const LeaveClubDialog = ({ onConfirm, onClose }) => (
     panelClassName="max-w-md border-zinc-800"
   >
     <div className="space-y-6">
-      <p className="text-zinc-300 text-center text-lg">
-        Are you sure you want to leave this club?
-      </p>
+      <div className="space-y-2 text-center">
+        <p className="text-zinc-300 text-lg">
+          Are you sure you want to leave this club?
+        </p>
+        <p className="text-zinc-400 text-sm">You'll be taken off its upcoming drives.</p>
+      </div>
 
       <div className="flex gap-3">
         <button
@@ -126,6 +129,7 @@ export const RemoveMemberDialog = ({ member, onConfirm, onClose }) => {
     <CompactDialog titleId="remove-member-modal-title" title="Remove Member">
       <p className="text-zinc-400 text-sm mb-2">
         Are you sure you want to remove <span className="text-white font-medium">@{member.username}</span> from this club?
+        They'll be taken off its upcoming drives.
       </p>
       <label className="flex items-center gap-2 text-sm text-zinc-400 mt-3 cursor-pointer">
         <input

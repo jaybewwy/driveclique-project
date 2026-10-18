@@ -150,7 +150,9 @@ export const clubsAPI = {
 };
 
 export const drivesAPI = {
-  getClubDrives: (clubId) => api.get(`/drives/club/${clubId}`),
+  // Without images. `upcoming` leaves out started, cancelled, and completed drives.
+  getClubDrives: (clubId, { upcoming = false } = {}) =>
+    api.get(`/drives/club/${clubId}`, { params: upcoming ? { upcoming: true } : undefined }),
   create: (driveData) => api.post("/drives", driveData),
   update: (driveId, data) => api.put(`/drives/${driveId}`, data),
   delete: (driveId) => api.delete(`/drives/${driveId}`),

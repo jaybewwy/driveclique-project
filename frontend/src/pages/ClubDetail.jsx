@@ -51,12 +51,7 @@ const ClubDetail = ({ user, onLogout }) => {
 
   const role = getClubRole(club, user);
   const [driveRsvpCounts, setDriveRsvpCounts] = useDriveRsvpCounts(drives, role.canViewDrives);
-  const driveDetail = useDriveDetail({
-    onRsvpCounts: setDriveRsvpCounts,
-    // Keep the page's copy in step so the change survives closing the modal
-    onPhotosChanged: (driveId, photos) =>
-      setDrives((prev) => prev.map((d) => (d._id === driveId ? { ...d, photos } : d))),
-  });
+  const driveDetail = useDriveDetail({ onRsvpCounts: setDriveRsvpCounts });
 
   // Overlays. Each dialog owns its own form state; these only say which is open.
   const [driveBeingEdited, setDriveBeingEdited] = useState(null);
@@ -244,6 +239,9 @@ const ClubDetail = ({ user, onLogout }) => {
         members: prevClub.members.filter((m) => m._id !== memberToRemove.id)
       }));
       setMemberToRemove(null);
+      // Their RSVPs to upcoming drives went with them (UC-51); reloading the
+      // list refetches the cards' counts
+      refreshDrives().catch((error) => console.error('Error refreshing drives:', error));
     }
   };
 

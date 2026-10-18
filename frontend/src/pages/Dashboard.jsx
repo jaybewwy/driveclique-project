@@ -107,16 +107,18 @@ const Dashboard = ({ user, onLogout }) => {
 
         if (clubsResponse.data.success) {
           const clubs = clubsResponse.data.clubs || [];
-          const drivesResults = await Promise.all(clubs.map(c => drivesAPI.getClubDrives(c._id)));
+          const drivesResults = await Promise.all(clubs.map(c => drivesAPI.getClubDrives(c._id, { upcoming: true })));
 
+          // The list's `club` is a bare id, so the club comes from the
+          // request that fetched it
           let allDrives = [];
-          drivesResults.forEach(response => {
+          drivesResults.forEach((response, i) => {
             if (response.data.success && response.data.drives) {
               response.data.drives.forEach(drive => {
                 allDrives.push({
                   ...drive,
-                  clubName: drive.club?.name || 'Unknown Club',
-                  clubId:   drive.club?._id || null,
+                  clubName: clubs[i].name,
+                  clubId:   clubs[i]._id,
                 });
               });
             }

@@ -14,6 +14,9 @@ const { parsePageParams, paginationMeta } = require('../utils/pagination');
 const { METERS_PER_MILE, validateCoordinates, toGeoPoint, parseProximityQuery, roundMiles } = require('../utils/geo');
 const { deleteClubsCascade } = require('../services/clubCascade');
 const { CLUB_TAGS } = Club;
+const { CAR_SUMMARY_FIELDS } = User;
+
+const MEMBER_FIELDS = `username email avatar name useDisplayName ${CAR_SUMMARY_FIELDS}`;
 
 /**
  * Create a new Club
@@ -73,9 +76,9 @@ const getClubById = asyncHandler(async (req, res) => {
 
   const club = orNotFound(
     await Club.findById(clubId)
-      .populate('leader', 'username email avatar name useDisplayName cars')
-      .populate('members', 'username email avatar name useDisplayName cars')
-      .populate('coLeaders', 'username email avatar name useDisplayName cars')
+      .populate('leader', MEMBER_FIELDS)
+      .populate('members', MEMBER_FIELDS)
+      .populate('coLeaders', MEMBER_FIELDS)
       .populate('joinRequests.user', 'username email avatar name useDisplayName')
       .lean(),
     'Club not found'
@@ -104,8 +107,8 @@ const getClubByInviteCode = asyncHandler(async (req, res) => {
   // email addresses off a private club.
   const club = orNotFound(
     await Club.findOne({ inviteCode: req.params.inviteCode })
-      .populate('leader', 'username avatar name useDisplayName cars')
-      .populate('members', 'username avatar name useDisplayName cars')
+      .populate('leader', `username avatar name useDisplayName ${CAR_SUMMARY_FIELDS}`)
+      .populate('members', `username avatar name useDisplayName ${CAR_SUMMARY_FIELDS}`)
       .lean(),
     'Club not found'
   );

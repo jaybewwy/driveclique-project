@@ -4,6 +4,11 @@ const bcrypt = require('bcryptjs');
 // The web app's colour themes. The first one is the default.
 const THEMES = ['dark', 'light'];
 
+// What a club's member lists show of each car: the Members list prints the
+// primary car's year, make, and model. The photos stay out (UC-53): each car
+// holds up to four, of up to 300,000 characters each.
+const CAR_SUMMARY_FIELDS = 'cars.year cars.make cars.model cars.isPrimary';
+
 const UserSchema = new mongoose.Schema({
   username: { 
     type: String, 
@@ -167,3 +172,4 @@ UserSchema.pre('save', async function() {
 
 module.exports = mongoose.model('User', UserSchema);
 module.exports.THEMES = THEMES;
+module.exports.CAR_SUMMARY_FIELDS = CAR_SUMMARY_FIELDS;
