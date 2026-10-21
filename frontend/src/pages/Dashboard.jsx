@@ -12,7 +12,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useClubs } from "../hooks/useClubs";
 import OnboardingModal from "../components/ui/OnboardingModal";
 import OnboardingChecklist from "../components/ui/OnboardingChecklist";
-import { compareDriveStart, formatDriveDate, formatDriveTimeLabel, hasDriveStarted } from "../lib/dateUtils";
+import { formatDriveDate, formatDriveTimeLabel } from "../lib/dateUtils";
 
 const Dashboard = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -29,6 +29,7 @@ const Dashboard = ({ user, onLogout }) => {
   const [upcomingDrives, setUpcomingDrives] = useState([]);
   const [trendingClub, setTrendingClub]     = useState(null);
   const [drivesLoading, setDrivesLoading]   = useState(true);
+  const [drivesFailed, setDrivesFailed]     = useState(false);
   const [resendSent, setResendSent]         = useState(false);
   const [resendLoading, setResendLoading]   = useState(false);
   const [resendError, setResendError]       = useState('');
@@ -97,57 +98,19 @@ const Dashboard = ({ user, onLogout }) => {
 
   useEffect(() => {
     const fetchData = async () => {
+      clubsAPI.getTopClub()
+        .then((res) => { if (res.data.success) setTrendingClub(res.data.club); })
+        .catch((error) => console.error("Error fetching the trending club:", error));
+
+      // One request: soonest first, each drive with its club and going count
       try {
-        const [trendingResponse, clubsResponse] = await Promise.all([
-          clubsAPI.getTopClub(),
-          clubsAPI.getAll(),
-        ]);
-
-        if (trendingResponse.data.success) setTrendingClub(trendingResponse.data.club);
-
-        if (clubsResponse.data.success) {
-          const clubs = clubsResponse.data.clubs || [];
-          const drivesResults = await Promise.all(clubs.map(c => drivesAPI.getClubDrives(c._id, { upcoming: true })));
-
-          // The list's `club` is a bare id, so the club comes from the
-          // request that fetched it
-          let allDrives = [];
-          drivesResults.forEach((response, i) => {
-            if (response.data.success && response.data.drives) {
-              response.data.drives.forEach(drive => {
-                allDrives.push({
-                  ...drive,
-                  clubName: clubs[i].name,
-                  clubId:   clubs[i]._id,
-                });
-              });
-            }
-          });
-
-          const upcoming = allDrives
-            .filter(d => !d.isCancelled && !d.isCompleted && !hasDriveStarted(d))
-            .sort(compareDriveStart)
-            .slice(0, 10);
-
-          const drivesWithRSVPs = await Promise.all(
-            upcoming.map(async (drive) => {
-              try {
-                const r = await drivesAPI.getRSVPStatus(drive._id);
-                if (r.data.success) return { ...drive, attendees: r.data.counts?.going || 0, attendeesFailed: false };
-              } catch (error) {
-                // Distinguish "failed to load" from "legitimately zero" — silently
-                // defaulting to 0 here previously made a failed request indistinguishable
-                // from a drive with no RSVPs.
-                console.error(`Failed to load RSVP counts for drive ${drive._id}:`, error);
-              }
-              return { ...drive, attendees: null, attendeesFailed: true };
-            })
-          );
-
-          setUpcomingDrives(drivesWithRSVPs);
-        }
+        const res = await drivesAPI.getMyUpcomingDrives({ limit: 10 });
+        if (res.data.success) setUpcomingDrives(res.data.drives);
+        else setDrivesFailed(true);
       } catch (error) {
-        console.error("Error fetching dashboard data:", error);
+        // Shown as a failure, never as "No upcoming drives"
+        console.error("Error fetching upcoming drives:", error);
+        setDrivesFailed(true);
       } finally {
         setDrivesLoading(false);
       }
@@ -329,7 +292,7 @@ const Dashboard = ({ user, onLogout }) => {
                 <button
                   type="button"
                   key={drive._id}
-                  onClick={() => drive.clubId && navigate(`/club/${drive.clubId}`)}
+                  onClick={() => drive.club?._id && navigate(`/club/${drive.club._id}`)}
                   className="w-full text-left glass-card p-4 hover:border-white/[0.12] hover:-translate-y-0.5 cursor-pointer group transition-all duration-200 rounded-2xl"
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -356,13 +319,7 @@ const Dashboard = ({ user, onLogout }) => {
                         )}
                         <span className="flex items-center gap-1">
                           <Users className="w-3.5 h-3.5" />
-                          {drive.attendeesFailed ? (
-                            <span className="text-amber-400" title="Couldn't load attendee count">
-                              — going
-                            </span>
-                          ) : (
-                            <>{drive.attendees} going</>
-                          )}
+                          {drive.goingCount} going
                         </span>
                       </div>
                     </div>
@@ -373,7 +330,15 @@ const Dashboard = ({ user, onLogout }) => {
                 </button>
               ))}
 
-              {!drivesLoading && upcomingDrives.length === 0 && (
+              {!drivesLoading && drivesFailed && (
+                <div className="text-center py-10 glass-subtle rounded-2xl">
+                  <Calendar className="w-10 h-10 text-zinc-700 mx-auto mb-2.5" />
+                  <p className="text-sm text-amber-400 font-medium">Couldn't load upcoming drives</p>
+                  <p className="text-xs text-zinc-400 mt-0.5">Refresh the page to try again</p>
+                </div>
+              )}
+
+              {!drivesLoading && !drivesFailed && upcomingDrives.length === 0 && (
                 <div className="text-center py-10 glass-subtle rounded-2xl">
                   <Calendar className="w-10 h-10 text-zinc-700 mx-auto mb-2.5" />
                   <p className="text-sm text-zinc-400 font-medium">No upcoming drives</p>

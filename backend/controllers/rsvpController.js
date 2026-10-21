@@ -165,7 +165,7 @@ const getDriveAttendees = asyncHandler(async (req, res) => {
   }
 
   const rsvps = await RSVP.find({ drive: driveId })
-    .populate('user', 'username email')
+    .populate('user', 'username')
     .sort({ createdAt: -1 });
 
   const stats = countRsvpStatuses(rsvps);

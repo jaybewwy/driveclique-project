@@ -10,8 +10,9 @@ export const getClubRole = (club, user) => {
   const leaderId = idOf(club?.leader);
   const isLeader = Boolean(leaderId && userId && leaderId === userId);
   const isMember = club?.members?.some((m) => idOf(m) === userId) ?? false;
+  // `r.user` is populated on the club page, a bare id elsewhere
   const hasPendingRequest = club?.joinRequests?.some(
-    (r) => r.user?.toString() === userId && r.status === 'pending'
+    (r) => idOf(r.user) === userId && r.status === 'pending'
   ) ?? false;
   // Co-leader is a moderator-tier role (UC-10) — a subset of leader powers
   const isCoLeader = club?.coLeaders?.some((m) => idOf(m) === userId) ?? false;

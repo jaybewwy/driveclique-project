@@ -13,10 +13,8 @@ const { isClubLeader } = require('../utils/clubPermissions');
 const { parsePageParams, paginationMeta } = require('../utils/pagination');
 const { METERS_PER_MILE, validateCoordinates, toGeoPoint, parseProximityQuery, roundMiles } = require('../utils/geo');
 const { deleteClubsCascade } = require('../services/clubCascade');
+const { clubForViewer, USER_SUMMARY_FIELDS, MEMBER_FIELDS } = require('../utils/clubView');
 const { CLUB_TAGS } = Club;
-const { CAR_SUMMARY_FIELDS } = User;
-
-const MEMBER_FIELDS = `username email avatar name useDisplayName ${CAR_SUMMARY_FIELDS}`;
 
 /**
  * Create a new Club
@@ -60,10 +58,10 @@ const createClub = asyncHandler(async (req, res) => {
  */
 const getUserClubs = asyncHandler(async (req, res) => {
   const clubs = await Club.find({ members: req.user.id })
-    .populate('leader', 'username email')
+    .populate('leader', 'username')
     .lean();
 
-  res.json({ success: true, clubs });
+  res.json({ success: true, clubs: clubs.map((club) => clubForViewer(club, req.user.id)) });
 });
 
 /**
@@ -79,7 +77,7 @@ const getClubById = asyncHandler(async (req, res) => {
       .populate('leader', MEMBER_FIELDS)
       .populate('members', MEMBER_FIELDS)
       .populate('coLeaders', MEMBER_FIELDS)
-      .populate('joinRequests.user', 'username email avatar name useDisplayName')
+      .populate('joinRequests.user', USER_SUMMARY_FIELDS)
       .lean(),
     'Club not found'
   );
@@ -91,7 +89,7 @@ const getClubById = asyncHandler(async (req, res) => {
   const requestingUser = await User.findById(req.user.id).select('blockedClubs').lean();
   const isBlockedByViewer = (requestingUser?.blockedClubs || []).some((id) => id.toString() === clubId);
 
-  res.json({ success: true, club, isBlockedByViewer });
+  res.json({ success: true, club: clubForViewer(club, req.user.id), isBlockedByViewer });
 });
 
 /**
@@ -101,19 +99,17 @@ const getClubById = asyncHandler(async (req, res) => {
  */
 const getClubByInviteCode = asyncHandler(async (req, res) => {
   // A valid invite code only proves the requester was given the code by
-  // someone — not that they're a member. Email is left out of this preview
-  // (unlike getClubById, which is reached only after actually joining/being
-  // a member) so guessing/leaking a code can't be used to harvest members'
-  // email addresses off a private club.
+  // someone, not that they're a member, so this preview follows the same
+  // rules as every other club read (utils/clubView.js)
   const club = orNotFound(
     await Club.findOne({ inviteCode: req.params.inviteCode })
-      .populate('leader', `username avatar name useDisplayName ${CAR_SUMMARY_FIELDS}`)
-      .populate('members', `username avatar name useDisplayName ${CAR_SUMMARY_FIELDS}`)
+      .populate('leader', MEMBER_FIELDS)
+      .populate('members', MEMBER_FIELDS)
       .lean(),
     'Club not found'
   );
 
-  res.json({ success: true, club });
+  res.json({ success: true, club: clubForViewer(club, req.user.id) });
 });
 
 /**
@@ -184,12 +180,12 @@ const searchClubs = asyncHandler(async (req, res) => {
       ...club,
       distanceMiles: roundMiles(distanceMeters / METERS_PER_MILE),
     }));
-    clubs = await Club.populate(withDistance, { path: 'leader', select: 'username email' });
+    clubs = await Club.populate(withDistance, { path: 'leader', select: 'username' });
     total = result.total[0]?.count || 0;
   } else {
     [clubs, total] = await Promise.all([
       Club.find(searchQuery)
-        .populate('leader', 'username email')
+        .populate('leader', 'username')
         .sort({ createdAt: -1 })
         .skip(paging.skip)
         .limit(paging.limit)
@@ -200,7 +196,7 @@ const searchClubs = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    clubs,
+    clubs: clubs.map((club) => clubForViewer(club, req.user.id)),
     pagination: paginationMeta(paging, total, clubs.length),
   });
 });
@@ -212,7 +208,7 @@ const searchClubs = asyncHandler(async (req, res) => {
  */
 const getTopClub = asyncHandler(async (req, res) => {
   const clubs = await Club.find({ isPrivate: false })
-    .populate('leader', 'username email avatar name')
+    .populate('leader', 'username avatar name')
     .limit(100);
 
   if (!clubs.length) {

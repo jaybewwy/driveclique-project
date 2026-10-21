@@ -18,6 +18,16 @@ require('./services/scheduler').startScheduler();
 
 const app = express();
 
+// How many proxies stand between the client and the API. Behind one, every
+// request comes from the proxy's address, so without this the rate limiters
+// would put all users in a single bucket. Railway puts one proxy in front of
+// the service. Elsewhere the default trusts none, because without a proxy a
+// client could write its own X-Forwarded-For and dodge the limits;
+// development trusts one so the E2E suite can test per-client limits.
+const defaultProxyHops = (process.env.RAILWAY_ENVIRONMENT_NAME || process.env.NODE_ENV === 'development') ? 1 : 0;
+const proxyHops = Number.parseInt(process.env.TRUST_PROXY ?? defaultProxyHops, 10);
+app.set('trust proxy', Number.isInteger(proxyHops) && proxyHops >= 0 ? proxyHops : 0);
+
 // ============================================
 // Middleware
 // ============================================
@@ -115,6 +125,7 @@ const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   logger.info('DriveClique API started', {
     env: process.env.NODE_ENV || 'development',
+    trustProxy: app.get('trust proxy'),
     port: PORT,
     url: `http://localhost:${PORT}`,
   });

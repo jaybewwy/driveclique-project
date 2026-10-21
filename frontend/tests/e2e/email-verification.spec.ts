@@ -83,6 +83,10 @@ test.describe('Email verification — dashboard banner', () => {
     await page.route('**/api/drives/my-rsvps', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, rsvps: [] }) })
     );
+    // The Dashboard's upcoming drives, the same hazard
+    await page.route('**/api/drives/my-upcoming**', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, drives: [], total: 0 }) })
+    );
     // UC-30's useNotifications hook hydrates from this unconditionally on mount
     // (NavBar, present on every authenticated page) — same unmocked-401-redirect
     // hazard as the two mocks above.
@@ -134,6 +138,9 @@ test.describe('Email verification — dashboard banner', () => {
     // Same unmocked-401-redirect hazard as the test above.
     await page.route('**/api/drives/my-rsvps', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, rsvps: [] }) })
+    );
+    await page.route('**/api/drives/my-upcoming**', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, drives: [], total: 0 }) })
     );
     await page.route('**/api/notifications**', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { notifications: [] } }) })

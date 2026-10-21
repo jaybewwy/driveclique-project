@@ -7,10 +7,11 @@ const FRONTEND = 'http://localhost:5173';
 // Dashboard.jsx and ClubDetail.jsx both used to swallow a failed RSVP-count
 // fetch and render a fake "0 going" indistinguishable from a drive that
 // legitimately has zero RSVPs (the exact class of bug flagged in review: a
-// backend failure silently rendered as valid-looking data). Both now render
-// a distinct "— going" state instead. This suite forces the RSVP-status
-// request to fail via route interception and asserts the distinct state
-// appears, not a fake zero.
+// backend failure silently rendered as valid-looking data). ClubDetail now
+// renders a distinct "— going" state. The Dashboard gets its counts with its
+// drive list, and says the list failed rather than "No upcoming drives". This
+// suite forces each request to fail via route interception and asserts the
+// distinct state appears, not valid-looking data.
 
 test.describe('Silent fallback UI regression', () => {
   test.describe.configure({ mode: 'serial' });
@@ -42,8 +43,10 @@ test.describe('Silent fallback UI regression', () => {
     driveId = (await driveRes.json()).drive._id;
   });
 
-  test('Dashboard shows "— going" instead of a fake "0 going" when the RSVP count fetch fails', async ({ page }) => {
-    await page.route(`**/api/drives/${driveId}/rsvp-status`, route =>
+  // The Dashboard's counts now arrive with its drive list (GET /drives/my-upcoming),
+  // so the request that can fail is the list itself
+  test('Dashboard says its drives failed to load instead of "No upcoming drives"', async ({ page }) => {
+    await page.route('**/api/drives/my-upcoming**', route =>
       route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ success: false, message: 'Simulated failure' }) })
     );
 
@@ -53,10 +56,8 @@ test.describe('Silent fallback UI regression', () => {
     await page.getByRole('button', { name: /Sign In/i }).click();
     await expect(page.getByPlaceholder(/What's the plan\?/i)).toBeVisible({ timeout: 15_000 });
 
-    const driveCard = page.getByText('Fallback UI Test Drive', { exact: false }).locator('..').locator('..');
-    await expect(driveCard.getByTitle("Couldn't load attendee count")).toBeVisible({ timeout: 10_000 });
-    await expect(driveCard.getByText('— going')).toBeVisible();
-    await expect(driveCard.getByText('0 going')).not.toBeVisible();
+    await expect(page.getByText("Couldn't load upcoming drives")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('No upcoming drives')).toHaveCount(0);
   });
 
   test('ClubDetail shows "— going" instead of a fake "0 going" when the RSVP count fetch fails', async ({ page }) => {

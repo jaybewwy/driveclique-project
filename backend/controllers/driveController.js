@@ -176,8 +176,8 @@ const getClubDrives = asyncHandler(async (req, res) => {
   const { clubId } = req.params;
 
   // A club id that no longer exists still gets an empty list rather than a
-  // 404: the dashboard and sidebar fetch every club in the user's list in
-  // one Promise.all, and a just-deleted club shouldn't fail the whole batch.
+  // 404: the mobile dashboard fetches every club in the user's list in one
+  // Promise.all, and a just-deleted club shouldn't fail the whole batch.
   await assertCanSeeClubDrives(clubId, req.user.id);
 
   const filter = { club: clubId };
@@ -201,6 +201,53 @@ const getClubDrives = asyncHandler(async (req, res) => {
   }
 
   res.json({ success: true, drives: await clubDrives() });
+});
+
+/**
+ * The viewer's upcoming drives across every club they belong to, soonest
+ * first, each with its club and "going" count, plus how many there are in
+ * all. One request for the Dashboard and the sidebar badge, which used to
+ * ask for each club's drives and then each drive's RSVP counts.
+ * @route GET /api/drives/my-upcoming
+ * @access Private
+ */
+const getMyUpcomingDrives = asyncHandler(async (req, res) => {
+  const limitNum = clampLimit(req.query.limit, 10);
+
+  const clubs = await Club.find({ members: req.user.id }).select('name').lean();
+  if (clubs.length === 0) {
+    return res.json({ success: true, drives: [], total: 0 });
+  }
+  const clubNames = new Map(clubs.map((c) => [c._id.toString(), c.name]));
+
+  const upcoming = await Drive.find({
+    club: { $in: clubs.map((c) => c._id) },
+    isCancelled: { $ne: true },
+    isCompleted: { $ne: true },
+    ...upcomingDriveFilter(),
+  })
+    .select(DRIVE_LIST_FIELDS)
+    .populate('createdBy', 'username name')
+    .lean();
+
+  // Sorted here rather than in Mongo: unmigrated drives have no startsAt
+  const listed = upcoming.sort((a, b) => driveStartsAt(a) - driveStartsAt(b)).slice(0, limitNum);
+
+  const going = await RSVP.aggregate([
+    { $match: { drive: { $in: listed.map((d) => d._id) }, status: 'going' } },
+    { $group: { _id: '$drive', count: { $sum: 1 } } },
+  ]);
+  const goingByDrive = new Map(going.map((g) => [g._id.toString(), g.count]));
+
+  res.json({
+    success: true,
+    total: upcoming.length,
+    drives: listed.map((drive) => ({
+      ...drive,
+      club: { _id: drive.club, name: clubNames.get(drive.club.toString()) },
+      goingCount: goingByDrive.get(drive._id.toString()) || 0,
+    })),
+  });
 });
 
 /**
@@ -455,6 +502,7 @@ const cancelDriveSeries = asyncHandler(async (req, res) => {
 module.exports = {
   createDrive,
   getClubDrives,
+  getMyUpcomingDrives,
   getDrive,
   getNearbyDrives,
   updateDrive,

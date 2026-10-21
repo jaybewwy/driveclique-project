@@ -8,6 +8,7 @@ const { MAX_DRIVE_PHOTOS, RECURRENCE_FREQUENCIES, MAX_RECURRENCE_COUNT } = requi
 const {
   createDrive,
   getClubDrives,
+  getMyUpcomingDrives,
   getDrive,
   getNearbyDrives,
   updateDrive,
@@ -87,6 +88,15 @@ router.get('/dashboard', getLeaderDashboard);
  * @access  Private
  */
 router.get('/my-rsvps', getMyRSVPs);
+
+/**
+ * @route   GET /api/drives/my-upcoming
+ * @desc    The user's upcoming drives across their clubs, soonest first, with going counts
+ *          and the total (Dashboard, sidebar badge). `limit` (default 10, max 50) trims the list.
+ * @access  Private
+ * @note    Registered before the /:driveId routes for the same reason as /my-rsvps/export.ics
+ */
+router.get('/my-upcoming', getMyUpcomingDrives);
 
 /**
  * @route   GET /api/drives/my-rsvps/export.ics

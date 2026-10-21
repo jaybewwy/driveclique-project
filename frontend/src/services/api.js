@@ -223,6 +223,8 @@ export const drivesAPI = {
   // Without images (UC-53). `upcoming` leaves out started, cancelled, and completed drives.
   getClubDrives: (clubId, { upcoming = false } = {}) =>
     api.get(`/drives/club/${clubId}`, { params: upcoming ? { upcoming: true } : undefined }),
+  // The viewer's upcoming drives across their clubs, with going counts and the total
+  getMyUpcomingDrives: ({ limit } = {}) => api.get('/drives/my-upcoming', { params: limit ? { limit } : undefined }),
   // One drive with its route image and photo gallery
   getDrive: (driveId) => api.get(`/drives/${driveId}`),
   create: (driveData) => api.post('/drives', driveData),

@@ -184,6 +184,14 @@ test.describe('Drive meeting-point map (UC-23) — UI', () => {
     });
     const clubId = (await clubRes.json()).club._id;
 
+    // Mock geocoding: this test is about the pin picker, not live Nominatim
+    const cors = { 'Access-Control-Allow-Origin': '*' };
+    await page.route('https://ipapi.co/**', (route) => route.fulfill({ headers: cors, json: { country_code: '' } }));
+    await page.route('https://nominatim.openstreetmap.org/**', (route) => route.fulfill({
+      headers: cors,
+      json: [{ lat: '37.7792588', lon: '-122.4193286', name: 'San Francisco', address: { city: 'San Francisco', state: 'California', country: 'United States' } }],
+    }));
+
     await page.goto(`${FRONTEND}/login`);
     await page.getByPlaceholder('Username').fill(leader.username);
     await page.getByPlaceholder('Password').fill(leader.password);

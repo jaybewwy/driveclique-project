@@ -111,6 +111,28 @@ test('general authenticated routers (clubs/drives/notifications/reports) now car
   expect(reportRes.headers()['ratelimit-limit']).toBeTruthy();
 });
 
+test('rate limits count each client address, not the proxy in front of the API', async ({ request }) => {
+  // Behind a proxy every request arrives from the proxy's address, and the
+  // client's is in X-Forwarded-For. Two made-up client addresses must get two
+  // fresh buckets. Without `trust proxy`, both would land in the bucket of
+  // this machine's address, which the rest of the suite has been filling.
+  const octet = () => crypto.randomInt(1, 255);
+  const clientA = `10.${octet()}.${octet()}.${octet()}`;
+  const clientB = `10.${octet()}.${octet()}.${octet()}`;
+  const fetchAs = async (clientIp: string) => {
+    const res = await request.get(`${API}/clubs`, {
+      headers: { Authorization: `Bearer ${leaderToken}`, 'X-Forwarded-For': clientIp },
+    });
+    expect(res.status()).toBe(200);
+    return { limit: Number(res.headers()['ratelimit-limit']), remaining: Number(res.headers()['ratelimit-remaining']) };
+  };
+
+  const firstA = await fetchAs(clientA);
+  expect(firstA.remaining).toBe(firstA.limit - 1);
+  expect((await fetchAs(clientA)).remaining).toBe(firstA.limit - 2);
+  expect((await fetchAs(clientB)).remaining).toBe(firstA.limit - 1);
+});
+
 test('changing password revokes the refresh token issued before the change', async ({ request }) => {
   const changeRes = await request.put(`${API}/auth/password`, {
     headers: { Authorization: `Bearer ${leaderToken}` },

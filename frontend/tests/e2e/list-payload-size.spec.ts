@@ -201,6 +201,9 @@ test.describe('Lists leave the photos out (UC-53)', () => {
     await expect(completedModal.getByAltText(`${completedName}, 2 of 2`)).toBeVisible();
   });
 
+  // The Dashboard and sidebar read GET /drives/my-upcoming, which lists
+  // upcoming drives only (dashboard-requests.spec.ts); they no longer ask
+  // for any club's whole drive list
   test('dashboard: it and the sidebar ask for upcoming drives only, and a drive there opens its club', async ({ page }) => {
     const driveListRequests: string[] = [];
     page.on('request', (req) => {
@@ -212,10 +215,7 @@ test.describe('Lists leave the photos out (UC-53)', () => {
     await expect(card).toBeVisible();
     await expect(page.getByText(cancelledName)).toHaveCount(0);
 
-    expect(driveListRequests.length).toBeGreaterThan(0);
-    for (const url of driveListRequests) {
-      expect(new URL(url).searchParams.get('upcoming')).toBe('true');
-    }
+    expect(driveListRequests).toEqual([]);
 
     await card.click();
     await page.waitForURL(`**/club/${clubId}`);

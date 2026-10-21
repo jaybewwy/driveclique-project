@@ -10,10 +10,8 @@ const { notify } = require('../services/notificationEmitter');
 const { sendEmail, emailTemplates } = require('../services/emailService');
 const { withdrawFromUpcomingDrives } = require('../services/waitlist');
 const { isClubLeader, isClubCoLeader, isClubMember, hasLeaderPrivileges } = require('../utils/clubPermissions');
+const { clubForViewer, MEMBER_FIELDS } = require('../utils/clubView');
 const { MAX_CO_LEADERS } = Club;
-const { CAR_SUMMARY_FIELDS } = User;
-
-const MEMBER_FIELDS = `username email avatar name useDisplayName ${CAR_SUMMARY_FIELDS}`;
 
 /**
  * Push a pending join request onto a club and notify the leader + co-leaders.
@@ -115,7 +113,7 @@ const joinClubByInviteCode = asyncHandler(async (req, res) => {
   const userId = req.user.id;
 
   const club = orNotFound(
-    await Club.findOne({ inviteCode: req.params.inviteCode }).populate('leader', 'username email'),
+    await Club.findOne({ inviteCode: req.params.inviteCode }).populate('leader', 'username'),
     'Club not found'
   );
   await assertCanJoin(club, userId);
@@ -145,7 +143,7 @@ const joinClubByInviteCode = asyncHandler(async (req, res) => {
   club.members.push(userId);
   await club.save();
 
-  res.json({ success: true, message: 'Joined club successfully', club });
+  res.json({ success: true, message: 'Joined club successfully', club: clubForViewer(club, userId) });
 });
 
 /**
@@ -259,12 +257,13 @@ const transferOwnership = asyncHandler(async (req, res) => {
   await club.save();
 
   const updated = await Club.findById(clubId)
-    .populate('leader', 'username email avatar name useDisplayName')
+    .populate('leader', MEMBER_FIELDS)
     .populate('members', MEMBER_FIELDS)
     .populate('coLeaders', MEMBER_FIELDS)
     .lean();
 
-  res.json({ success: true, message: 'Ownership transferred successfully', club: updated });
+  // The caller is no longer the leader, so no longer sees the invite code
+  res.json({ success: true, message: 'Ownership transferred successfully', club: clubForViewer(updated, req.user.id) });
 });
 
 /**

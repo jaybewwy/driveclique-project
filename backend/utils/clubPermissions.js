@@ -41,6 +41,7 @@ const findClubAsMember = async (clubId, userId, forbiddenMessage, fields = 'memb
 };
 
 module.exports = {
+  idOf,
   isClubLeader,
   isClubCoLeader,
   hasLeaderPrivileges,

@@ -168,6 +168,7 @@ docker-compose up --build               # web on http://localhost, API on http:/
 | `JWT_SECRET` | Yes | | Secret for signing access tokens |
 | `PORT` | No | `5000` | Port the API listens on |
 | `NODE_ENV` | No | `development` | `production` tightens rate limits and restricts CORS to `ALLOWED_ORIGIN_WEB` |
+| `TRUST_PROXY` | No | `1` on Railway and in development, else `0` | How many proxies stand in front of the API, so rate limits count each client's address rather than the proxy's. Leave it `0` when clients reach the API directly, or they could set their own address |
 | `FRONTEND_URL` | No | | Base URL for the links in emails (verification, password reset) |
 | `ALLOWED_ORIGIN_WEB` | In production | | Origin of the deployed web app, for CORS. The Capacitor origins are always allowed |
 | `EMAIL_VERIFIER_URL` | No | Public instance | Address-checking service called at registration |
@@ -195,7 +196,7 @@ docker-compose up --build               # web on http://localhost, API on http:/
 
 | Suite | Where | Command | Size |
 | --- | --- | --- | --- |
-| End to end | `frontend/tests/e2e/` | `npm test` in `frontend/` | About 450 tests in 56 spec files |
+| End to end | `frontend/tests/e2e/` | `npm test` in `frontend/` | About 460 tests in 58 spec files |
 | Backend units | `backend/utils/*.test.js` | `npm test` in `backend/` | 18 tests |
 | Lint | `frontend/` | `npm run lint` | ESLint with `jsx-a11y` |
 
@@ -240,7 +241,7 @@ Work lands on `staging` first and reaches `main` by pull request once it has bee
 
 The project deploys to Railway from this repository, with MongoDB Atlas for data. Railway waits for the CI checks to pass before it deploys a commit.
 
-- **API.** Configured by [`backend/railway.toml`](backend/railway.toml): a Nixpacks build, `node server.js`, and a health check on `/`.
+- **API.** Configured by [`backend/railway.toml`](backend/railway.toml): a Nixpacks build, `node server.js`, and a health check on `/`. Railway's edge proxy stands in front of it, so the API trusts one proxy hop there (`TRUST_PROXY`), and its startup log line reports the value in use.
 - **Web app.** [`frontend/Dockerfile`](frontend/Dockerfile) builds the app and serves it from nginx. [`frontend/nginx.conf`](frontend/nginx.conf) sets the security headers and the caching rules.
 - **Data.** Each environment gets its own Atlas database. Staging must never point at production data.
 
@@ -297,6 +298,8 @@ node --env-file=<other-env-file> scripts/migrate-drive-start-times.js --apply   
 **Themes are CSS variables, not class rewrites.** Tailwind's `zinc`, `white`, and `black` colors point at CSS variables with a dark set and a light set of values. Existing classes follow the theme, and the dark theme compiles to the same colors it had before the light one existed.
 
 **Clients ask only for what they may see.** RSVP data and a private club's drive list are for members only. The clients decide from the viewer's role whether to request them, so a visitor's page load never produces a refused request or a denied-access log entry.
+
+**One rule for what a club read returns.** Every endpoint that answers with a club passes it through `clubForViewer` in `backend/utils/clubView.js`, which names the fields it returns. No one's email address is included. Only the leader gets the invite code, nobody gets the ban list, and join requests go to the leader and co-leaders, while anyone else sees only their own.
 
 **Registration checks the email address and fails open.** A verifier service rejects disposable addresses and domains with no mail server. If the service is slow or down, registration goes ahead.
 
@@ -370,6 +373,7 @@ POST   /                                     Schedule a drive or a recurring ser
 GET    /club/:clubId                         A club's drives without images (members only for a private club; ?upcoming=true for upcoming ones)
 GET    /calendar                             Drives in a given month
 GET    /nearby                               Upcoming drives within a radius
+GET    /my-upcoming                          The user's upcoming drives across their clubs, with going counts and the total (?limit, default 10)
 GET    /dashboard                            Leader dashboard
 GET    /analytics                            Club analytics for leaders
 GET    /my-rsvps                             The user's RSVP history

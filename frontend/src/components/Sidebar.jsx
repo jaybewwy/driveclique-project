@@ -4,7 +4,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { drivesAPI } from "../services/api";
 import { useClubs } from "../hooks/useClubs";
 import { MobileDrawerButton, MobileDrawer } from "./ui/MobileDrawer";
-import { hasDriveStarted } from "../lib/dateUtils";
 import { displayName as displayNameOf } from "../lib/userDisplay";
 
 const SectionLabel = ({ children }) => (
@@ -57,22 +56,12 @@ const Sidebar = ({ user }) => {
     return 0;
   });
 
-  // Count scheduled drives whenever the shared clubs list changes
+  // Count scheduled drives whenever the shared clubs list changes. Only the
+  // total is needed, so the list is trimmed to one drive.
   useEffect(() => {
     if (userClubs.length === 0) { setScheduledDrivesCount(0); return; }
-    const now = new Date();
-    Promise.all(userClubs.map(c => drivesAPI.getClubDrives(c._id, { upcoming: true })))
-      .then(results => {
-        let count = 0;
-        results.forEach(res => {
-          if (res.data.success && res.data.drives) {
-            res.data.drives.forEach(drive => {
-              if (!drive.isCancelled && !drive.isCompleted && !hasDriveStarted(drive, now)) count++;
-            });
-          }
-        });
-        setScheduledDrivesCount(count);
-      })
+    drivesAPI.getMyUpcomingDrives({ limit: 1 })
+      .then((res) => { if (res.data.success) setScheduledDrivesCount(res.data.total); })
       .catch((error) => console.error('Failed to load scheduled drives count:', error));
   }, [userClubs]);
 
