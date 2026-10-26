@@ -15,6 +15,12 @@ const RSVPSchema = new mongoose.Schema({
         enum: ['going', 'maybe', 'not-going', 'waitlisted'],
         default: 'going'
     },
+    // When this RSVP last took a place ("going"); decides who keeps one when
+    // more members took places at once than the drive has (services/waitlist.js).
+    // Absent on RSVPs from before 2026-10-26, which count as first.
+    goingSince: {
+        type: Date
+    },
     reminderSent: {
         type: Boolean,
         default: false

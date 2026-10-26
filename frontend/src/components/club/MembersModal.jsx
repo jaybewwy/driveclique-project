@@ -1,16 +1,21 @@
+import { useEffect, useRef, useState } from "react";
 import { Ban, Crown, Flag, Shield, ShieldOff, X } from "lucide-react";
 import { displayName } from "../../lib/userDisplay";
 import { ClubListDialog } from "./ClubDialogs";
 
+// Each member's avatar is a URL the browser fetches when its row shows, so
+// the list shows this many members at a time rather than every image at once
+const MEMBERS_PAGE_SIZE = 30;
+
 const primaryCarOf = (member) => member.cars?.find((c) => c.isPrimary) || member.cars?.[0];
 
-const MemberRow = ({ member, isClubLeader, isCoLeader, role, currentUserId, actions }) => {
+const MemberRow = ({ member, isClubLeader, isCoLeader, role, currentUserId, actions, buttonRef }) => {
   const primaryCar = primaryCarOf(member);
   return (
     <div className="flex items-center gap-4 bg-black rounded-xl px-4 py-3">
       <div className="w-12 h-12 bg-zinc-700 rounded-full overflow-hidden flex-shrink-0">
         {member.avatar ? (
-          <img src={member.avatar} alt={member.username} className="w-full h-full object-cover" />
+          <img src={member.avatar} alt={member.username} loading="lazy" className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <span className="text-zinc-400 text-sm">
@@ -21,6 +26,7 @@ const MemberRow = ({ member, isClubLeader, isCoLeader, role, currentUserId, acti
       </div>
 
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => actions.onViewProfile(member._id)}
         className="flex-1 text-left hover:opacity-80 transition-opacity"
@@ -100,40 +106,73 @@ const MemberRow = ({ member, isClubLeader, isCoLeader, role, currentUserId, acti
  * `role` is getClubRole()'s result; `actions` holds onViewProfile(id),
  * onReport(member), onPromote(id), onDemote(id), onRemove(member), and
  * onShowBanned().
+ *
+ * The rows come from the club read, so a removal or a role change shows at
+ * once. Their avatars are image URLs (GET /api/images), loaded lazily.
  */
-export const MembersModal = ({ club, role, currentUserId, error, actions, onClose }) => (
-  <ClubListDialog
-    titleId="members-modal-title"
-    title={`All Members (${club.members?.length || 0})`}
-    closeLabel="Dismiss members list"
-    onClose={onClose}
-    header={(
-      <>
-        {role.canModerate && (
-          <button
-            type="button"
-            onClick={actions.onShowBanned}
-            className="text-xs text-zinc-400 hover:text-red-400 transition mb-4 -mt-2 self-start flex items-center gap-1.5"
-          >
-            <Ban size={12} /> View banned members
-          </button>
-        )}
-        {error && (
-          <p className="text-red-400 text-xs mb-3">{error}</p>
-        )}
-      </>
-    )}
-  >
-    {(club.members || []).map((member) => (
-      <MemberRow
-        key={member._id}
-        member={member}
-        isClubLeader={Boolean(club.leader?._id && member._id === club.leader._id)}
-        isCoLeader={role.isCoLeaderId(member._id)}
-        role={role}
-        currentUserId={currentUserId}
-        actions={actions}
-      />
-    ))}
-  </ClubListDialog>
-);
+export const MembersModal = ({ club, role, currentUserId, error, actions, onClose }) => {
+  const members = club.members || [];
+  const [pagesShown, setPagesShown] = useState(1);
+  // Where focus goes after "Show more": the first row it revealed, since the
+  // button itself disappears with the last page
+  const [focusIndex, setFocusIndex] = useState(null);
+  const firstRevealedRow = useRef(null);
+
+  useEffect(() => {
+    if (focusIndex !== null) firstRevealedRow.current?.focus();
+  }, [focusIndex]);
+
+  const shown = members.slice(0, pagesShown * MEMBERS_PAGE_SIZE);
+  const nextCount = Math.min(MEMBERS_PAGE_SIZE, members.length - shown.length);
+  const showMore = () => {
+    setFocusIndex(shown.length);
+    setPagesShown((pages) => pages + 1);
+  };
+
+  return (
+    <ClubListDialog
+      titleId="members-modal-title"
+      title={`All Members (${members.length})`}
+      closeLabel="Dismiss members list"
+      onClose={onClose}
+      header={(
+        <>
+          {role.canModerate && (
+            <button
+              type="button"
+              onClick={actions.onShowBanned}
+              className="text-xs text-zinc-400 hover:text-red-400 transition mb-4 -mt-2 self-start flex items-center gap-1.5"
+            >
+              <Ban size={12} /> View banned members
+            </button>
+          )}
+          {error && (
+            <p className="text-red-400 text-xs mb-3">{error}</p>
+          )}
+        </>
+      )}
+    >
+      {shown.map((member, i) => (
+        <MemberRow
+          key={member._id}
+          member={member}
+          isClubLeader={Boolean(club.leader?._id && member._id === club.leader._id)}
+          isCoLeader={role.isCoLeaderId(member._id)}
+          role={role}
+          currentUserId={currentUserId}
+          actions={actions}
+          buttonRef={i === focusIndex ? firstRevealedRow : undefined}
+        />
+      ))}
+      {nextCount > 0 && (
+        <button
+          type="button"
+          onClick={showMore}
+          className="w-full py-2.5 rounded-xl text-sm text-zinc-300 bg-black hover:bg-zinc-800 transition"
+        >
+          Show {nextCount} more member{nextCount === 1 ? '' : 's'}
+        </button>
+      )}
+    </ClubListDialog>
+  );
+};

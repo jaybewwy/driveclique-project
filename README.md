@@ -74,7 +74,7 @@ DriveClique fills the gap between general-purpose social media (Facebook groups,
 ### Quality
 
 - WCAG AA accessibility, checked by axe in the end-to-end tests and by `jsx-a11y` lint rules.
-- Rate limiting on every router, validated input on every route, and security headers from Helmet and nginx.
+- Rate limiting on every router (per user once signed in, per address before), validated input on every route, request bodies capped at 100 KB except where a signed-in user uploads images, gzip-compressed responses, and security headers from Helmet and nginx.
 
 ---
 
@@ -86,9 +86,9 @@ DriveClique fills the gap between general-purpose social media (Facebook groups,
 | Web app packaging | `vite-plugin-pwa` (installable PWA), Capacitor 8 (Android and iOS shells) |
 | Mobile app | Expo SDK 56, React Native 0.85, Expo Router, NativeWind |
 | API | Node.js 20+, Express 5, Mongoose 9 on MongoDB |
-| Auth | JWT access token (15 minutes) and a refresh token (7 days) stored in MongoDB |
+| Auth | JWT access token (15 minutes) and a refresh token (7 days) stored in MongoDB; passwords hashed with native `bcrypt` |
 | Real time | Server-Sent Events through a Node `EventEmitter` |
-| Email and push | Nodemailer over SMTP, Expo Push API |
+| Email and push | Nodemailer over pooled SMTP connections, Expo Push API |
 | Scheduled jobs | `node-cron` (hourly drive reminders) |
 | Tests | Playwright with axe-core (end to end), Node's built-in test runner (backend units) |
 | CI and hosting | GitHub Actions, Railway, MongoDB Atlas |
@@ -241,9 +241,20 @@ Work lands on `staging` first and reaches `main` by pull request once it has bee
 
 The project deploys to Railway from this repository, with MongoDB Atlas for data. Railway waits for the CI checks to pass before it deploys a commit.
 
-- **API.** Configured by [`backend/railway.toml`](backend/railway.toml): a Nixpacks build, `node server.js`, and a health check on `/`. Railway's edge proxy stands in front of it, so the API trusts one proxy hop there (`TRUST_PROXY`), and its startup log line reports the value in use.
+- **API.** Configured by [`backend/railway.toml`](backend/railway.toml): a Nixpacks build, `node server.js`, a health check on `/`, and one replica (see [Running more than one instance](#running-more-than-one-instance)). Railway's edge proxy stands in front of it, so the API trusts one proxy hop there (`TRUST_PROXY`), and its startup log line reports the value in use.
 - **Web app.** [`frontend/Dockerfile`](frontend/Dockerfile) builds the app and serves it from nginx. [`frontend/nginx.conf`](frontend/nginx.conf) sets the security headers and the caching rules.
 - **Data.** Each environment gets its own Atlas database. Staging must never point at production data.
+
+### Running more than one instance
+
+The API runs as one process (`numReplicas = 1`). Two things keep state in that process:
+
+- **Live notifications.** The SSE stream is fed by a Node `EventEmitter`, so a notification created on one instance would never reach a browser connected to another. It would still be stored and appear in the bell's history.
+- **Rate-limit counts.** `express-rate-limit` counts in memory, so each instance would allow the full limit.
+
+The hourly reminder job is already safe on several instances: it runs only while holding a lease in the `jobleases` collection, so a deploy, which runs the old and new instance side by side for a while, sends each reminder once.
+
+To scale out, move the notification fan-out onto a shared channel (Redis pub/sub, for example) and the rate limits onto a shared store (such as `rate-limit-redis`), then raise `numReplicas`. One instance measured about 136 club-page loads a second on a development laptop.
 
 ### Setting up a new environment
 
@@ -293,7 +304,11 @@ node --env-file=<other-env-file> scripts/migrate-drive-start-times.js --apply   
 
 **Distance search uses the database for clubs and arithmetic for drives.** Clubs carry a GeoJSON point with a `2dsphere` index and are searched with `$geoNear`. Drives keep the plain latitude and longitude pair their map pin already had, so nearby drives use a bounding-box query followed by an exact haversine check, with no migration.
 
-**Analytics without a query per club.** The leader analytics fetch clubs, drives, RSVPs, ratings, and users in a handful of batch queries and aggregate them in memory with `Map`s. The number of queries does not grow with the number of clubs.
+**Analytics without a query per club.** The leader analytics fetch clubs and drives in a handful of batch queries, and MongoDB aggregations count the RSVPs, check-ins, and ratings, so a club's whole history reaches the API as a few rows per drive. The number of queries does not grow with the number of clubs.
+
+**Images travel as URLs.** Images are stored as base64 in MongoDB, but other people's avatars and club avatars leave the API as URLs (`GET /api/images/:kind/:id/avatar`), so a page of clubs no longer carries every club's picture inside its JSON. The URL includes a version that changes with the image, so browsers cache each one for a year. An `<img>` cannot send the access token, so each URL is signed with an HMAC instead; only raster types are served. Reads that build a URL never load the image: MongoDB reports in the projection whether one exists.
+
+**A drive's places are taken, then checked.** Counting the free places and then taking one let members who answered at the same moment all get the last place. Now an RSVP takes a place first and checks after: the earliest to become "going" keep their places, and anyone beyond the drive's capacity goes to the waitlist. Promotion from the waitlist follows the same rule.
 
 **Themes are CSS variables, not class rewrites.** Tailwind's `zinc`, `white`, and `black` colors point at CSS variables with a dark set and a light set of values. Existing classes follow the theme, and the dark theme compiles to the same colors it had before the light one existed.
 
@@ -343,7 +358,7 @@ DELETE /push-token                           Remove a device
 GET    /                                     Clubs the user belongs to
 POST   /                                     Create a club
 GET    /browse                               Search by text, tags, or distance (lat, lng, radius)
-GET    /trending                             The most active club
+GET    /trending                             The most active club (ranked at most every 5 minutes)
 GET    /blocked                              Clubs the user has blocked
 GET    /invite/:inviteCode                   Preview a club from its invite code
 POST   /join-by-code/:inviteCode             Join with an invite code
@@ -370,7 +385,7 @@ DELETE /:clubId/announcements/:announcementId  Delete an announcement
 
 ```text
 POST   /                                     Schedule a drive or a recurring series
-GET    /club/:clubId                         A club's drives without images (members only for a private club; ?upcoming=true for upcoming ones)
+GET    /club/:clubId                         A club's drives without images, with RSVP counts for members (members only for a private club; ?upcoming=true for upcoming ones)
 GET    /calendar                             Drives in a given month
 GET    /nearby                               Upcoming drives within a radius
 GET    /my-upcoming                          The user's upcoming drives across their clubs, with going counts and the total (?limit, default 10)
@@ -396,7 +411,7 @@ POST   /:driveId/photos                      Add photos to a completed drive
 DELETE /:driveId/photos/:index               Remove a photo
 ```
 
-### Notifications, reports, and analytics
+### Notifications, reports, images, and analytics
 
 ```text
 GET    /api/notifications/stream             Live stream (SSE, authenticated with ?token=)
@@ -409,6 +424,8 @@ PUT    /api/notifications/preferences        Mute or unmute types
 POST   /api/reports                          Report a club, drive, or user
 GET    /api/reports/club/:clubId             A club's review queue (leader and co-leaders)
 PUT    /api/reports/:reportId                Resolve, dismiss, or reopen a report
+
+GET    /api/images/:kind/:id/avatar  signed  An avatar image (kind: users or clubs), from the URL a response gave
 
 POST   /api/events                           Record a product analytics event
 GET    /api/events/my-summary                The user's own activity summary

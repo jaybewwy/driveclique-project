@@ -116,11 +116,13 @@ test('rate limits count each client address, not the proxy in front of the API',
   // client's is in X-Forwarded-For. Two made-up client addresses must get two
   // fresh buckets. Without `trust proxy`, both would land in the bucket of
   // this machine's address, which the rest of the suite has been filling.
+  // The auth router's limiter runs before `protect`, so it counts by address;
+  // the signed-in routers count per user instead (api-bottlenecks.spec.ts).
   const octet = () => crypto.randomInt(1, 255);
   const clientA = `10.${octet()}.${octet()}.${octet()}`;
   const clientB = `10.${octet()}.${octet()}.${octet()}`;
   const fetchAs = async (clientIp: string) => {
-    const res = await request.get(`${API}/clubs`, {
+    const res = await request.get(`${API}/auth/profile`, {
       headers: { Authorization: `Bearer ${leaderToken}`, 'X-Forwarded-For': clientIp },
     });
     expect(res.status()).toBe(200);

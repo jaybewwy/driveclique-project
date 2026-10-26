@@ -9,5 +9,7 @@ const RefreshTokenSchema = new mongoose.Schema({
 
 // Auto-delete expired tokens
 RefreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+// A password change or reset, and account deletion, end every session of a user
+RefreshTokenSchema.index({ user: 1 });
 
 module.exports = mongoose.model('RefreshToken', RefreshTokenSchema);

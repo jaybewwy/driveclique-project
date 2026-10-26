@@ -36,10 +36,14 @@ const GeneralSection = ({ club, onClubUpdated }) => {
       setMessage({ type: 'error', text: 'Description must be at least 10 characters long' });
       return;
     }
-    const saved = await save(formData, 'Club details saved.');
+    // Until a new image is picked the avatar is the club's image URL, which
+    // is not worth sending back (the API ignores it)
+    const { avatar, ...details } = formData;
+    const avatarChanged = avatar !== (club.avatar || '');
+    const saved = await save(avatarChanged ? formData : details, 'Club details saved.');
     if (saved) {
-      const { name, description, location, geo, avatar, tags } = saved;
-      onClubUpdated({ name, description, location, geo, avatar, tags });
+      const { name, description, location, geo, tags } = saved;
+      onClubUpdated({ name, description, location, geo, tags, ...(avatarChanged && { avatar }) });
     }
   };
 

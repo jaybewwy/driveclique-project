@@ -3,19 +3,33 @@ const logger = require('../utils/logger');
 
 const FROM = process.env.EMAIL_FROM || 'DriveClique <noreply@driveclique.app>';
 
+// How many SMTP connections the pool keeps open. Messages queue on them, so
+// a new drive in a 200-member club sends its 199 emails over these few
+// connections instead of opening 199 at once, which a provider refuses and
+// which stalled the rest of the API while they connected.
+const SMTP_MAX_CONNECTIONS = 5;
+
+let transporter = null;
+
 /**
- * Returns a configured nodemailer transporter, or null if SMTP env vars are missing.
+ * Returns the process's one pooled nodemailer transporter, or null if SMTP env vars are missing.
  * Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS in your .env to enable emails.
  */
 const getTransporter = () => {
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) return null;
-  return nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: parseInt(SMTP_PORT || '587', 10),
-    secure: parseInt(SMTP_PORT || '587', 10) === 465,
-    auth: { user: SMTP_USER, pass: SMTP_PASS },
-  });
+  if (!transporter) {
+    const port = parseInt(SMTP_PORT || '587', 10);
+    transporter = nodemailer.createTransport({
+      host: SMTP_HOST,
+      port,
+      secure: port === 465,
+      auth: { user: SMTP_USER, pass: SMTP_PASS },
+      pool: true,
+      maxConnections: SMTP_MAX_CONNECTIONS,
+    });
+  }
+  return transporter;
 };
 
 /**

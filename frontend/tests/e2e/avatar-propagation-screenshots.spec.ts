@@ -67,12 +67,16 @@ test.describe('Avatar propagation to club member list', () => {
     await expect(memberAvatarImg.first()).toBeVisible({ timeout: 10_000 });
     expect(await memberAvatarImg.count()).toBeGreaterThan(0);
 
-    // Cross-check directly against the API response that avatar is now populated on members
+    // Cross-check against the API: the club read carries the new avatar as a
+    // URL, which serves the image
     const clubFetch = await request.get(`${API}/clubs/${clubId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const clubJson = await clubFetch.json();
     const selfMember = clubJson.club.members.find((m: any) => m.username === member.username);
-    expect(selfMember.avatar).toBeTruthy();
+    expect(selfMember.avatar).toContain('/api/images/users/');
+    const image = await request.get(selfMember.avatar);
+    expect(image.status()).toBe(200);
+    expect(image.headers()['content-type']).toMatch(/^image\//);
   });
 });

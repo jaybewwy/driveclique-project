@@ -2,7 +2,7 @@
 
 const Club = require('../models/club');
 const { asyncHandler, AppError, orNotFound } = require('../middleware/errorHandler');
-const { notify } = require('../services/notificationEmitter');
+const { notifyMany } = require('../services/notificationEmitter');
 const { hasLeaderPrivileges } = require('../utils/clubPermissions');
 
 /**
@@ -25,14 +25,10 @@ const postAnnouncement = asyncHandler(async (req, res) => {
   const newAnnouncement = club.announcements[club.announcements.length - 1];
 
   // Notify all members via SSE
-  club.members.forEach((memberId) => {
-    if (memberId.toString() !== userId) {
-      notify(memberId.toString(), {
-        type: 'NEW_ANNOUNCEMENT',
-        message: `${club.name} posted a new announcement`,
-        data: { clubId: club._id, clubName: club.name, announcement: newAnnouncement }
-      });
-    }
+  notifyMany(club.members.filter((memberId) => memberId.toString() !== userId), {
+    type: 'NEW_ANNOUNCEMENT',
+    message: `${club.name} posted a new announcement`,
+    data: { clubId: club._id, clubName: club.name, announcement: newAnnouncement }
   });
 
   res.status(201).json({ success: true, announcement: newAnnouncement });

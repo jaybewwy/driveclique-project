@@ -12,6 +12,7 @@ const { emailTemplates } = require('../services/emailService');
 const { getVerifiedEmails, notifyAndEmail } = require('../services/memberNotifications');
 const { isClubLeader, isClubCoLeader, hasLeaderPrivileges, isClubMember } = require('../utils/clubPermissions');
 const { clampLimit, parsePageParams, paginationMeta } = require('../utils/pagination');
+const { countRsvpsByDrive } = require('../utils/rsvpStats');
 // validateCoordinates guards the optional drive meeting-point pin (UC-23)
 const { validateCoordinates, parseProximityQuery, haversineMiles, boundingBox, roundMiles } = require('../utils/geo');
 const {
@@ -29,13 +30,27 @@ const {
 // What a club's drive list returns: everything the cards and the drive modal
 // read, except the route image and the gallery (UC-53). Those are base64
 // images, up to 13 a drive, and come with the one drive the modal opens.
-const DRIVE_LIST_FIELDS = [
+const DRIVE_LIST_FIELD_NAMES = [
   'club', 'name', 'date', 'time', 'startsAt', 'timeZone', 'location', 'coordinates',
   'description', 'difficulty', 'maxAttendees', 'createdBy', 'recurrence',
   'isCancelled', 'cancellationReason', 'cancelledAt', 'cancelledBy',
   'isCompleted', 'completedAt', 'checkInRequestedAt', 'createdAt', 'updatedAt',
-].join(' ');
+];
+const DRIVE_LIST_FIELDS = DRIVE_LIST_FIELD_NAMES.join(' ');
 const DRIVE_DETAIL_FIELDS = `${DRIVE_LIST_FIELDS} image photos`;
+
+// A saved drive as the club's drive list shows it: no images, the club as its
+// id, and the creator's name. The write routes answer with this, so the club
+// page can put the drive straight back in its list, and the club they
+// populated for the permission check (invite code included) stays here.
+const asListedDrive = async (drive) => {
+  await drive.populate('createdBy', 'username name');
+  const doc = drive.toObject();
+  const listed = { _id: doc._id };
+  for (const field of DRIVE_LIST_FIELD_NAMES) listed[field] = doc[field];
+  listed.club = doc.club?._id ?? doc.club;
+  return listed;
+};
 
 // A private club's drives are members-only. A public club's stay visible to
 // any signed-in user, so a visitor can see what the club does before
@@ -45,6 +60,14 @@ const assertCanSeeClubDrives = async (clubId, userId) => {
   if (club?.isPrivate && !isClubMember(club, userId)) {
     throw new AppError("This club's drives are visible to members only", 403);
   }
+  return club;
+};
+
+// Each drive's RSVP counts, from one aggregation over the whole list, so the
+// club page needs no request per drive
+const withRsvpCounts = async (drives) => {
+  const counts = await countRsvpsByDrive(drives.map((d) => d._id));
+  return drives.map((drive) => ({ ...drive, rsvpCounts: counts.get(drive._id.toString()) }));
 };
 
 // Each occurrence's calendar day for a recurring series (UC-11). Stepping
@@ -62,12 +85,12 @@ function buildRecurrenceDays(anchorDay, frequency, count) {
   return days;
 }
 
-const markCancelled = (drive, reason, userId) => {
-  drive.isCancelled = true;
-  drive.cancellationReason = reason;
-  drive.cancelledAt = new Date();
-  drive.cancelledBy = userId;
-};
+const cancellationOf = (reason, userId) => ({
+  isCancelled: true,
+  cancellationReason: reason,
+  cancelledAt: new Date(),
+  cancelledBy: userId,
+});
 
 // SSE/push + email to every member of the drive's (populated) club except
 // the person who cancelled it
@@ -171,6 +194,9 @@ const createDrive = asyncHandler(async (req, res) => {
  * @access Private. Members only for a private club (assertCanSeeClubDrives).
  * @note  `upcoming=true` keeps only drives that haven't started and aren't
  *        cancelled or completed: all the dashboard and sidebar show.
+ *        For a member, each drive carries `rsvpCounts` ({ going, maybe,
+ *        notGoing, waitlisted }). RSVP data is members-only, so a visitor's
+ *        list has none.
  */
 const getClubDrives = asyncHandler(async (req, res) => {
   const { clubId } = req.params;
@@ -178,7 +204,8 @@ const getClubDrives = asyncHandler(async (req, res) => {
   // A club id that no longer exists still gets an empty list rather than a
   // 404: the mobile dashboard fetches every club in the user's list in one
   // Promise.all, and a just-deleted club shouldn't fail the whole batch.
-  await assertCanSeeClubDrives(clubId, req.user.id);
+  const club = await assertCanSeeClubDrives(clubId, req.user.id);
+  const forViewer = (drives) => (isClubMember(club, req.user.id) ? withRsvpCounts(drives) : drives);
 
   const filter = { club: clubId };
   if (req.query.upcoming === 'true') {
@@ -188,7 +215,8 @@ const getClubDrives = asyncHandler(async (req, res) => {
   const clubDrives = () => Drive.find(filter)
     .select(DRIVE_LIST_FIELDS)
     .sort({ date: 1, startsAt: 1 })
-    .populate('createdBy', 'username name');
+    .populate('createdBy', 'username name')
+    .lean();
 
   // If page/limit are provided, paginate; otherwise return all (backwards-compatible)
   if (req.query.page !== undefined || req.query.limit !== undefined) {
@@ -197,10 +225,10 @@ const getClubDrives = asyncHandler(async (req, res) => {
       clubDrives().skip(paging.skip).limit(paging.limit),
       Drive.countDocuments(filter),
     ]);
-    return res.json({ success: true, drives, pagination: paginationMeta(paging, total, drives.length) });
+    return res.json({ success: true, drives: await forViewer(drives), pagination: paginationMeta(paging, total, drives.length) });
   }
 
-  res.json({ success: true, drives: await clubDrives() });
+  res.json({ success: true, drives: await forViewer(await clubDrives()) });
 });
 
 /**
@@ -352,7 +380,11 @@ const updateDrive = asyncHandler(async (req, res) => {
   const { name, date, time, timeZone, location, description, difficulty, maxAttendees, isCompleted, image, coordinates } = req.body;
   validateCoordinates(coordinates);
 
-  const drive = orNotFound(await Drive.findById(driveId).populate('club'), 'Drive not found');
+  // The images stay unread: an edit that sends a new route image only sets it
+  const drive = orNotFound(
+    await Drive.findById(driveId).select(DRIVE_LIST_FIELDS).populate('club', 'leader'),
+    'Drive not found'
+  );
 
   if (!isClubLeader(drive.club, req.user.id)) {
     throw new AppError('Only the club leader can update this drive', 403);
@@ -387,7 +419,7 @@ const updateDrive = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     message: 'Drive updated successfully',
-    drive
+    drive: await asListedDrive(drive)
   });
 });
 
@@ -399,7 +431,10 @@ const updateDrive = asyncHandler(async (req, res) => {
 const deleteDrive = asyncHandler(async (req, res) => {
   const { driveId } = req.params;
 
-  const drive = orNotFound(await Drive.findById(driveId).populate('club'), 'Drive not found');
+  const drive = orNotFound(
+    await Drive.findById(driveId).select('club').populate('club', 'leader').lean(),
+    'Drive not found'
+  );
 
   if (!isClubLeader(drive.club, req.user.id)) {
     throw new AppError('Only the club leader can delete this drive', 403);
@@ -428,7 +463,10 @@ const cancelDrive = asyncHandler(async (req, res) => {
     throw new AppError('Cancellation reason is required', 400);
   }
 
-  const drive = orNotFound(await Drive.findById(driveId).populate('club'), 'Drive not found');
+  const drive = orNotFound(
+    await Drive.findById(driveId).select(DRIVE_LIST_FIELDS).populate('club', 'name leader coLeaders members'),
+    'Drive not found'
+  );
 
   // Leader can cancel any drive; a co-leader can only cancel drives they
   // created themselves (UC-10) — full edit/delete stays leader-only.
@@ -439,7 +477,7 @@ const cancelDrive = asyncHandler(async (req, res) => {
   }
 
   const reason = cancellationReason.trim();
-  markCancelled(drive, reason, userId);
+  Object.assign(drive, cancellationOf(reason, userId));
   await drive.save();
 
   await notifyDriveCancelled(drive, reason, userId);
@@ -447,7 +485,7 @@ const cancelDrive = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     message: 'Drive has been cancelled successfully',
-    drive
+    drive: await asListedDrive(drive)
   });
 });
 
@@ -472,7 +510,10 @@ const cancelDriveSeries = asyncHandler(async (req, res) => {
     'recurrence.groupId': groupId,
     isCancelled: false,
     ...upcomingDriveFilter(),
-  }).populate('club');
+  })
+    .select('name club')
+    .populate('club', 'name leader members')
+    .lean();
 
   if (drives.length === 0) {
     throw new AppError('No cancellable drives found in this series', 404);
@@ -482,13 +523,13 @@ const cancelDriveSeries = asyncHandler(async (req, res) => {
     throw new AppError('Only the club leader can cancel a recurring series', 403);
   }
 
+  const reason = cancellationReason.trim();
+  await Drive.updateMany({ _id: { $in: drives.map((d) => d._id) } }, cancellationOf(reason, userId));
+
   // Every occurrence belongs to the same club, so look its members' email
   // addresses up once rather than once per drive
-  const reason = cancellationReason.trim();
   const verifiedEmails = await getVerifiedEmails(drives[0].club.members);
   for (const drive of drives) {
-    markCancelled(drive, reason, userId);
-    await drive.save();
     await notifyDriveCancelled(drive, reason, userId, verifiedEmails);
   }
 

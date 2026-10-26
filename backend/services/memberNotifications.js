@@ -1,5 +1,5 @@
 const User = require('../models/user');
-const { notify } = require('./notificationEmitter');
+const { notifyMany } = require('./notificationEmitter');
 const { sendEmail } = require('./emailService');
 
 /**
@@ -16,9 +16,9 @@ const getVerifiedEmails = async (userIds) => {
 };
 
 /**
- * Send one in-app notification (SSE + push, via notify()) to each user, plus
- * the same email to each one with a verified address. Both channels are
- * fire-and-forget, like notify() and sendEmail() themselves.
+ * Send one in-app notification (SSE + push, via notifyMany()) to each user,
+ * plus the same email to each one with a verified address. Both channels are
+ * fire-and-forget, like notifyMany() and sendEmail() themselves.
  *
  * @param {Array} userIds - ObjectIds or strings
  * @param {object} options
@@ -36,8 +36,8 @@ const notifyAndEmail = async (userIds, { notification, email, excludeUserId, ver
 
   const emails = email ? (verifiedEmails || await getVerifiedEmails(recipients)) : new Map();
 
+  notifyMany(recipients, notification);
   recipients.forEach((id) => {
-    notify(id, notification);
     const address = emails.get(id);
     if (address) sendEmail({ to: address, ...email });
   });

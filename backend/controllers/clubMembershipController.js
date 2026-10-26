@@ -6,11 +6,12 @@
 const Club = require('../models/club');
 const User = require('../models/user');
 const { asyncHandler, AppError, orNotFound } = require('../middleware/errorHandler');
-const { notify } = require('../services/notificationEmitter');
+const { notify, notifyMany } = require('../services/notificationEmitter');
 const { sendEmail, emailTemplates } = require('../services/emailService');
 const { withdrawFromUpcomingDrives } = require('../services/waitlist');
 const { isClubLeader, isClubCoLeader, isClubMember, hasLeaderPrivileges } = require('../utils/clubPermissions');
-const { clubForViewer, MEMBER_FIELDS } = require('../utils/clubView');
+const { clubForViewer, USER_SUMMARY_FIELDS, MEMBER_FIELDS, CLUB_READ_FIELDS } = require('../utils/clubView');
+const { AVATAR_FIELDS, avatarUrl, withAvatarUrl } = require('../utils/imageUrls');
 const { MAX_CO_LEADERS } = Club;
 
 /**
@@ -31,12 +32,10 @@ const submitPendingJoinRequest = (club, userId) => {
 
   const leaderId = (club.leader._id || club.leader).toString();
   const recipientIds = [leaderId, ...club.coLeaders.map((id) => (id._id || id).toString())];
-  recipientIds.forEach((recipientId) => {
-    notify(recipientId, {
-      type: 'JOIN_REQUEST',
-      message: `Someone requested to join "${club.name}"`,
-      data: { clubId: club._id }
-    });
+  notifyMany(recipientIds, {
+    type: 'JOIN_REQUEST',
+    message: `Someone requested to join "${club.name}"`,
+    data: { clubId: club._id }
   });
 };
 
@@ -143,7 +142,7 @@ const joinClubByInviteCode = asyncHandler(async (req, res) => {
   club.members.push(userId);
   await club.save();
 
-  res.json({ success: true, message: 'Joined club successfully', club: clubForViewer(club, userId) });
+  res.json({ success: true, message: 'Joined club successfully', club: clubForViewer(club, req) });
 });
 
 /**
@@ -257,13 +256,14 @@ const transferOwnership = asyncHandler(async (req, res) => {
   await club.save();
 
   const updated = await Club.findById(clubId)
+    .select(CLUB_READ_FIELDS)
     .populate('leader', MEMBER_FIELDS)
     .populate('members', MEMBER_FIELDS)
     .populate('coLeaders', MEMBER_FIELDS)
     .lean();
 
   // The caller is no longer the leader, so no longer sees the invite code
-  res.json({ success: true, message: 'Ownership transferred successfully', club: clubForViewer(updated, req.user.id) });
+  res.json({ success: true, message: 'Ownership transferred successfully', club: clubForViewer(updated, req) });
 });
 
 /**
@@ -321,14 +321,14 @@ const removeMember = asyncHandler(async (req, res) => {
  */
 const getBannedMembers = asyncHandler(async (req, res) => {
   const club = orNotFound(
-    await Club.findById(req.params.clubId).populate('bannedUsers', 'username avatar name useDisplayName'),
+    await Club.findById(req.params.clubId).select('leader coLeaders bannedUsers').populate('bannedUsers', USER_SUMMARY_FIELDS).lean(),
     'Club not found'
   );
   if (!hasLeaderPrivileges(club, req.user.id)) {
     throw new AppError('Only the club leader or a co-leader can view banned members', 403);
   }
 
-  res.json({ success: true, bannedUsers: club.bannedUsers });
+  res.json({ success: true, bannedUsers: club.bannedUsers.map((user) => withAvatarUrl(req, user)) });
 });
 
 /**
@@ -396,10 +396,11 @@ const promoteCoLeader = asyncHandler(async (req, res) => {
   });
 
   const updated = await Club.findById(clubId)
+    .select(CLUB_READ_FIELDS)
     .populate('coLeaders', MEMBER_FIELDS)
     .lean();
 
-  res.json({ success: true, message: 'Member promoted to co-leader', club: updated });
+  res.json({ success: true, message: 'Member promoted to co-leader', club: clubForViewer(updated, req) });
 });
 
 /**
@@ -474,11 +475,15 @@ const unblockClub = asyncHandler(async (req, res) => {
  */
 const getBlockedClubs = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user.id)
-    .populate('blockedClubs', 'name description location avatar')
+    .populate('blockedClubs', { name: 1, description: 1, location: 1, ...AVATAR_FIELDS })
     .select('blockedClubs')
     .lean();
 
-  res.json({ success: true, blockedClubs: user?.blockedClubs || [] });
+  const blockedClubs = (user?.blockedClubs || []).map((club) => {
+    const { hasAvatar: _has, avatarUpdatedAt: _at, updatedAt: _updated, ...view } = club;
+    return { ...view, avatar: avatarUrl(req, 'clubs', club) };
+  });
+  res.json({ success: true, blockedClubs });
 });
 
 module.exports = {

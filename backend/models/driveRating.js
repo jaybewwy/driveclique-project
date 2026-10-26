@@ -26,5 +26,7 @@ const DriveRatingSchema = new mongoose.Schema({
 
 // One rating per user per drive — re-submitting updates the existing rating
 DriveRatingSchema.index({ drive: 1, user: 1 }, { unique: true });
+// Account deletion removes a user's ratings
+DriveRatingSchema.index({ user: 1 });
 
 module.exports = mongoose.model('DriveRating', DriveRatingSchema);

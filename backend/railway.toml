@@ -5,5 +5,10 @@ builder = "nixpacks"
 startCommand = "node server.js"
 healthcheckPath = "/"
 healthcheckTimeout = 30
-restartPolicyType = "on_failure"
+restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
+# One instance. The notification stream (SSE) and the rate limiters keep their
+# state in the process, so a second replica would miss notifications created
+# on the first and double every limit. Scaling out needs shared state first
+# (README, "Running more than one instance").
+numReplicas = 1

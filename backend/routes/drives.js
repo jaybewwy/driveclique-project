@@ -33,6 +33,10 @@ const { addDrivePhotos, removeDrivePhoto } = require('../controllers/drivePhotoC
 const { getLeaderDashboard, getClubAnalytics } = require('../controllers/driveInsightsController');
 const { getCalendarDrives, exportDriveIcs, exportMyScheduleIcs } = require('../controllers/driveCalendarController');
 
+// A base64 image (route image or gallery photo): the same 300,000-character
+// cap as avatars and car photos (routes/authentication.js)
+const MAX_IMAGE_LENGTH = 300000;
+
 // All routes require authentication
 router.use(protect);
 router.use(apiLimiter);
@@ -54,6 +58,7 @@ router.post(
     timeZone: { type: 'string', maxLength: 64 },
     location: { required: true, type: 'string', maxLength: 200 },
     description: { type: 'string', maxLength: 1000 },
+    image: { type: 'string', maxLength: MAX_IMAGE_LENGTH },
     difficulty: { type: 'string', enum: ['Easy', 'Medium', 'Hard'] },
     maxAttendees: { type: 'number', min: 1, max: 1000 },
     // Recurring drive series (UC-11) — optional; materializes `count`
@@ -281,6 +286,7 @@ router.put(
     timeZone: { type: 'string', maxLength: 64 },
     location: { type: 'string', maxLength: 200 },
     description: { type: 'string', maxLength: 1000 },
+    image: { type: 'string', maxLength: MAX_IMAGE_LENGTH },
     difficulty: { type: 'string', enum: ['Easy', 'Medium', 'Hard'] },
     maxAttendees: { type: 'number', min: 1, max: 1000 },
     isCompleted: { type: 'boolean' }
@@ -391,7 +397,7 @@ router.post(
         if (!Array.isArray(value)) return 'photos must be an array';
         if (value.length < 1) return 'At least one photo is required';
         if (value.length > MAX_DRIVE_PHOTOS) return `You can add at most ${MAX_DRIVE_PHOTOS} photos at once`;
-        if (value.some(p => typeof p !== 'string' || p.length === 0 || p.length > 300000)) {
+        if (value.some(p => typeof p !== 'string' || p.length === 0 || p.length > MAX_IMAGE_LENGTH)) {
           return 'Invalid photo';
         }
         return null;

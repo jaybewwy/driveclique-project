@@ -13,7 +13,8 @@ const { isClubLeader } = require('../utils/clubPermissions');
 const { parsePageParams, paginationMeta } = require('../utils/pagination');
 const { METERS_PER_MILE, validateCoordinates, toGeoPoint, parseProximityQuery, roundMiles } = require('../utils/geo');
 const { deleteClubsCascade } = require('../services/clubCascade');
-const { clubForViewer, USER_SUMMARY_FIELDS, MEMBER_FIELDS } = require('../utils/clubView');
+const { clubForViewer, USER_SUMMARY_FIELDS, MEMBER_FIELDS, CLUB_LIST_FIELDS, CLUB_READ_FIELDS } = require('../utils/clubView');
+const { avatarUrl, withAvatarUrl, isStorableAvatar, AVATAR_FIELDS } = require('../utils/imageUrls');
 const { CLUB_TAGS } = Club;
 
 /**
@@ -58,10 +59,11 @@ const createClub = asyncHandler(async (req, res) => {
  */
 const getUserClubs = asyncHandler(async (req, res) => {
   const clubs = await Club.find({ members: req.user.id })
+    .select(CLUB_LIST_FIELDS)
     .populate('leader', 'username')
     .lean();
 
-  res.json({ success: true, clubs: clubs.map((club) => clubForViewer(club, req.user.id)) });
+  res.json({ success: true, clubs: clubs.map((club) => clubForViewer(club, req)) });
 });
 
 /**
@@ -74,6 +76,7 @@ const getClubById = asyncHandler(async (req, res) => {
 
   const club = orNotFound(
     await Club.findById(clubId)
+      .select(CLUB_READ_FIELDS)
       .populate('leader', MEMBER_FIELDS)
       .populate('members', MEMBER_FIELDS)
       .populate('coLeaders', MEMBER_FIELDS)
@@ -89,7 +92,7 @@ const getClubById = asyncHandler(async (req, res) => {
   const requestingUser = await User.findById(req.user.id).select('blockedClubs').lean();
   const isBlockedByViewer = (requestingUser?.blockedClubs || []).some((id) => id.toString() === clubId);
 
-  res.json({ success: true, club: clubForViewer(club, req.user.id), isBlockedByViewer });
+  res.json({ success: true, club: clubForViewer(club, req), isBlockedByViewer });
 });
 
 /**
@@ -103,13 +106,14 @@ const getClubByInviteCode = asyncHandler(async (req, res) => {
   // rules as every other club read (utils/clubView.js)
   const club = orNotFound(
     await Club.findOne({ inviteCode: req.params.inviteCode })
+      .select(CLUB_READ_FIELDS)
       .populate('leader', MEMBER_FIELDS)
       .populate('members', MEMBER_FIELDS)
       .lean(),
     'Club not found'
   );
 
-  res.json({ success: true, club: clubForViewer(club, req.user.id) });
+  res.json({ success: true, club: clubForViewer(club, req) });
 });
 
 /**
@@ -171,7 +175,7 @@ const searchClubs = asyncHandler(async (req, res) => {
       },
       {
         $facet: {
-          clubs: [{ $skip: paging.skip }, { $limit: paging.limit }],
+          clubs: [{ $skip: paging.skip }, { $limit: paging.limit }, { $project: { ...CLUB_LIST_FIELDS, distanceMeters: 1 } }],
           total: [{ $count: 'count' }],
         },
       },
@@ -185,6 +189,7 @@ const searchClubs = asyncHandler(async (req, res) => {
   } else {
     [clubs, total] = await Promise.all([
       Club.find(searchQuery)
+        .select(CLUB_LIST_FIELDS)
         .populate('leader', 'username')
         .sort({ createdAt: -1 })
         .skip(paging.skip)
@@ -196,10 +201,57 @@ const searchClubs = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    clubs: clubs.map((club) => clubForViewer(club, req.user.id)),
+    clubs: clubs.map((club) => clubForViewer(club, req)),
     pagination: paginationMeta(paging, total, clubs.length),
   });
 });
+
+// The trending club is the same for every viewer, so it is ranked at most
+// once per TRENDING_TTL_MS. The Dashboard asks on every visit.
+const TRENDING_TTL_MS = 5 * 60 * 1000;
+let trendingRanking = null; // { clubId: Promise, expiresAt }
+
+/**
+ * The public club with the highest score: its member count plus five per
+ * completed drive. Ties go to the older club. Reads only ids and counts.
+ */
+const rankTrendingClub = async () => {
+  const [clubs, completedDrives] = await Promise.all([
+    Club.aggregate([
+      { $match: { isPrivate: false } },
+      { $project: { memberCount: { $size: '$members' }, createdAt: 1 } },
+    ]),
+    Drive.aggregate([
+      { $match: { isCompleted: true } },
+      { $group: { _id: '$club', count: { $sum: 1 } } },
+    ]),
+  ]);
+  const completedByClub = new Map(completedDrives.map((d) => [d._id.toString(), d.count]));
+
+  let top = null;
+  for (const club of clubs) {
+    const score = club.memberCount + 5 * (completedByClub.get(club._id.toString()) || 0);
+    if (!top || score > top.score || (score === top.score && club.createdAt < top.createdAt)) {
+      top = { _id: club._id, score, createdAt: club.createdAt };
+    }
+  }
+  return top?._id ?? null;
+};
+
+// Concurrent requests after the ranking expires share one recomputation
+const trendingClubId = () => {
+  if (!trendingRanking || Date.now() >= trendingRanking.expiresAt) {
+    const clubId = rankTrendingClub();
+    trendingRanking = { clubId, expiresAt: Date.now() + TRENDING_TTL_MS };
+    clubId.catch(() => { trendingRanking = null; });
+  }
+  return trendingRanking.clubId;
+};
+
+const loadTrendingClub = async (clubId) => clubId && Club.findOne({ _id: clubId, isPrivate: false })
+  .select({ name: 1, description: 1, location: 1, members: 1, leader: 1, ...AVATAR_FIELDS })
+  .populate('leader', USER_SUMMARY_FIELDS)
+  .lean();
 
 /**
  * Get Top Club by Member Count and Completed Drives
@@ -207,46 +259,29 @@ const searchClubs = asyncHandler(async (req, res) => {
  * @access Private
  */
 const getTopClub = asyncHandler(async (req, res) => {
-  const clubs = await Club.find({ isPrivate: false })
-    .populate('leader', 'username avatar name')
-    .limit(100);
-
-  if (!clubs.length) {
+  const rankedId = await trendingClubId();
+  let club = await loadTrendingClub(rankedId);
+  if (rankedId && !club) {
+    // The ranked club has since been deleted or made private
+    trendingRanking = null;
+    club = await loadTrendingClub(await trendingClubId());
+  }
+  if (!club) {
     return res.json({ success: true, club: null });
   }
 
-  // One aggregation for every candidate's completed-drive count, not one
-  // countDocuments per club
-  const driveCounts = await Drive.aggregate([
-    { $match: { club: { $in: clubs.map(c => c._id) }, isCompleted: true } },
-    { $group: { _id: '$club', completedDrivesCount: { $sum: 1 } } }
-  ]);
-  const driveCountMap = new Map(
-    driveCounts.map(d => [d._id.toString(), d.completedDrivesCount])
-  );
-
-  let topClubData = null;
-  for (const club of clubs) {
-    const completedDrivesCount = driveCountMap.get(club._id.toString()) || 0;
-    const trendingScore = club.members.length + (completedDrivesCount * 5);
-
-    if (!topClubData || trendingScore > topClubData.trendingScore) {
-      topClubData = { club, memberCount: club.members.length, completedDrivesCount, trendingScore };
-    }
-  }
-
-  const topClub = topClubData.club;
+  const completedDrivesCount = await Drive.countDocuments({ club: club._id, isCompleted: true });
   res.json({
     success: true,
     club: {
-      _id: topClub._id,
-      name: topClub.name,
-      description: topClub.description,
-      location: topClub.location,
-      avatar: topClub.avatar,
-      memberCount: topClubData.memberCount,
-      completedDrivesCount: topClubData.completedDrivesCount,
-      leader: topClub.leader
+      _id: club._id,
+      name: club.name,
+      description: club.description,
+      location: club.location,
+      avatar: avatarUrl(req, 'clubs', club),
+      memberCount: club.members.length,
+      completedDrivesCount,
+      leader: withAvatarUrl(req, club.leader)
     }
   });
 });
@@ -286,7 +321,12 @@ const updateClub = asyncHandler(async (req, res) => {
   if (coordinates) club.geo = toGeoPoint(coordinates);
   else if (coordinates === null || locationChanged) club.geo = undefined;
   if (!club.location) club.geo = undefined;
-  if (avatar !== undefined) club.avatar = avatar;
+  // Only an image or '' replaces the avatar: a form that loaded the club
+  // sends its avatar URL back unchanged (utils/imageUrls.js)
+  if (isStorableAvatar(avatar) && avatar !== club.avatar) {
+    club.avatar = avatar;
+    club.avatarUpdatedAt = new Date();
+  }
   if (isPrivate !== undefined) club.isPrivate = isPrivate;
   if (tags !== undefined) club.tags = tags;
 

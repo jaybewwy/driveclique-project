@@ -8,13 +8,49 @@ const { emailTemplates } = require('./emailService');
 const { notifyAndEmail } = require('./memberNotifications');
 const { formatDriveWhen, upcomingDriveFilter } = require('../utils/driveTime');
 
-// A confirmed spot just freed up: move the longest-waiting member to 'going'
-const promoteNextWaitlisted = async (drive, clubName) => {
-  const nextInLine = await RSVP.findOne({ drive: drive._id, status: 'waitlisted' }).sort({ createdAt: 1 });
-  if (!nextInLine) return;
+/**
+ * Called right after `rsvp` (a document) became "going", with `goingSince`
+ * set: keep the place only if it is within `drive.maxAttendees`.
+ *
+ * Counting the free places first and then taking one is not enough. Members
+ * answering at the same moment each saw a free place, and 8 of them took a
+ * 2-place drive's places at once. So a place is taken first and checked
+ * after: the RSVPs that became "going" earliest keep their places, and one
+ * that came later than the drive has places for goes to the waitlist. Each
+ * request checks only its own RSVP, so concurrent ones settle on the same
+ * answer. Returns whether the place was kept.
+ */
+const keepPlaceIfRoom = async (rsvp, drive) => {
+  if (!drive.maxAttendees) return true;
 
-  nextInLine.status = 'going';
-  await nextInLine.save();
+  const ahead = await RSVP.countDocuments({
+    drive: rsvp.drive,
+    status: 'going',
+    _id: { $ne: rsvp._id },
+    $or: [
+      { goingSince: { $lt: rsvp.goingSince } },
+      { goingSince: null },
+      { goingSince: rsvp.goingSince, _id: { $lt: rsvp._id } },
+    ],
+  });
+  if (ahead < drive.maxAttendees) return true;
+
+  rsvp.status = 'waitlisted';
+  rsvp.goingSince = undefined;
+  await rsvp.save();
+  return false;
+};
+
+// A confirmed spot just freed up: move the longest-waiting member to 'going'.
+// `drive` needs `maxAttendees`, plus what the email names.
+const promoteNextWaitlisted = async (drive, clubName) => {
+  // Taken in one step, so two places freed at once go to two different people
+  const nextInLine = await RSVP.findOneAndUpdate(
+    { drive: drive._id, status: 'waitlisted' },
+    { status: 'going', goingSince: new Date() },
+    { sort: { createdAt: 1 }, returnDocument: 'after' }
+  );
+  if (!nextInLine || !(await keepPlaceIfRoom(nextInLine, drive))) return;
 
   await notifyAndEmail([nextInLine.user], {
     notification: {
@@ -50,7 +86,7 @@ const withdrawFromUpcomingDrives = async (userId, clubIds) => {
     isCompleted: { $ne: true },
     ...upcomingDriveFilter(),
   })
-    .select('name club date time startsAt timeZone isCancelled')
+    .select('name club date time startsAt timeZone isCancelled maxAttendees')
     .populate('club', 'name')
     .lean();
   if (drives.length === 0) return;
@@ -65,4 +101,4 @@ const withdrawFromUpcomingDrives = async (userId, clubIds) => {
   }
 };
 
-module.exports = { promoteNextWaitlisted, withdrawFromUpcomingDrives };
+module.exports = { keepPlaceIfRoom, promoteNextWaitlisted, withdrawFromUpcomingDrives };

@@ -60,10 +60,15 @@ test.describe('Silent fallback UI regression', () => {
     await expect(page.getByText('No upcoming drives')).toHaveCount(0);
   });
 
-  test('ClubDetail shows "— going" instead of a fake "0 going" when the RSVP count fetch fails', async ({ page }) => {
-    await page.route(`**/api/drives/${driveId}/rsvp-status`, route =>
-      route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ success: false, message: 'Simulated failure' }) })
-    );
+  // The counts come with the club's drive list, so the case to cover is a
+  // list that arrives without them
+  test('ClubDetail shows "— going" instead of a fake "0 going" when a drive\'s RSVP counts are missing', async ({ page }) => {
+    await page.route(`**/api/drives/club/${clubId}`, async (route) => {
+      const response = await route.fetch();
+      const body = await response.json();
+      body.drives = body.drives.map(({ rsvpCounts: _omit, ...drive }: { rsvpCounts?: unknown }) => drive);
+      await route.fulfill({ response, json: body });
+    });
 
     await page.goto(`${FRONTEND}/login`);
     await page.getByPlaceholder('Username').fill(leader.username);

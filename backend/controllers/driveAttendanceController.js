@@ -5,7 +5,7 @@ const Drive = require('../models/drive');
 const RSVP = require('../models/rsvp');
 const DriveRating = require('../models/driveRating');
 const { asyncHandler, AppError, orNotFound } = require('../middleware/errorHandler');
-const { notify } = require('../services/notificationEmitter');
+const { notifyMany } = require('../services/notificationEmitter');
 const { hasLeaderPrivileges, findClubAsMember } = require('../utils/clubPermissions');
 
 const findGoingRsvp = async (driveId, userId, forbiddenMessage) => {
@@ -22,7 +22,10 @@ const findGoingRsvp = async (driveId, userId, forbiddenMessage) => {
 const requestCheckin = asyncHandler(async (req, res) => {
   const { driveId } = req.params;
 
-  const drive = orNotFound(await Drive.findById(driveId).populate('club'), 'Drive not found');
+  const drive = orNotFound(
+    await Drive.findById(driveId).select('club name isCompleted checkInRequestedAt').populate('club', 'leader coLeaders'),
+    'Drive not found'
+  );
   // Leader or co-leader can send/resend check-in requests (UC-10)
   if (!hasLeaderPrivileges(drive.club, req.user.id)) {
     throw new AppError('Only the club leader or a co-leader can request check-in for this drive', 403);
@@ -34,13 +37,11 @@ const requestCheckin = asyncHandler(async (req, res) => {
   drive.checkInRequestedAt = new Date();
   await drive.save();
 
-  const goingRSVPs = await RSVP.find({ drive: driveId, status: 'going' }).select('user');
-  goingRSVPs.forEach(rsvp => {
-    notify(rsvp.user.toString(), {
-      type: 'DRIVE_CHECKIN_REQUEST',
-      message: `Check in for "${drive.name}" — let your club know you made it!`,
-      data: { driveId, clubId: drive.club._id }
-    });
+  const goingRSVPs = await RSVP.find({ drive: driveId, status: 'going' }).select('user').lean();
+  notifyMany(goingRSVPs.map((rsvp) => rsvp.user), {
+    type: 'DRIVE_CHECKIN_REQUEST',
+    message: `Check in for "${drive.name}" — let your club know you made it!`,
+    data: { driveId, clubId: drive.club._id }
   });
 
   res.json({
@@ -58,7 +59,10 @@ const requestCheckin = asyncHandler(async (req, res) => {
 const getCheckinStatus = asyncHandler(async (req, res) => {
   const { driveId } = req.params;
 
-  const drive = orNotFound(await Drive.findById(driveId).populate('club', 'name'), 'Drive not found');
+  const drive = orNotFound(
+    await Drive.findById(driveId).select('club name isCompleted').populate('club', 'name').lean(),
+    'Drive not found'
+  );
   const rsvp = await findGoingRsvp(driveId, req.user.id, 'Only members RSVPed as "going" can check in to this drive');
 
   res.json({
@@ -79,7 +83,7 @@ const submitCheckin = asyncHandler(async (req, res) => {
   const { driveId } = req.params;
   const { present } = req.body;
 
-  const drive = orNotFound(await Drive.findById(driveId), 'Drive not found');
+  const drive = orNotFound(await Drive.findById(driveId).select('isCompleted').lean(), 'Drive not found');
   if (drive.isCompleted) {
     throw new AppError('This drive has been marked completed — check-in is closed', 400);
   }
@@ -103,7 +107,7 @@ const submitRating = asyncHandler(async (req, res) => {
   const { stars, comment } = req.body;
   const userId = req.user.id;
 
-  const drive = orNotFound(await Drive.findById(driveId), 'Drive not found');
+  const drive = orNotFound(await Drive.findById(driveId).select('isCompleted').lean(), 'Drive not found');
   if (!drive.isCompleted) {
     throw new AppError('Ratings can only be submitted after the drive is completed', 400);
   }
@@ -128,7 +132,7 @@ const getDriveRatings = asyncHandler(async (req, res) => {
   const { driveId } = req.params;
   const userId = req.user.id;
 
-  const drive = orNotFound(await Drive.findById(driveId), 'Drive not found');
+  const drive = orNotFound(await Drive.findById(driveId).select('club').lean(), 'Drive not found');
   await findClubAsMember(drive.club, userId, 'You must be a member of this club to view ratings');
 
   // A rating whose author no longer exists populates to user: null. Account

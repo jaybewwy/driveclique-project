@@ -6,7 +6,7 @@ const Drive = require('../models/drive');
 const RSVP = require('../models/rsvp');
 const { asyncHandler, AppError, orNotFound } = require('../middleware/errorHandler');
 const { notify } = require('../services/notificationEmitter');
-const { promoteNextWaitlisted } = require('../services/waitlist');
+const { keepPlaceIfRoom, promoteNextWaitlisted } = require('../services/waitlist');
 const { hasLeaderPrivileges, findClubAsMember } = require('../utils/clubPermissions');
 const { countRsvpStatuses } = require('../utils/rsvpStats');
 
@@ -26,15 +26,32 @@ const rsvpToDrive = asyncHandler(async (req, res) => {
   const { status } = req.body;
   const userId = req.user.id;
 
-  const drive = orNotFound(await Drive.findById(driveId), 'Drive not found');
+  // The date fields are for the waitlist promotion email
+  const drive = orNotFound(
+    await Drive.findById(driveId).select('club name maxAttendees createdBy date time startsAt timeZone').lean(),
+    'Drive not found'
+  );
   const club = await findClubAsMember(drive.club, userId, 'You must be a member of this club to RSVP', 'members name');
 
   // Fetch existing RSVP once — used by both the capacity check and the update path
   let rsvp = await RSVP.findOne({ drive: driveId, user: userId });
   const oldStatus = rsvp?.status ?? null;
+  const takingPlace = status === 'going' && oldStatus !== 'going';
+
+  // Waitlisted, by the capacity check below or by losing a place to members
+  // who took the last ones at the same moment
+  const answerJoinedWaitlist = async () => {
+    const position = await waitlistPosition(driveId, rsvp.createdAt);
+    notify(userId, {
+      type: 'WAITLIST_JOINED',
+      message: `You joined the waitlist for "${drive.name}" at position #${position}`,
+      data: { driveId, position }
+    });
+    return res.json({ success: true, waitlisted: true, position, message: `You joined the waitlist at position #${position}`, rsvp });
+  };
 
   // ---------- PATH A: drive is full and user wants 'going' ----------
-  if (status === 'going' && drive.maxAttendees && oldStatus !== 'going') {
+  if (takingPlace && drive.maxAttendees) {
     const goingCount = await RSVP.countDocuments({ drive: driveId, status: 'going' });
     if (goingCount >= drive.maxAttendees) {
       // Already on the waitlist — return current position without creating a duplicate
@@ -50,49 +67,35 @@ const rsvpToDrive = asyncHandler(async (req, res) => {
       } else {
         rsvp = await RSVP.create({ drive: driveId, user: userId, status: 'waitlisted' });
       }
-      const position = await waitlistPosition(driveId, rsvp.createdAt);
-      notify(userId, {
-        type: 'WAITLIST_JOINED',
-        message: `You joined the waitlist for "${drive.name}" at position #${position}`,
-        data: { driveId, position }
-      });
-      return res.json({ success: true, waitlisted: true, position, message: `You joined the waitlist at position #${position}`, rsvp });
+      return answerJoinedWaitlist();
     }
   }
 
-  // ---------- PATH B / PATH C: update an existing RSVP ----------
-  if (rsvp) {
-    rsvp.status = status;
-    await rsvp.save();
-
-    // PATH B: a confirmed 'going' spot just freed — promote the next waitlisted member
-    if (oldStatus === 'going' && status !== 'going') {
-      await promoteNextWaitlisted(drive, club.name);
-    }
-
-    if (drive.createdBy) {
-      notify(drive.createdBy.toString(), {
-        type: 'RSVP_UPDATED',
-        message: `A member updated their RSVP to "${status}" for "${drive.name}"`,
-        data: { driveId, status }
-      });
-    }
-    return res.json({ success: true, message: `RSVP updated to ${status}`, rsvp });
-  }
-
-  // ---------- New RSVP (drive has space, or status is 'maybe'/'not-going') ----------
-  rsvp = new RSVP({ drive: driveId, user: userId, status });
+  // ---------- PATH B / PATH C: a new RSVP, or an update to one ----------
+  const isNew = !rsvp;
+  rsvp = rsvp || new RSVP({ drive: driveId, user: userId });
+  rsvp.status = status;
+  // A place taken is stamped and checked once saved; one given up stops counting
+  if (takingPlace) rsvp.goingSince = new Date();
+  else if (status !== 'going') rsvp.goingSince = undefined;
   await rsvp.save();
 
-  if (drive.createdBy) {
-    notify(drive.createdBy.toString(), {
-      type: 'RSVP_NEW',
-      message: `A member RSVPed "${status}" to "${drive.name}"`,
-      data: { driveId, status }
-    });
+  if (takingPlace && !(await keepPlaceIfRoom(rsvp, drive))) {
+    return answerJoinedWaitlist();
   }
 
-  res.json({ success: true, message: `You are now marked as ${status}`, rsvp });
+  // PATH B: a confirmed 'going' spot just freed — promote the next waitlisted member
+  if (oldStatus === 'going' && status !== 'going') {
+    await promoteNextWaitlisted(drive, club.name);
+  }
+
+  if (drive.createdBy) {
+    notify(drive.createdBy.toString(), isNew
+      ? { type: 'RSVP_NEW', message: `A member RSVPed "${status}" to "${drive.name}"`, data: { driveId, status } }
+      : { type: 'RSVP_UPDATED', message: `A member updated their RSVP to "${status}" for "${drive.name}"`, data: { driveId, status } });
+  }
+
+  res.json({ success: true, message: isNew ? `You are now marked as ${status}` : `RSVP updated to ${status}`, rsvp });
 });
 
 /**
@@ -104,7 +107,7 @@ const getDriveRSVPStatus = asyncHandler(async (req, res) => {
   const { driveId } = req.params;
   const userId = req.user.id;
 
-  const drive = orNotFound(await Drive.findById(driveId), 'Drive not found');
+  const drive = orNotFound(await Drive.findById(driveId).select('club checkInRequestedAt').lean(), 'Drive not found');
   await findClubAsMember(drive.club, userId, 'You must be a member of this club to view RSVP data');
 
   // createdAt is included for the waitlist position calculation below
@@ -157,7 +160,13 @@ const getDriveRSVPStatus = asyncHandler(async (req, res) => {
 const getDriveAttendees = asyncHandler(async (req, res) => {
   const { driveId } = req.params;
 
-  const drive = orNotFound(await Drive.findById(driveId).populate('club'), 'Drive not found');
+  const drive = orNotFound(
+    await Drive.findById(driveId)
+      .select('club name date startsAt timeZone location maxAttendees')
+      .populate('club', 'leader coLeaders')
+      .lean(),
+    'Drive not found'
+  );
 
   // Leader or co-leader can view attendees (UC-10)
   if (!hasLeaderPrivileges(drive.club, req.user.id)) {

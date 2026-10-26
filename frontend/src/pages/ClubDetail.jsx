@@ -50,8 +50,12 @@ const ClubDetail = ({ user, onLogout }) => {
   const [announcements, setAnnouncements] = useState([]);
 
   const role = getClubRole(club, user);
-  const [driveRsvpCounts, setDriveRsvpCounts] = useDriveRsvpCounts(drives, role.canViewDrives);
-  const driveDetail = useDriveDetail({ onRsvpCounts: setDriveRsvpCounts });
+  const driveRsvpCounts = useDriveRsvpCounts(drives, role.canViewDrives);
+  // The drive modal's fresher counts go onto that drive in the list, which
+  // the cards read
+  const recordRsvpCounts = (driveId, rsvpCounts) =>
+    setDrives((prev) => prev.map((d) => (d._id === driveId ? { ...d, rsvpCounts } : d)));
+  const driveDetail = useDriveDetail({ onRsvpCounts: recordRsvpCounts });
 
   // Overlays. Each dialog owns its own form state; these only say which is open.
   const [driveBeingEdited, setDriveBeingEdited] = useState(null);
@@ -155,8 +159,9 @@ const ClubDetail = ({ user, onLogout }) => {
     if (drivesResponse.data?.success) setDrives(drivesResponse.data.drives || []);
   };
 
+  // A saved drive comes back without the list's RSVP counts, so merge it in
   const replaceDrive = (updatedDrive) =>
-    setDrives((prev) => prev.map((d) => (d._id === updatedDrive._id ? updatedDrive : d)));
+    setDrives((prev) => prev.map((d) => (d._id === updatedDrive._id ? { ...d, ...updatedDrive } : d)));
 
   const openProfile = (targetUserId) => setProfilePanelTarget({
     userId: targetUserId,

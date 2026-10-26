@@ -20,6 +20,10 @@ const Event = require('../models/event');
 const errorHandler = (err, req, res, next) => {
   let error = { ...err };
   error.message = err.message;
+  // http-errors (body-parser's 400 for malformed JSON, 413 for a body over
+  // its limit) keeps the status on the prototype, where the copy above can't
+  // see it, so those answered 500
+  if (err.expose && err.status) error.statusCode = err.status;
 
   logger.error(err.message, {
     reqId: req.id,

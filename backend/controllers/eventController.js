@@ -54,10 +54,11 @@ const getAdminSummary = asyncHandler(async (req, res) => {
   const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-  const [totalsByType, dailyPageViews, activeUsersResult, topDeniedPaths] = await Promise.all([
-    Event.aggregate([
-      { $group: { _id: '$type', count: { $sum: 1 } } },
-    ]),
+  // Every query here leads with `type` so it can use the { type, createdAt }
+  // index; grouping the whole collection scanned every event, and the events
+  // collection has no TTL yet (UC-55)
+  const [typeCounts, dailyPageViews, activeUsersResult, topDeniedPaths] = await Promise.all([
+    Promise.all(EVENT_TYPES.map((type) => Event.countDocuments({ type }))),
     Event.aggregate([
       { $match: { type: 'PAGE_VIEW', createdAt: { $gte: fourteenDaysAgo } } },
       {
@@ -69,7 +70,7 @@ const getAdminSummary = asyncHandler(async (req, res) => {
       { $sort: { _id: 1 } },
     ]),
     Event.aggregate([
-      { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+      { $match: { type: { $in: EVENT_TYPES }, createdAt: { $gte: thirtyDaysAgo } } },
       { $group: { _id: '$user' } },
       { $count: 'activeUsers' },
     ]),
@@ -90,9 +91,7 @@ const getAdminSummary = asyncHandler(async (req, res) => {
     ]),
   ]);
 
-  const totals = {};
-  EVENT_TYPES.forEach((type) => { totals[type] = 0; });
-  totalsByType.forEach((t) => { totals[t._id] = t.count; });
+  const totals = Object.fromEntries(EVENT_TYPES.map((type, i) => [type, typeCounts[i]]));
 
   res.json({
     success: true,

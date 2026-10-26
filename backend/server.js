@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const compression = require('compression');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
 const connectDB = require('./db');
@@ -41,6 +42,15 @@ app.use((req, _res, next) => {
 // Security headers (CSP, X-Frame-Options, etc.)
 app.use(helmet());
 
+// Compress responses. JSON shrinks 10 to 20 times (a club's drive list from
+// 30 KB to 2.4 KB). Images are already compressed and are skipped by the
+// default filter. The notification stream is skipped too: compression buffers
+// output, and an SSE event must reach the browser when it is written.
+app.use(compression({
+  filter: (req, res) => !String(res.getHeader('Content-Type') || '').startsWith('text/event-stream')
+    && compression.filter(req, res),
+}));
+
 // HTTP request logging — routed through winston so all logs share one format.
 // Custom :safe-url token redacts the `token` query param (the SSE stream
 // route authenticates via ?token=<JWT>, since EventSource can't set headers)
@@ -73,11 +83,11 @@ app.use(cors({
   },
 }));
 
-// Parse JSON request bodies
-app.use(express.json({ limit: '50mb' }));
-
-// Parse URL-encoded request bodies
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// Parse request bodies: 100 KB, or more on the image routes for a signed-in
+// user (middleware/bodyLimits.js)
+const { jsonBody, formBody } = require('./middleware/bodyLimits');
+app.use(jsonBody);
+app.use(formBody);
 
 // ============================================
 // Routes
@@ -100,6 +110,7 @@ app.use('/api/drives', require('./routes/drives'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/events', require('./routes/events'));
+app.use('/api/images', require('./routes/images'));
 
 // ============================================
 // Error Handling

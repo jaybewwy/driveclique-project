@@ -7,6 +7,7 @@ const RSVP = require('../models/rsvp');
 const { asyncHandler, AppError, orNotFound } = require('../middleware/errorHandler');
 const { escapeRegex } = require('../utils/regex');
 const { capArray } = require('../utils/arrayCap');
+const { AVATAR_FIELDS, withAvatarUrl, isStorableAvatar } = require('../utils/imageUrls');
 
 const MAX_CARS = 5;
 const MAX_PHOTOS_PER_CAR = 4;
@@ -14,7 +15,15 @@ const MAX_PHOTOS_PER_CAR = 4;
 // What one user may learn about another from a search: enough to show them
 // in a list. Named, not "everything but…", so a field added to the model
 // later stays private until someone lists it here.
-const SEARCH_RESULT_FIELDS = 'username name useDisplayName avatar';
+// The avatar comes back as its URL (utils/imageUrls.js).
+const SEARCH_RESULT_FIELDS = { username: 1, name: 1, useDisplayName: 1, ...AVATAR_FIELDS };
+
+// What another user's public profile shows. The avatar is a URL; the car
+// photos stay inline, since the profile panel shows them all at once.
+const PUBLIC_PROFILE_FIELDS = {
+  username: 1, name: 1, firstName: 1, lastName: 1, bio: 1, location: 1, cars: 1,
+  useDisplayName: 1, createdAt: 1, blockedUsers: 1, ...AVATAR_FIELDS,
+};
 
 // What a user is not sent about their own account. The web app keeps the
 // profile in localStorage, and none of this is anything a client needs:
@@ -83,7 +92,11 @@ const updateProfile = asyncHandler(async (req, res) => {
   // Update fields only if provided
   if (name        !== undefined) user.name      = name;
   if (bio         !== undefined) user.bio       = bio;
-  if (avatar      !== undefined) user.avatar    = avatar;
+  // Only an image or '' replaces the avatar, as with a club's (utils/imageUrls.js)
+  if (isStorableAvatar(avatar) && avatar !== user.avatar) {
+    user.avatar = avatar;
+    user.avatarUpdatedAt = new Date();
+  }
   if (firstName   !== undefined) user.firstName = firstName;
   if (lastName    !== undefined) user.lastName  = lastName;
   if (location    !== undefined) user.location  = location;
@@ -136,9 +149,10 @@ const searchUsers = asyncHandler(async (req, res) => {
     username: { $regex: escapeRegex(query.trim()), $options: 'i' }
   })
   .select(SEARCH_RESULT_FIELDS)
-  .limit(10);
+  .limit(10)
+  .lean();
 
-  res.json({ success: true, users });
+  res.json({ success: true, users: users.map((user) => withAvatarUrl(req, user)) });
 });
 
 /**
@@ -154,7 +168,7 @@ const getPublicProfile = asyncHandler(async (req, res) => {
 
   const [user, viewer] = await Promise.all([
     User.findById(userId)
-      .select('username name firstName lastName avatar bio location cars useDisplayName createdAt blockedUsers')
+      .select(PUBLIC_PROFILE_FIELDS)
       .lean(),
     User.findById(viewerId).select('blockedUsers').lean(),
   ]);
@@ -187,7 +201,7 @@ const getPublicProfile = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     profile: {
-      ...safeUser,
+      ...withAvatarUrl(req, safeUser),
       mutualClubs: mutualClubs.map((c) => ({ _id: c._id, name: c.name })),
       goingCount,
       isBlockedByViewer,

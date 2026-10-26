@@ -118,6 +118,12 @@ DriveSchema.index({ startsAt: 1 });
 DriveSchema.index({ createdBy: 1 });
 // Fetch/cancel a whole recurring series by its shared groupId
 DriveSchema.index({ 'recurrence.groupId': 1 });
+// Nearby drives (UC-46) prefilter on a latitude band. Partial: only drives
+// with a meeting-point pin are indexed.
+DriveSchema.index(
+  { 'coordinates.lat': 1, 'coordinates.lng': 1 },
+  { partialFilterExpression: { 'coordinates.lat': { $exists: true } } }
+);
 
 module.exports = mongoose.model('Drive', DriveSchema);
 module.exports.MAX_DRIVE_PHOTOS = MAX_DRIVE_PHOTOS;

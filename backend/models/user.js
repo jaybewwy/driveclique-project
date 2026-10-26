@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 
 // The web app's colour themes. The first one is the default.
 const THEMES = ['dark', 'light'];
@@ -51,6 +51,10 @@ const UserSchema = new mongoose.Schema({
   avatar: {
     type: String,
     default: ''
+  },
+  // When `avatar` last changed: the version in its URL (utils/imageUrls.js)
+  avatarUpdatedAt: {
+    type: Date
   },
   cars: {
     type: [{

@@ -99,6 +99,10 @@ const ClubSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  // When `avatar` last changed: the version in its URL (utils/imageUrls.js)
+  avatarUpdatedAt: {
+    type: Date
+  },
   announcements: [{
     title:     { type: String, trim: true, maxlength: 100, default: '' },
     body:      { type: String, required: true, trim: true, maxlength: 1000 },
@@ -113,6 +117,9 @@ ClubSchema.index({ leader: 1 });
 ClubSchema.index({ members: 1 });
 // coLeaders is used in $or lookups alongside leader (getLeaderDashboard, analytics)
 ClubSchema.index({ coLeaders: 1 });
+// Browse lists public clubs newest first; without this it scanned and sorted
+// every club
+ClubSchema.index({ isPrivate: 1, createdAt: -1 });
 // $geoNear in searchClubs (UC-46) requires a geospatial index. 2dsphere
 // indexes skip documents with no `geo` field, so un-geocoded clubs cost nothing.
 ClubSchema.index({ geo: '2dsphere' });

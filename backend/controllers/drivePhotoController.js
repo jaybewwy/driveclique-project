@@ -4,7 +4,7 @@
 const Drive = require('../models/drive');
 const RSVP = require('../models/rsvp');
 const { asyncHandler, AppError, orNotFound } = require('../middleware/errorHandler');
-const { notify } = require('../services/notificationEmitter');
+const { notifyMany } = require('../services/notificationEmitter');
 const { hasLeaderPrivileges } = require('../utils/clubPermissions');
 
 const { MAX_DRIVE_PHOTOS } = Drive;
@@ -19,7 +19,10 @@ const addDrivePhotos = asyncHandler(async (req, res) => {
   const { photos } = req.body;
   const userId = req.user.id;
 
-  const drive = orNotFound(await Drive.findById(driveId).populate('club'), 'Drive not found');
+  const drive = orNotFound(
+    await Drive.findById(driveId).select('club name isCompleted photos').populate('club', 'leader coLeaders'),
+    'Drive not found'
+  );
   // Leader or co-leader curate the gallery (UC-10-style shared moderation privilege)
   if (!hasLeaderPrivileges(drive.club, userId)) {
     throw new AppError('Only the club leader or a co-leader can add photos to this drive', 403);
@@ -34,15 +37,11 @@ const addDrivePhotos = asyncHandler(async (req, res) => {
   drive.photos.push(...photos);
   await drive.save();
 
-  const goingRSVPs = await RSVP.find({ drive: driveId, status: 'going' }).select('user');
-  goingRSVPs.forEach(rsvp => {
-    if (rsvp.user.toString() !== userId) {
-      notify(rsvp.user.toString(), {
-        type: 'DRIVE_PHOTOS_ADDED',
-        message: `New photos were added to "${drive.name}"`,
-        data: { driveId, clubId: drive.club._id }
-      });
-    }
+  const goingRSVPs = await RSVP.find({ drive: driveId, status: 'going' }).select('user').lean();
+  notifyMany(goingRSVPs.map((rsvp) => rsvp.user.toString()).filter((id) => id !== userId), {
+    type: 'DRIVE_PHOTOS_ADDED',
+    message: `New photos were added to "${drive.name}"`,
+    data: { driveId, clubId: drive.club._id }
   });
 
   res.json({ success: true, photos: drive.photos });
@@ -56,7 +55,10 @@ const addDrivePhotos = asyncHandler(async (req, res) => {
 const removeDrivePhoto = asyncHandler(async (req, res) => {
   const { driveId, index } = req.params;
 
-  const drive = orNotFound(await Drive.findById(driveId).populate('club'), 'Drive not found');
+  const drive = orNotFound(
+    await Drive.findById(driveId).select('club photos').populate('club', 'leader coLeaders'),
+    'Drive not found'
+  );
   if (!hasLeaderPrivileges(drive.club, req.user.id)) {
     throw new AppError('Only the club leader or a co-leader can remove photos from this drive', 403);
   }

@@ -75,7 +75,10 @@ const getCalendarDrives = asyncHandler(async (req, res) => {
  */
 const exportDriveIcs = asyncHandler(async (req, res) => {
   const drive = orNotFound(
-    await Drive.findById(req.params.driveId).populate('club', 'name members').lean(),
+    await Drive.findById(req.params.driveId)
+      .select('club name date time startsAt timeZone location description')
+      .populate('club', 'name members')
+      .lean(),
     'Drive not found'
   );
   if (!isClubMember(drive.club, req.user.id)) {

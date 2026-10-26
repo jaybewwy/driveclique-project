@@ -1,7 +1,8 @@
 // Leader-facing summaries across every club the user leads or co-leads
 // (UC-10): the drive dashboard and per-club analytics (UC-20). Both batch
-// their queries up front and aggregate in memory, so there are no per-club
-// or per-drive round trips.
+// their queries up front, so there are no per-club or per-drive round trips,
+// and MongoDB does the counting: a club's whole history reaches the API as a
+// few rows per drive, not as every RSVP and rating.
 
 const Drive = require('../models/drive');
 const Club = require('../models/club');
@@ -9,7 +10,8 @@ const RSVP = require('../models/rsvp');
 const User = require('../models/user');
 const DriveRating = require('../models/driveRating');
 const { asyncHandler } = require('../middleware/errorHandler');
-const { countRsvpStatuses } = require('../utils/rsvpStats');
+const { countRsvpsByDrive } = require('../utils/rsvpStats');
+const { isClubLeader } = require('../utils/clubPermissions');
 
 const ledClubsFilter = (userId) => ({ $or: [{ leader: userId }, { coLeaders: userId }] });
 
@@ -31,7 +33,7 @@ const groupBy = (items, key) => {
  */
 const getLeaderDashboard = asyncHandler(async (req, res) => {
   const clubs = await Club.find(ledClubsFilter(req.user.id))
-    .select('name description inviteCode members createdAt')
+    .select('name description inviteCode leader members createdAt')
     .lean();
 
   if (clubs.length === 0) {
@@ -47,17 +49,12 @@ const getLeaderDashboard = asyncHandler(async (req, res) => {
     .sort({ date: 1, startsAt: 1 })
     .lean();
 
-  const rsvps = await RSVP.find({ drive: { $in: drives.map(drive => drive._id) } })
-    .select('drive status')
-    .lean();
-
-  const rsvpsByDrive = groupBy(rsvps, 'drive');
+  const countsByDrive = await countRsvpsByDrive(drives.map(drive => drive._id));
   const drivesByClub = groupBy(drives, 'club');
 
   const dashboard = clubs.map(club => {
     const driveSummaries = (drivesByClub.get(club._id.toString()) || []).map(drive => {
-      const driveRsvps = rsvpsByDrive.get(drive._id.toString()) || [];
-      const stats = countRsvpStatuses(driveRsvps);
+      const stats = countsByDrive.get(drive._id.toString());
 
       return {
         _id: drive._id,
@@ -72,7 +69,7 @@ const getLeaderDashboard = asyncHandler(async (req, res) => {
           going: stats.going,
           maybe: stats.maybe,
           notGoing: stats.notGoing,
-          totalRSVPs: driveRsvps.length,
+          totalRSVPs: stats.going + stats.maybe + stats.notGoing + stats.waitlisted,
           spotsLeft: Math.max(0, drive.maxAttendees - stats.going)
         }
       };
@@ -82,7 +79,9 @@ const getLeaderDashboard = asyncHandler(async (req, res) => {
       club: {
         _id: club._id,
         name: club.name,
-        inviteCode: club.inviteCode,
+        // Co-leaders see the clubs they help run here too, but the invite
+        // code is the leader's alone, as in every club read (utils/clubView.js)
+        ...(isClubLeader(club, req.user.id) && { inviteCode: club.inviteCode }),
         memberCount: club.members.length
       },
       drives: driveSummaries,
@@ -97,8 +96,8 @@ const getLeaderDashboard = asyncHandler(async (req, res) => {
   });
 });
 
-// The single club-analytics card, from pre-grouped lookups
-const summarizeClub = (club, clubDrives, driveGoingMap, driveRatingMap, userMap) => {
+// The single club-analytics card, from MongoDB's counts
+const summarizeClub = (club, clubDrives, driveGoingMap, driveRatingMap, mostActiveMember) => {
   const memberCount = club.members.length;
 
   const totalDrives = clubDrives.length;
@@ -126,25 +125,6 @@ const summarizeClub = (club, clubDrives, driveGoingMap, driveRatingMap, userMap)
     if (goingCount > maxGoing) {
       maxGoing = goingCount;
       mostPopularDrive = { name: drive.name, date: drive.date, startsAt: drive.startsAt, timeZone: drive.timeZone, goingCount };
-    }
-  });
-
-  // mostActiveMember: member with most going RSVPs across all this club's drives
-  const memberRSVPCount = new Map();
-  clubDrives.forEach(drive => {
-    const goingUsers = driveGoingMap.get(drive._id.toString())?.userIds || [];
-    goingUsers.forEach(uid => {
-      memberRSVPCount.set(uid, (memberRSVPCount.get(uid) || 0) + 1);
-    });
-  });
-
-  let mostActiveMember = null;
-  let maxRSVPs = 0;
-  memberRSVPCount.forEach((count, uid) => {
-    if (count > maxRSVPs) {
-      maxRSVPs = count;
-      const u = userMap.get(uid);
-      if (u) mostActiveMember = { username: u.username, name: u.name, rsvpCount: count };
     }
   });
 
@@ -208,51 +188,57 @@ const getClubAnalytics = asyncHandler(async (req, res) => {
 
   const driveIds = drives.map(d => d._id);
 
-  // Batch queries 3 + 4: all going RSVPs and all ratings for those drives
-  const [rsvps, ratings] = await Promise.all([
-    RSVP.find({ drive: { $in: driveIds }, status: 'going' }).select('drive user checkedIn').lean(),
-    DriveRating.find({ drive: { $in: driveIds } }).select('drive stars').lean(),
+  // Batch queries 3 + 4, counted by MongoDB: per drive, its going RSVPs,
+  // check-ins, and who is going (ids only); and its star ratings
+  const [going, ratings] = await Promise.all([
+    RSVP.aggregate([
+      { $match: { drive: { $in: driveIds }, status: 'going' } },
+      { $group: {
+        _id: '$drive',
+        count: { $sum: 1 },
+        present: { $sum: { $cond: [{ $eq: ['$checkedIn', 'present'] }, 1, 0] } },
+        users: { $push: '$user' },
+      } },
+    ]),
+    DriveRating.aggregate([
+      { $match: { drive: { $in: driveIds } } },
+      { $group: { _id: '$drive', sum: { $sum: '$stars' }, count: { $sum: 1 } } },
+    ]),
   ]);
-
-  // Batch query 5: user info for most active member display
-  const rsvpUserIds = [...new Set(rsvps.map(r => r.user.toString()))];
-  const users = await User.find({ _id: { $in: rsvpUserIds } })
-    .select('username name')
-    .lean();
-  const userMap = new Map(users.map(u => [u._id.toString(), u]));
-
-  // driveId -> { sum, count } of star ratings
-  const driveRatingMap = new Map();
-  ratings.forEach(rating => {
-    const driveStr = rating.drive.toString();
-    if (!driveRatingMap.has(driveStr)) {
-      driveRatingMap.set(driveStr, { sum: 0, count: 0 });
-    }
-    const entry = driveRatingMap.get(driveStr);
-    entry.sum += rating.stars;
-    entry.count++;
-  });
-
-  // driveId -> { count, present, userIds[] } of going RSVPs
-  const driveGoingMap = new Map();
-  rsvps.forEach(rsvp => {
-    const driveStr = rsvp.drive.toString();
-    if (!driveGoingMap.has(driveStr)) {
-      driveGoingMap.set(driveStr, { count: 0, present: 0, userIds: [] });
-    }
-    const entry = driveGoingMap.get(driveStr);
-    entry.count++;
-    if (rsvp.checkedIn === 'present') entry.present++;
-    entry.userIds.push(rsvp.user.toString());
-  });
-
+  const driveGoingMap = new Map(going.map((g) => [g._id.toString(), g]));
+  const driveRatingMap = new Map(ratings.map((r) => [r._id.toString(), r]));
   const drivesByClub = groupBy(drives, 'club');
+
+  // Each club's member with the most going RSVPs, ties to the lower user id
+  const topGoerByClub = new Map(clubs.map((club) => {
+    const perUser = new Map();
+    (drivesByClub.get(club._id.toString()) || []).forEach((drive) => {
+      (driveGoingMap.get(drive._id.toString())?.users || []).forEach((id) => {
+        const uid = id.toString();
+        perUser.set(uid, (perUser.get(uid) || 0) + 1);
+      });
+    });
+    let top = null;
+    perUser.forEach((count, uid) => {
+      if (!top || count > top.count || (count === top.count && uid < top.uid)) top = { uid, count };
+    });
+    return [club._id.toString(), top];
+  }));
+
+  // Batch query 5: names for the most active members
+  const topIds = [...topGoerByClub.values()].filter(Boolean).map((t) => t.uid);
+  const users = await User.find({ _id: { $in: topIds } }).select('username name').lean();
+  const userMap = new Map(users.map(u => [u._id.toString(), u]));
+  const mostActiveByClub = new Map([...topGoerByClub].map(([clubId, top]) => {
+    const u = top && userMap.get(top.uid);
+    return [clubId, u ? { username: u.username, name: u.name, rsvpCount: top.count } : null];
+  }));
   const analytics = clubs.map(club => summarizeClub(
     club,
     drivesByClub.get(club._id.toString()) || [],
     driveGoingMap,
     driveRatingMap,
-    userMap
+    mostActiveByClub.get(club._id.toString()) ?? null
   ));
 
   res.json({ success: true, analytics });

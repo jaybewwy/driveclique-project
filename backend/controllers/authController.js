@@ -10,7 +10,7 @@ const Club = require('../models/club');
 const RSVP = require('../models/rsvp');
 const DriveRating = require('../models/driveRating');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const { asyncHandler, AppError, orNotFound } = require('../middleware/errorHandler');
 const { isValidUsername } = require('../middleware/validation');
 const { sendEmail, emailTemplates } = require('../services/emailService');
@@ -80,6 +80,9 @@ const issueSession = async (userId) => ({
   token: generateAccessToken(userId),
   refreshToken: await createRefreshToken(userId),
 });
+
+/** What login reads: the password hash plus toSessionUser's fields, never the garage's photos */
+const LOGIN_FIELDS = 'password username email name firstName lastName location role useDisplayName theme emailVerified';
 
 /** The user fields returned by register and login */
 const toSessionUser = (user) => ({
@@ -175,7 +178,8 @@ const registerUser = asyncHandler(async (req, res) => {
 const loginUser = asyncHandler(async (req, res) => {
   const { username, password } = req.body;
 
-  const user = await User.findOne({ username });
+  // Hydrated, not lean: accounts older than `theme` read back the default
+  const user = await User.findOne({ username }).select(LOGIN_FIELDS);
   if (!user || !(await bcrypt.compare(password, user.password))) {
     throw new AppError('Invalid username or password', 401);
   }
